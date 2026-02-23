@@ -1,0 +1,32 @@
+services:
+  #PostgreSQL container
+  db:
+    container_name: 3dp_db
+    image: postgres:15
+    environment:
+      POSTGRES_USER: 3dp_user
+      POSTGRES_PASSWORD: 3dpplatform
+      POSTRES_DB: 3dp_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    #FastAPI container
+  api:
+    build:
+      context: ./backend
+    container_name: 3dp_api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://threedp_user:3dpplatform@db:5432/threedp_db
+      SECRET_KEY: oVOyHvJuPbUTopgqBfrKdAnHGkSo87P6cjviDkX96gYg8xbtYLqPVbySx9zPPM13
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+    depends_on:
+      - db
+    volumes:
+      - ./backend:/app
+
+volumes:
+  postgres_data:
