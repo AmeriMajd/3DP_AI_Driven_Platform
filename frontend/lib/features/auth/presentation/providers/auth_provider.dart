@@ -5,7 +5,7 @@ import '../../data/auth_repository_mock.dart';
 import 'auth_state.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepositoryImpl();
+  return AuthRepositoryMock();
 });
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
