@@ -14,7 +14,7 @@ class App extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      home: const AdminSignupScreen(),
+      home: const InviteUserScreen(),
     );
   }
 }

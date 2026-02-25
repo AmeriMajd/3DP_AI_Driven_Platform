@@ -174,7 +174,7 @@ class _AdminSignupScreenState extends ConsumerState<AdminSignupScreen> {
 
                         // ── Submit Button ──
                         AuthPrimaryButton(
-                          label: 'Create Admin Account & Initialize System',
+                          label: 'Create Admin Account',
                           icon: Icons.check_circle_outline,
                           isLoading: authState.isLoading,
                           onPressed: _submit,
