@@ -40,18 +40,24 @@ class AuthPrimaryButton extends StatelessWidget {
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   if (icon != null) ...[
                     Icon(icon, size: 18, color: Colors.white),
                     const SizedBox(width: 8),
                   ],
-                  Text(
+                  Flexible(
+                  child:Text(
                     label,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
+                    overflow: TextOverflow.clip,
+                    textAlign: TextAlign.center,
+                    
+                  ),
                   ),
                 ],
               ),

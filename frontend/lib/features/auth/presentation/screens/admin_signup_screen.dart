@@ -10,6 +10,8 @@ import '../widgets/auth_card.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_primary_button.dart';
 import '../widgets/auth_text_field.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../../core/router/app_routes.dart';
 
 class AdminSignupScreen extends ConsumerStatefulWidget {
   const AdminSignupScreen({super.key});
@@ -57,6 +59,7 @@ class _AdminSignupScreenState extends ConsumerState<AdminSignupScreen> {
           ),
         );
         ref.read(authProvider.notifier).reset();
+        context.go(AppRoutes.inviteUser); // ← navigation
         /// TOdo naviguer vers dashboard
       }
       if (next.status == AuthStatus.error) {

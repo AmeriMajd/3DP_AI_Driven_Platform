@@ -52,6 +52,6 @@ class AuthRepositoryMock implements AuthRepository {
   }) async {
     await Future.delayed(const Duration(seconds: 2));
     // ❌ Simule une erreur
-    throw Exception('Invalid or expired token');
+    //throw Exception('Invalid or expired token');
   }
 }

@@ -63,17 +63,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 Future<Map<String, dynamic>?> validateInvite({
   required String token,
 }) async {
-  state = state.copyWith(status: AuthStatus.loading);
   try {
     final data = await _repo.validateInvite(token: token);
-    state = state.copyWith(status: AuthStatus.initial);
     return data;
   } catch (e) {
-    state = state.copyWith(
-      status: AuthStatus.error,
-      errorMessage: e.toString(),
-    );
-    return null;
+     return null;
   }
 }
 

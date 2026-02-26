@@ -9,6 +9,8 @@ import '../providers/auth_state.dart';
 import '../widgets/auth_card.dart';
 import '../widgets/auth_primary_button.dart';
 import '../widgets/auth_text_field.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../../core/router/app_routes.dart';
 
 // ── Modèle mock pour l'historique ──────────────────────────────────────────
 enum InviteStatus { pending, used, expired }
@@ -53,6 +55,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
   String _generatedLink = '';
 
    // ── Liste Des Données ──────────────────────────
+  // ignore: prefer_final_fields
   List<InviteHistoryItem> _history = [
     const InviteHistoryItem(
       email: 'sarah@company.com',
@@ -116,8 +119,6 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
     final authState = ref.watch(authProvider);
 
     ref.listen<AuthState>(authProvider, (_, next) {
-      print('>>> STATUS: ${next.status}');
-      print('>>> SUCCESS MSG: ${next.successMessage}');
       if (next.status == AuthStatus.success){
         final now = DateTime.now();
         final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -546,10 +547,32 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
                 fontSize: 12,
                 color: AppColors.textSecondary,
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ],
         ),
         ),
+        const SizedBox(width: 8),
+      // ── Boutons navigation ──
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          _NavButton(
+            label: 'First Admin',
+            icon: Icons.shield_outlined,
+            onTap: () => context.go(AppRoutes.adminSignup),
+          ),
+          const SizedBox(height: 6),
+          _NavButton(
+            label: 'Register with token',
+            icon: Icons.person_outline,
+            onTap: () => context.go(
+              '${AppRoutes.register}?token=tk_mock_test',
+            ),
+          ),
+      ],
+      ),
       ],
     );
   }
@@ -814,6 +837,47 @@ class _InviteHistoryTile extends StatelessWidget {
         
       ),
     ),
+    );
+  }
+}
+class _NavButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _NavButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.cardLight,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.borderLight),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: AppColors.primary),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
