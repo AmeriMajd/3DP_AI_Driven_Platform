@@ -7,6 +7,10 @@ from app.models.user import User
 from app.models.invitation import Invitation
 from app.schemas.auth import AdminSignupSchema, RegisterSchema, UserResponse
 from datetime import datetime
+from datetime import datetime, timedelta
+from app.core.security import verify_password, create_access_token, create_refresh_token
+from app.models.refresh_token import RefreshToken
+from app.schemas.auth import LoginSchema, LoginResponse, UserProfile
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -102,3 +106,47 @@ def register(data: RegisterSchema, db: Session = Depends(get_db)):
     db.commit()
 
     return new_user
+
+
+@router.post("/login", response_model=LoginResponse, status_code=200)
+def login(data: LoginSchema, db: Session = Depends(get_db)):
+    # 1) Find user by email
+    user = db.query(User).filter(User.email == data.email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
+
+    # 2) Verify password (bcrypt)
+    if not verify_password(data.password, user.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
+
+    # 3) Check is_active
+    if user.is_active is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is disabled"
+        )
+
+    # 4) Create access token: includes sub + role
+    access_token = create_access_token({"sub": str(user.id), "role": user.role})
+
+    # 5) Create refresh token: includes sub; create_refresh_token adds type="refresh"
+    refresh_token = create_refresh_token({"sub": str(user.id)})
+
+    # 6) Persist refresh token in DB
+    expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    db_token = RefreshToken(user_id=user.id, token=refresh_token, expires_at=expires_at)
+    db.add(db_token)
+    db.commit()
+
+    # 7) Return tokens + user profile
+    return LoginResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserProfile.model_validate(user)
+    )
