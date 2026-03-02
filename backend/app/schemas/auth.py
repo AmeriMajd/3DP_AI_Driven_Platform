@@ -85,3 +85,26 @@ class UserResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+class LoginSchema(BaseModel):
+    email: EmailStr
+    password: str
+
+    @field_validator("password")
+    @classmethod
+    def password_min_length(cls, v):
+        if len(v) < 8:
+            raise ValueError("password must be at least 8 characters")
+        return v
+
+class UserProfile(BaseModel):
+    id: UUID
+    full_name: str
+    role: str
+    model_config = {"from_attributes": True}
+
+class LoginResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: UserProfile
