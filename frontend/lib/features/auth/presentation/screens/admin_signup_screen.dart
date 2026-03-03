@@ -59,7 +59,7 @@ class _AdminSignupScreenState extends ConsumerState<AdminSignupScreen> {
           ),
         );
         ref.read(authProvider.notifier).reset();
-        context.go(AppRoutes.inviteUser); // ← navigation
+        context.go(AppRoutes.login); // ← navigation
         /// TOdo naviguer vers dashboard
       }
       if (next.status == AuthStatus.error) {

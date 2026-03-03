@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware 
 from app.core.database import engine, Base
 
 # ── CRITICAL: Import models before create_all ─────────────────────────────────
@@ -24,6 +25,15 @@ app = FastAPI(
     title="3DP Intelligence Platform",
     version="1.0.0",
     description="AI-Driven Additive Manufacturing Platform API"
+)
+
+# ── CORS ─────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ── Register routers ───────────────────────────────────────────────────────────

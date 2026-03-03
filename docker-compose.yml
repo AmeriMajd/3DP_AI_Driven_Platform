@@ -23,7 +23,7 @@ services:
       SECRET_KEY: oVOyHvJuPbUTopgqBfrKdAnHGkSo87P6cjviDkX96gYg8xbtYLqPVbySx9zPPM13
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
       REFRESH_TOKEN_EXPIRE_DAYS: 7
-      ADMIN_SIGNUP_KEY: 3dp-admin-secret-2026
+      ADMIN_SIGNUP_KEY: 3dp-admin-2026
     depends_on:
       - db
     volumes:
