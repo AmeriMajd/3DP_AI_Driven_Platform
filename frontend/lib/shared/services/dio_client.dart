@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../services/storage_service.dart';
 
 /// Client HTTP centralisé pour toutes les requêtes vers le backend.
 /// 
@@ -23,6 +24,19 @@ class DioClient {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+        },
+      ),
+    );
+
+    // ── Interceptor — ajoute le token JWT automatiquement ──
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final token = await StorageService.getToken();
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          handler.next(options);
         },
       ),
     );

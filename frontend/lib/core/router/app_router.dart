@@ -3,6 +3,9 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/screens/admin_signup_screen.dart';
 import '../../features/auth/presentation/screens/invite_user_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
+import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/forgot_password_screen.dart';
+import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import 'app_routes.dart';
 
 /// Router principal de l'application.
@@ -40,6 +43,29 @@ final appRouter = GoRouter(
         return RegisterScreen(token: token);
       },
     ),
+
+    // ── login ──
+    GoRoute(
+      path: AppRoutes.login,
+      name: AppRoutes.login,
+      builder: (context, state) => const LoginScreen(),
+    ),
+
+    // ── forgot Password ──
+    GoRoute(
+      path: AppRoutes.forgotPassword,
+      name: AppRoutes.forgotPassword,
+      builder: (context, state) => const ForgotPasswordScreen(),
+    ),
+
+    GoRoute(
+    path: AppRoutes.resetPassword,
+    builder: (context, state) {
+    final token = state.uri.queryParameters['token'] ?? '';
+    return ResetPasswordScreen(token: token);
+  },
+),
+
   ],
 
   // ── Page 404 ──
