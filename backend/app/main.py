@@ -12,6 +12,7 @@ import app.models.password_reset_token
 from app.routers import auth, admin, invitations
 from app.routers import refresh    
 from app.routers import password_reset  
+from app.routers import logout
                 # NEW
 
 # ── Create all tables ──────────────────────────────────────────────────────────
@@ -38,7 +39,7 @@ app.include_router(refresh.router)                 # NEW
 app.include_router(admin.router)
 app.include_router(invitations.router)
 app.include_router(password_reset.router)  
-
+app.include_router(logout.router)  
 
 
 @app.get("/", tags=["Health"])
