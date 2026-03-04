@@ -1,40 +1,45 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import engine, Base
 
-# ── CRITICAL: Import models before create_all ─────────────────────────────────
-# These imports register the models with SQLAlchemy's Base.
-# Without them, create_all() below would create NO tables.
-# The import triggers the model file to execute, which calls Base's
-# class registration mechanism under the hood.
-import app.models.user          # registers User model → users table
-import app.models.invitation     # registers Invitation model → invitations table
+# ── Import ALL models before create_all ───────────────────────────────────────
+import app.models.user
+import app.models.invitation
+import app.models.refresh_token
+import app.models.password_reset_token
 
 # ── Import routers ─────────────────────────────────────────────────────────────
 from app.routers import auth, admin, invitations
+from app.routers import refresh    
+from app.routers import password_reset  
+                # NEW
 
-# ── Create tables ──────────────────────────────────────────────────────────────
-# This runs once on startup.
-# It reads all registered models and creates their tables in PostgreSQL
-# IF they don't already exist. It NEVER drops or modifies existing tables.
-# Safe to run on every restart.
+# ── Create all tables ──────────────────────────────────────────────────────────
 Base.metadata.create_all(bind=engine)
 
-# ── Create FastAPI app ─────────────────────────────────────────────────────────
 app = FastAPI(
     title="3DP Intelligence Platform",
     version="1.0.0",
     description="AI-Driven Additive Manufacturing Platform API"
 )
 
-# ── Register routers ───────────────────────────────────────────────────────────
-# Each router adds its group of endpoints to the app.
-# include_router is how FastAPI knows about them.
-app.include_router(auth.router)           # /auth/admin/signup, /auth/register
-app.include_router(admin.router)          # /admin/invitations
-app.include_router(invitations.router)    # /invitations/validate
+# ── CORS ───────────────────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── Routers ────────────────────────────────────────────────────────────────────
+app.include_router(auth.router)
+app.include_router(refresh.router)                 # NEW
+app.include_router(admin.router)
+app.include_router(invitations.router)
+app.include_router(password_reset.router)  
 
 
-# ── Health check endpoints ─────────────────────────────────────────────────────
 
 @app.get("/", tags=["Health"])
 def root():
@@ -43,8 +48,12 @@ def root():
 @app.get("/health", tags=["Health"])
 def health():
     return {"status": "ok"}
+
+# DELETE before merging to main
 @app.get("/dev/token", tags=["Dev"])
 def get_dev_token():
+    import uuid
     from app.core.security import create_access_token
-    token = create_access_token({"sub": "dev-admin", "role": "admin"})
+    fake_id = str(uuid.uuid4())
+    token = create_access_token({"sub": fake_id, "role": "admin"})
     return {"token": token, "usage": f"Bearer {token}"}
