@@ -21,4 +21,23 @@ abstract class AuthRepository {
     required String fullName,
     required String password,
   });
+
+  Future<void> login({
+  required String email,
+  required String password,
+  });
+
+  Future<void> forgotPassword({
+    required String email
+  });
+
+  Future<void> resetPassword({
+  required String token,
+  required String newPassword,
+  });
+
+  Future<Map<String, dynamic>> validateResetToken({
+    required String token,
+  });
+
 }

@@ -1,5 +1,9 @@
 from fastapi import FastAPI
+<<<<<<< HEAD
 from fastapi.middleware.cors import CORSMiddleware
+=======
+from fastapi.middleware.cors import CORSMiddleware 
+>>>>>>> feature/auth_screens
 from app.core.database import engine, Base
 
 # ── Import ALL models before create_all ───────────────────────────────────────
@@ -24,7 +28,11 @@ app = FastAPI(
     description="AI-Driven Additive Manufacturing Platform API"
 )
 
+<<<<<<< HEAD
 # ── CORS ───────────────────────────────────────────────────────────────────────
+=======
+# ── CORS ─────────────────────────────────────────
+>>>>>>> feature/auth_screens
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,6 +40,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+<<<<<<< HEAD
+=======
+
+# ── Register routers ───────────────────────────────────────────────────────────
+# Each router adds its group of endpoints to the app.
+# include_router is how FastAPI knows about them.
+app.include_router(auth.router)           # /auth/admin/signup, /auth/register
+app.include_router(admin.router)          # /admin/invitations
+app.include_router(invitations.router)    # /invitations/validate
+>>>>>>> feature/auth_screens
 
 # ── Routers ────────────────────────────────────────────────────────────────────
 app.include_router(auth.router)

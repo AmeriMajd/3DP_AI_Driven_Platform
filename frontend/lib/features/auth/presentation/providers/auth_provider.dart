@@ -1,11 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/features/auth/data/auth_repository_mock.dart';
 import '../../data/auth_repository.dart';
 import '../../data/auth_repository_impl.dart';
 import '../../data/auth_repository_mock.dart';
 import 'auth_state.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepositoryMock();
+  return AuthRepositoryImpl();
 });
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
@@ -94,6 +95,70 @@ Future<Map<String, dynamic>?> validateInvite({
       );
     }
   }
+
+  Future<void> login({
+  required String email,
+  required String password,
+}) async {
+  state = state.copyWith(status: AuthStatus.loading);
+  try {
+    await _repo.login(email: email, password: password);
+    state = state.copyWith(
+      status: AuthStatus.success,
+      successMessage: 'Welcome back!',
+    );
+  } catch (e) {
+    state = state.copyWith(
+      status: AuthStatus.error,
+      errorMessage: e.toString(),
+    );
+  }
+}
+
+Future<void> forgotPassword({required String email}) async {
+  state = state.copyWith(status: AuthStatus.loading);
+  try {
+    await _repo.forgotPassword(email: email);
+    state = state.copyWith(
+      status: AuthStatus.success,
+      successMessage: 'Reset link sent',
+    );
+  } catch (e) {
+    state = state.copyWith(
+      status: AuthStatus.error,
+      errorMessage: e.toString(),
+    );
+  }
+}
+
+Future<void> resetPassword({
+  required String token,
+  required String newPassword,
+}) async {
+  state = state.copyWith(status: AuthStatus.loading);
+  try {
+    await _repo.resetPassword(token: token, newPassword: newPassword);
+    state = state.copyWith(
+      status: AuthStatus.success,
+      successMessage: 'Password reset successfully',
+    );
+  } catch (e) {
+    state = state.copyWith(
+      status: AuthStatus.error,
+      errorMessage: e.toString(),
+    );
+  }
+}
+
+Future<Map<String, dynamic>?> validateResetToken({
+  required String token,
+}) async {
+  try {
+    return await _repo.validateResetToken(token: token);
+  } catch (e) {
+    return null;
+  }
+}
 
   void reset() => state = const AuthState();
 }

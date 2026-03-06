@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../../shared/services/dio_client.dart';
+import '../../../shared/services/storage_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'auth_repository.dart';
 
@@ -30,7 +31,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }) async {
     //await Future.delayed(const Duration(seconds: 2));
     try {
-      await _dio.post(
+      final response= await _dio.post(
         '/auth/admin/signup',
         data: {
           'full_name': fullName,
@@ -40,6 +41,16 @@ class AuthRepositoryImpl implements AuthRepository {
           // clé injectée automatiquement — invisible pour l'utilisateur
         },
       );
+     // Le backend DOIT retourner access_token
+    // Si ce champ est absent → défaillance backend à corriger
+    final token = response.data['access_token'] as String?;
+    if (token == null) {
+      throw Exception(
+        'Backend error: access_token missing from signup response. '
+        'Backend must return access_token after successful signup.'
+      );
+    }
+      await StorageService.saveToken(token);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }
@@ -123,16 +134,98 @@ class AuthRepositoryImpl implements AuthRepository {
     required String fullName,
     required String password,
   }) async {
-    //await Future.delayed(const Duration(seconds: 2));
+    try {
+    final response = await _dio.post(
+      '/auth/register',
+      data: {
+        'token': token,
+        'full_name': fullName,
+        'password': password,
+      },
+    );
+
+    // Sauvegarder le token après inscription
+    final accessToken = response.data['access_token'] as String?;
+    if (accessToken == null) {
+      throw Exception(
+        'Backend error: access_token missing from register response.',
+      );
+    }
+    await StorageService.saveToken(accessToken);
+
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  @override
+  Future<void> login ({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/login',
+        data: {
+          'email': email,
+          'password':password,
+        },
+        
+      );
+      final token = response.data['access_token'] as String?;
+      if (token == null){
+        throw Exception(
+          'Backend error: access_token missing from login response.',
+
+        );
+      }
+      await StorageService.saveToken(token);
+      
+    } on DioException catch (e) {
+    throw Exception(_handleError(e));
+  } 
+  }
+
+  @override
+  Future<void> forgotPassword({required String email}) async {
     try {
       await _dio.post(
-        '/auth/register',
+        '/auth/forgot-password',
+        data: {'email': email},
+      );
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  @override
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      await _dio.post(
+        '/auth/reset-password',
         data: {
           'token': token,
-          'full_name': fullName,
-          'password': password,
+          'new_password': newPassword,
         },
       );
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> validateResetToken({
+    required String token,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/auth/reset-password/validate',
+        queryParameters: {'token': token},
+      );
+      return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }
