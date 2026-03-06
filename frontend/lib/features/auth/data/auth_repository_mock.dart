@@ -54,4 +54,42 @@ class AuthRepositoryMock implements AuthRepository {
     // ❌ Simule une erreur
     //throw Exception('Invalid or expired token');
   }
+
+  @override
+Future<void> login({
+  required String email,
+  required String password,
+}) async {
+  await Future.delayed(const Duration(seconds: 2));
+  // throw Exception('Invalid email or password'); // tester erreur
+}
+@override
+Future<void> forgotPassword({
+    required String email
+  })async {
+    await Future.delayed(const Duration(seconds: 2));
+  // throw Exception('Email not found'); // tester erreur 404
+  }
+  @override
+Future<void> resetPassword({
+  required String token,
+  required String newPassword,
+}) async {
+  await Future.delayed(const Duration(seconds: 2));
+  // throw Exception('Invalid or expired token'); // tester erreur
+}
+
+@override
+Future<Map<String, dynamic>> validateResetToken({
+  required String token,
+}) async {
+  await Future.delayed(const Duration(seconds: 1));
+  return {
+    'email': 'user@company.tn',
+    'expires_at': DateTime.now()
+        .add(const Duration(minutes: 13))
+        .toIso8601String(),
+  };
+}
+
 }
