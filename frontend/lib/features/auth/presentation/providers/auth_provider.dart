@@ -43,23 +43,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> generateInvite({
-    required String email,
-    required String role,
-  }) async {
-    state = state.copyWith(status: AuthStatus.loading);
-    try {
-      final token = await _repo.generateInvite(email: email, role: role);
-      state = state.copyWith(
-        status: AuthStatus.success,
-        successMessage: 'Invitation sent — Token: $token',
-      );
-    } catch (e) {
-      state = state.copyWith(
-        status: AuthStatus.error,
-        errorMessage: e.toString(),
-      );
-    }
+  required String email,
+  required String role,
+}) async {
+  state = state.copyWith(status: AuthStatus.loading);
+  try {
+    final link = await _repo.generateInvite(email: email, role: role);
+    state = state.copyWith(
+      status: AuthStatus.success,
+      successMessage: link, // ← le vrai lien du backend
+    );
+  } catch (e) {
+    state = state.copyWith(
+      status: AuthStatus.error,
+      errorMessage: e.toString(),
+    );
   }
+}
   /// Met à jour l'état avec les données pré-remplies (email, role, expires_at).
 Future<Map<String, dynamic>?> validateInvite({
   required String token,
