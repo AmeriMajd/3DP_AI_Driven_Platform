@@ -53,7 +53,7 @@ class _AdminSignupScreenState extends ConsumerState<AdminSignupScreen> {
       if (next.status == AuthStatus.success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(next.successMessage ?? 'Success'),
+            content: Text(next.successMessage ?? 'Account created! Please sign in.'),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
           ),

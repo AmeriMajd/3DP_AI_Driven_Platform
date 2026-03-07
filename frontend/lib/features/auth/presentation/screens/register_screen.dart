@@ -120,7 +120,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           ),
         );
         ref.read(authProvider.notifier).reset();
-        context.go(AppRoutes.dashboard);
+        context.go(AppRoutes.login);
         // TOdo naviguer vers dashboard après router
       }
       if (next.status == AuthStatus.error) {

@@ -31,7 +31,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }) async {
     //await Future.delayed(const Duration(seconds: 2));
     try {
-      final response= await _dio.post(
+      await _dio.post(
         '/auth/admin/signup',
         data: {
           'full_name': fullName,
@@ -41,16 +41,6 @@ class AuthRepositoryImpl implements AuthRepository {
           // clé injectée automatiquement — invisible pour l'utilisateur
         },
       );
-     // Le backend DOIT retourner access_token
-    // Si ce champ est absent → défaillance backend à corriger
-    final token = response.data['access_token'] as String?;
-    if (token == null) {
-      throw Exception(
-        'Backend error: access_token missing from signup response. '
-        'Backend must return access_token after successful signup.'
-      );
-    }
-      await StorageService.saveToken(token);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }
@@ -85,8 +75,7 @@ class AuthRepositoryImpl implements AuthRepository {
           'role': role,
         },
       );
-      // Backend retourne { "token": "abc123xyz", "link": "...", ... }
-      return response.data['token'] as String;
+      return response.data['link'] as String;
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }
@@ -135,7 +124,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String password,
   }) async {
     try {
-    final response = await _dio.post(
+    await _dio.post(
       '/auth/register',
       data: {
         'token': token,
@@ -143,15 +132,6 @@ class AuthRepositoryImpl implements AuthRepository {
         'password': password,
       },
     );
-
-    // Sauvegarder le token après inscription
-    final accessToken = response.data['access_token'] as String?;
-    if (accessToken == null) {
-      throw Exception(
-        'Backend error: access_token missing from register response.',
-      );
-    }
-    await StorageService.saveToken(accessToken);
 
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -180,6 +160,11 @@ class AuthRepositoryImpl implements AuthRepository {
         );
       }
       await StorageService.saveToken(token);
+
+      final refreshToken = response.data['refresh_token'] as String?;
+    if (refreshToken != null) {
+      await StorageService.saveRefreshToken(refreshToken);
+    }
       
     } on DioException catch (e) {
     throw Exception(_handleError(e));

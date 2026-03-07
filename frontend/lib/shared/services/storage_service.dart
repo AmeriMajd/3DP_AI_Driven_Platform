@@ -24,4 +24,21 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
   }
+
+  static const String _refreshTokenKey = 'refresh_token';
+
+static Future<void> saveRefreshToken(String token) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_refreshTokenKey, token);
+}
+
+static Future<String?> getRefreshToken() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getString(_refreshTokenKey);
+}
+
+static Future<void> clearRefreshToken() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.remove(_refreshTokenKey);
+}
 }

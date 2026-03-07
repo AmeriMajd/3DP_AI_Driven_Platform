@@ -138,7 +138,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
           _generatedEmail = _emailController.text.trim();
           _generatedRole = _selectedRole;
           //remplacer par response.data['link'] du backend
-          _generatedLink = 'https://printai.app/invite?token=abc123xyz';
+          _generatedLink =  next.successMessage ?? '';
           
         });
         ref.read(authProvider.notifier).reset();
