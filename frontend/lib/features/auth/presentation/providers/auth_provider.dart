@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/features/auth/data/auth_repository_mock.dart';
+import '../../../../shared/services/storage_service.dart';
 import '../../data/auth_repository.dart';
 import '../../data/auth_repository_impl.dart';
 import '../../data/auth_repository_mock.dart';
@@ -155,6 +156,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return null;
     }
   }
+
+  Future<void> logout() async {
+  state = state.copyWith(status: AuthStatus.loading);
+  try {
+    await _repo.logout();
+    state = const AuthState(); // reset complet
+  } catch (e) {
+    // logout local même si backend échoue
+    await StorageService.clearAll();
+    state = const AuthState();
+  }
+}
 
   void reset() => state = const AuthState();
 }

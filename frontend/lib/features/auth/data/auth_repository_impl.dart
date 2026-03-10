@@ -227,6 +227,22 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+Future<void> logout() async {
+  try {
+    final refreshToken = await StorageService.getRefreshToken();
+    await _dio.post(
+      '/auth/logout',
+      data: {'refresh_token': refreshToken},
+    );
+  } on DioException catch (e) {
+    // On logout, on ignore les erreurs réseau
+    // Le clearAll() se fait dans tous les cas
+  } finally {
+    await StorageService.clearAll();
+  }
+}
+
   /// Extrait le message d'erreur lisible depuis la réponse Dio.
   String _handleError(DioException e) {
     if (e.response?.data != null) {
