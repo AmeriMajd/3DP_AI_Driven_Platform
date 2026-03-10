@@ -14,8 +14,9 @@ import 'app_routes.dart';
 /// Le token d'invitation est passé via query parameter :
 /// /register?token=abc123
 final appRouter = GoRouter(
-  initialLocation: AppRoutes.adminSignup,
-  debugLogDiagnostics: true, // logs navigation en console
+  initialLocation: AppRoutes.login,
+  debugLogDiagnostics: true,
+  routerNeglect: false, // logs navigation en console
   routes: [
 
     // ── Admin Signup ──

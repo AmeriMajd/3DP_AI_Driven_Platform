@@ -23,7 +23,13 @@ services:
       SECRET_KEY: oVOyHvJuPbUTopgqBfrKdAnHGkSo87P6cjviDkX96gYg8xbtYLqPVbySx9zPPM13
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
       REFRESH_TOKEN_EXPIRE_DAYS: 7
-      ADMIN_SIGNUP_KEY: 3dp-admin-2026
+      ADMIN_SIGNUP_KEY: 3dp-admin-secret-2026
+      SMTP_HOST: sandbox.smtp.mailtrap.io
+      SMTP_PORT: 2525
+      SMTP_USER: caa5e8eb5ef7db
+      SMTP_PASS: df87d599c000b0
+      SMTP_FROM: noreply@3dp.com
+      APP_BASE_URL: http://localhost:3000
     depends_on:
       - db
     volumes:
