@@ -89,4 +89,10 @@ class AuthRepositoryMock implements AuthRepository {
   Future<void> refreshToken() async {
     await Future.delayed(const Duration(seconds: 1));
   }
+
+  @override
+Future<void> logout() async {
+  await Future.delayed(const Duration(milliseconds: 500));
+  // simule le logout
+}
 }

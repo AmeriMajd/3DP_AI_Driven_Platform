@@ -29,4 +29,7 @@ abstract class AuthRepository {
   Future<Map<String, dynamic>> validateResetToken({required String token});
 
   Future<void> refreshToken();
+
+  Future<void> logout();
+
 }
