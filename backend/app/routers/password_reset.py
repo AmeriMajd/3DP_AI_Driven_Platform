@@ -11,10 +11,43 @@ from app.models.password_reset_token import PasswordResetToken
 from app.models.refresh_token import RefreshToken
 from app.schemas.password_reset import (
     ForgotPasswordSchema, ForgotPasswordResponse,
-    ResetPasswordSchema, ResetPasswordResponse
+    ResetPasswordSchema, ResetPasswordResponse,
+    ValidateResetTokenResponse
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+@router.get("/reset-password/validate", response_model=ValidateResetTokenResponse, status_code=200)
+def validate_reset_token(token: str, db: Session = Depends(get_db)):
+
+    invalid_token_error = HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invalid or expired reset token"
+    )
+
+    reset_token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == token
+    ).first()
+
+    if not reset_token:
+        raise invalid_token_error
+
+    if reset_token.expires_at < datetime.utcnow():
+        raise invalid_token_error
+
+    if reset_token.used:
+        raise invalid_token_error
+
+    user = db.query(User).filter(User.id == reset_token.user_id).first()
+
+    if not user:
+        raise invalid_token_error
+
+    return ValidateResetTokenResponse(
+        email=user.email,
+        expires_at=reset_token.expires_at
+    )
 
 
 @router.post("/forgot-password", response_model=ForgotPasswordResponse, status_code=200)
