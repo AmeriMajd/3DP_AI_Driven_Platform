@@ -5,7 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'auth_repository.dart';
 
 /// Implémentation réelle de [AuthRepository].
-/// 
+///
 /// Connecté au backend FastAPI via [DioClient].
 /// Gère 4 opérations : adminSignup, generateInvite, validateInvite, register.
 /// En cas d'erreur réseau ou serveur, lance une [Exception]
@@ -15,10 +15,10 @@ class AuthRepositoryImpl implements AuthRepository {
   final Dio _dio = DioClient.instance;
 
   //  POST /auth/admin/signup
-  /// 
+  ///
   /// Crée le premier compte administrateur.
   /// La [admin_secret_key] est injectée depuis .env — invisible pour l'utilisateur.
-  /// 
+  ///
   /// Erreurs possibles :
   /// - 400 : Email déjà utilisé
   /// - 403 : Mauvaise admin_secret_key
@@ -50,12 +50,12 @@ class AuthRepositoryImpl implements AuthRepository {
   ///
   /// Génère un token d'invitation pour un nouvel utilisateur.
   /// Endpoint protégé — réservé aux admins authentifiés.
-  /// 
+  ///
   /// [email] : email du futur utilisateur
   /// [role]  : 'admin' | 'operator'
-  /// 
+  ///
   /// Retourne le token généré par le backend.
-  /// 
+  ///
   /// Erreurs possibles :
   /// - 400 : Email a déjà un compte
   /// - 401 : Admin non authentifié
@@ -70,10 +70,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final response = await _dio.post(
         '/admin/invitations',
-        data: {
-          'email': email,
-          'role': role,
-        },
+        data: {'email': email, 'role': role},
       );
       return response.data['link'] as String;
     } on DioException catch (e) {
@@ -90,11 +87,9 @@ class AuthRepositoryImpl implements AuthRepository {
   ///
   /// Erreurs possibles :
   /// - 400 : Token invalide / expiré / déjà utilisé
-  /// 
+  ///
   @override
-  Future<Map<String, dynamic>> validateInvite({
-    required String token,
-  }) async {
+  Future<Map<String, dynamic>> validateInvite({required String token}) async {
     try {
       final response = await _dio.get(
         '/invitations/validate',
@@ -124,60 +119,53 @@ class AuthRepositoryImpl implements AuthRepository {
     required String password,
   }) async {
     try {
-    await _dio.post(
-      '/auth/register',
-      data: {
-        'token': token,
-        'full_name': fullName,
-        'password': password,
-      },
-    );
-
+      await _dio.post(
+        '/auth/register',
+        data: {'token': token, 'full_name': fullName, 'password': password},
+      );
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }
   }
 
   @override
-  Future<void> login ({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> login({required String email, required String password}) async {
     try {
       final response = await _dio.post(
         '/auth/login',
-        data: {
-          'email': email,
-          'password':password,
-        },
-        
+        data: {'email': email, 'password': password},
       );
+
       final token = response.data['access_token'] as String?;
-      if (token == null){
+      if (token == null) {
         throw Exception(
           'Backend error: access_token missing from login response.',
-
         );
       }
       await StorageService.saveToken(token);
 
       final refreshToken = response.data['refresh_token'] as String?;
-    if (refreshToken != null) {
-      await StorageService.saveRefreshToken(refreshToken);
-    }
-      
+      if (refreshToken != null) {
+        await StorageService.saveRefreshToken(refreshToken);
+      }
+
+      // ← ADD — save role and user id for routing and future use
+      final user = response.data['user'];
+      if (user != null) {
+        final role = user['role'] as String?;
+        final userId = user['id'] as String?;
+        if (role != null) await StorageService.saveUserRole(role);
+        if (userId != null) await StorageService.saveUserId(userId);
+      }
     } on DioException catch (e) {
-    throw Exception(_handleError(e));
-  } 
+      throw Exception(_handleError(e));
+    }
   }
 
   @override
   Future<void> forgotPassword({required String email}) async {
     try {
-      await _dio.post(
-        '/auth/forgot-password',
-        data: {'email': email},
-      );
+      await _dio.post('/auth/forgot-password', data: {'email': email});
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }
@@ -191,10 +179,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await _dio.post(
         '/auth/reset-password',
-        data: {
-          'token': token,
-          'new_password': newPassword,
-        },
+        data: {'token': token, 'new_password': newPassword},
       );
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -211,6 +196,32 @@ class AuthRepositoryImpl implements AuthRepository {
         queryParameters: {'token': token},
       );
       return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  /// POST /auth/refresh
+  ///
+  /// Uses the stored refresh token to get a new access token.
+  @override
+  Future<void> refreshToken() async {
+    try {
+      final refresh = await StorageService.getRefreshToken();
+      if (refresh == null) {
+        throw Exception('No refresh token available');
+      }
+      final response = await _dio.post(
+        '/auth/refresh',
+        data: {'refresh_token': refresh},
+      );
+      final newAccessToken = response.data['access_token'] as String?;
+      if (newAccessToken == null) {
+        throw Exception(
+          'Backend error: access_token missing from refresh response.',
+        );
+      }
+      await StorageService.saveToken(newAccessToken);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }

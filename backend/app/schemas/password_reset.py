@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, EmailStr, field_validator
 
 
@@ -23,3 +24,8 @@ class ResetPasswordSchema(BaseModel):
 
 class ResetPasswordResponse(BaseModel):
     detail: str = "Password updated successfully"
+
+
+class ValidateResetTokenResponse(BaseModel):
+    email: str
+    expires_at: datetime
