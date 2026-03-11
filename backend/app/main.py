@@ -7,12 +7,14 @@ import app.models.user
 import app.models.invitation
 import app.models.refresh_token
 import app.models.password_reset_token
+from app.models.stl_file import STLFile
 
 # ── Import routers ─────────────────────────────────────────────────────────────
 from app.routers import auth, admin, invitations
 from app.routers import refresh
 from app.routers import password_reset
 from app.routers import logout
+from app.routers.stl import router as stl_router
 
 # ── Create all tables ──────────────────────────────────────────────────────────
 Base.metadata.create_all(bind=engine)
@@ -39,6 +41,7 @@ app.include_router(admin.router)
 app.include_router(invitations.router)
 app.include_router(password_reset.router)
 app.include_router(logout.router)
+app.include_router(stl_router)
 
 @app.get("/", tags=["Health"])
 def root():
@@ -47,3 +50,9 @@ def root():
 @app.get("/health", tags=["Health"])
 def health():
     return {"status": "ok"}
+
+
+
+
+
+
