@@ -47,12 +47,3 @@ def root():
 @app.get("/health", tags=["Health"])
 def health():
     return {"status": "ok"}
-
-# DELETE before merging to main
-@app.get("/dev/token", tags=["Dev"])
-def get_dev_token():
-    import uuid
-    from app.core.security import create_access_token
-    fake_id = str(uuid.uuid4())
-    token = create_access_token({"sub": fake_id, "role": "admin"})
-    return {"token": token, "usage": f"Bearer {token}"}
