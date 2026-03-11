@@ -106,6 +106,10 @@ class DioClient {
   /// Clears all tokens and redirects to Login.
   static Future<void> _forceLogout() async {
     await StorageService.clearAll();
-    appRouter.go(AppRoutes.login);
+    try{
+      appRouter.go(AppRoutes.login);
+    }catch(_){
+
+    };
   }
 }
