@@ -34,6 +34,8 @@ services:
       - db
     volumes:
       - ./backend:/app
+      - stl_uploads:/app/stl_uploads
 
 volumes:
   postgres_data:
+  stl_uploads:
