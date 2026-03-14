@@ -10,6 +10,7 @@ class StorageService {
   static const String _accessTokenKey = 'access_token';
   static const String _refreshTokenKey = 'refresh_token';
   static const String _userRoleKey = 'user_role';
+  static const String _fullNameKey = 'full_name';
 
   // ── Access Token ──
   static Future<void> saveToken(String token) async {
@@ -45,6 +46,15 @@ class StorageService {
   static Future<String?> getUserRole() async {
     return await _storage.read(key: _userRoleKey);
   }
+
+  // ── User Name (Avatar) ──
+  static Future<void> saveFullName(String name) async {
+  await _storage.write(key: _fullNameKey, value: name);
+  }
+
+static Future<String?> getFullName() async {
+  return await _storage.read(key: _fullNameKey);
+}
 
   // ── Clear Everything (logout) ──
   static Future<void> clearAll() async {

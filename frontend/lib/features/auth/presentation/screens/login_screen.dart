@@ -44,7 +44,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.listen<AuthState>(authProvider, (_, next) {
       if (next.status == AuthStatus.success) {
         ref.read(authProvider.notifier).reset();
-        context.go(AppRoutes.inviteUser);
+        context.go(AppRoutes.upload);
       }
       if (next.status == AuthStatus.error) {
         ScaffoldMessenger.of(context).showSnackBar(
