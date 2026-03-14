@@ -17,6 +17,20 @@ class StlRepositoryMock implements StlRepository {
       status: 'uploaded',
       createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
     ),
+    STLFile(
+      id: 'mock-002',
+      originalFilename: 'housing_final.3mf',
+      fileSizeBytes: 850000,
+      status: 'uploaded',
+      createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
+    ),
+    STLFile(
+      id: 'mock-002',
+      originalFilename: 'housing_final.3mf',
+      fileSizeBytes: 850000,
+      status: 'uploaded',
+      createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
+    ),
   ];
 
   @override

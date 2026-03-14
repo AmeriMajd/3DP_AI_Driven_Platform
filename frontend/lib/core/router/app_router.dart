@@ -6,19 +6,19 @@ import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/reset_password_screen.dart';
+import '../../features/upload/presentation/screens/upload_screen.dart';
+//import '../../features/upload/presentation/screens/FileDetailScreen.dart';
+import '../../shared/widgets/placeholder_screen.dart';
+import '../../shared/widgets/main_shell.dart';
+
 import 'app_routes.dart';
 
-/// Router principal de l'application.
-///
-/// Gère la navigation entre toutes les screens.
-/// Le token d'invitation est passé via query parameter :
-/// /register?token=abc123
 final appRouter = GoRouter(
-  initialLocation: AppRoutes.login,
+  initialLocation: AppRoutes.upload,
   debugLogDiagnostics: true,
   routerNeglect: false, // logs navigation en console
   routes: [
-
+    // ── Auth routes (sans navbar) ─────────────────────────────────────────
     // ── Admin Signup ──
     GoRoute(
       path: AppRoutes.adminSignup,
@@ -66,7 +66,47 @@ final appRouter = GoRouter(
     return ResetPasswordScreen(token: token);
   },
 ),
-
+    
+   
+  //  GoRoute(
+  //  path: '${AppRoutes.fileDetail}/:id',
+  //  builder: (context, state) {
+  //    final id = state.pathParameters['id'] ?? '';
+  //    return FileDetailScreen(fileId: id); // à créer Sprint 2B
+  //},
+//),
+// ── Main routes (avec navbar) ─────────────────────────────────────────
+    ShellRoute(
+      builder: (context, state, child) => MainShell(child: child),
+      routes: [
+        GoRoute(
+          path: AppRoutes.upload,
+          builder: (_, __) => const UploadScreen(),
+          routes: [
+            GoRoute(
+              path: 'file/:id',
+              builder: (context, state) {
+                final id = state.pathParameters['id'] ?? '';
+                return PlaceholderScreen(title: 'File Detail — $id');
+              },
+            ),
+          ],
+        ),
+        GoRoute(
+          path: AppRoutes.fleet,
+          builder: (_, __) => const PlaceholderScreen(title: 'Printers'),
+        ),
+        GoRoute(
+          path: AppRoutes.schedule,
+          builder: (_, __) => const PlaceholderScreen(title: 'schedule'),
+        ),
+        GoRoute(
+          path: AppRoutes.monitoring,
+          builder: (_, __) => const PlaceholderScreen(title: 'Monitoring'),
+        ),
+        
+      ],
+    ),
   ],
 
   // ── Page 404 ──
