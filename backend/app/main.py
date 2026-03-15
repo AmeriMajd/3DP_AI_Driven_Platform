@@ -51,5 +51,3 @@ def root():
 def health():
     return {"status": "ok"}
 
-
->>>>>>>>> Temporary merge branch 2
