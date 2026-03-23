@@ -97,6 +97,26 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
+  void _showAllFiles(List<STLFile> files) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,       // ← hauteur dynamique
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => _AllFilesSheet(
+      files: files,
+      timeAgo: _timeAgo,
+      onDelete: (id) {
+        Navigator.pop(ctx);          // ← fermer le sheet
+        ref.read(uploadProvider.notifier).deleteFile(id: id);
+      },
+      onTap: (id) {
+        Navigator.pop(ctx);
+        context.go('${AppRoutes.upload}/file/$id');
+      },
+    ),
+  );
+}
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(uploadProvider);
@@ -449,9 +469,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
             ),
             if (filtered.length > 3)
               GestureDetector(
-                onTap: () {
-                  // TODO → AllFilesScreen Sprint 2B
-                },
+                onTap: () => _showAllFiles(filtered),
                 child: const Text(
                   'View all',
                   style: TextStyle(
@@ -741,6 +759,128 @@ class _FileItem extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+// ── All Files Bottom Sheet ────────────────────────────────────────────────────
+class _AllFilesSheet extends StatelessWidget {
+  final List<STLFile> files;
+  final String Function(DateTime) timeAgo;
+  final void Function(String id) onDelete;
+  final void Function(String id) onTap;
+
+  const _AllFilesSheet({
+    required this.files,
+    required this.timeAgo,
+    required this.onDelete,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFF2F2F7),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom,
+      ),
+      // Max 80% de la hauteur écran
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.80,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+
+          // ── Drag handle ─────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFD1D1D6),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // ── Header ──────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'All Models',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1C1C1E),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${files.length}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                // Bouton fermer
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E5EA),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close_rounded,
+                        size: 16, color: Color(0xFF8E8E93)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Liste scrollable ─────────────────────────────────────────────
+          Flexible(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              shrinkWrap: true,
+              itemCount: files.length,
+              itemBuilder: (_, index) {
+                final f = files[index];
+                return _FileItem(
+                  file: f,
+                  timeAgo: timeAgo(f.createdAt),
+                  onDelete: () => onDelete(f.id),
+                  onTap: () => onTap(f.id),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
