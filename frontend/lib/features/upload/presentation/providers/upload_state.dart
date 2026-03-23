@@ -8,6 +8,7 @@ class UploadState {
   final int? selectedFileSize;
   final String? errorMessage;
   final String? successMessage;
+  final String? pollingFileId;
 
   const UploadState({
     this.status = UploadStatus.initial,
@@ -17,10 +18,12 @@ class UploadState {
     this.selectedFileSize,
     this.errorMessage,
     this.successMessage,
+    this.pollingFileId,
   });
 
   bool get isUploading => status == UploadStatus.uploading;
   bool get hasFileSelected => selectedFileName != null;
+  bool get isPolling => pollingFileId != null; 
 
   UploadState copyWith({
     UploadStatus? status,
@@ -30,15 +33,17 @@ class UploadState {
     int? selectedFileSize,
     String? errorMessage,
     String? successMessage,
+    String? pollingFileId, 
   }) {
     return UploadState(
       status: status ?? this.status,
       files: files ?? this.files,
       isLoadingFiles: isLoadingFiles ?? this.isLoadingFiles,
-      selectedFileName: selectedFileName,
+      selectedFileName: selectedFileName ?? this.selectedFileName,
       selectedFileSize: selectedFileSize ?? this.selectedFileSize,
-      errorMessage: errorMessage,
-      successMessage: successMessage,
+      errorMessage: errorMessage ?? this.errorMessage,  
+      successMessage: successMessage ?? this.successMessage,
+      pollingFileId: pollingFileId ?? this.pollingFileId, 
     );
   }
 }
