@@ -1,4 +1,5 @@
 import 'package:dotted_border/dotted_border.dart';
+import 'package:flutter/foundation.dart'; // ← pour kIsWeb
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,11 +44,18 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['stl', '3mf'],
-      withData: false,
+      withData: true,
     );
     if (result == null || result.files.isEmpty) return;
     final file = result.files.first;
-    _selectedFilePath = file.path;
+
+
+    // Sur web path n'existe pas — on utilise kIsWeb pour éviter le crash ──
+    // kIsWeb est un booléen Flutter qui vaut true sur web 
+    if (!kIsWeb) {
+      _selectedFilePath = file.path; // mobile/desktop uniquement
+    }
+    // Sur web _selectedFilePath reste null → _uploadFile() passe '' à la place
     ref.read(uploadProvider.notifier).selectFile(
           filename: file.name,
           fileSize: file.size,
@@ -56,14 +64,17 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
 
   // ── Uploader le fichier sélectionné ─────────────────────────────────────
   Future<void> _uploadFile() async {
-    final state = ref.read(uploadProvider);
-    if (_selectedFilePath == null || state.selectedFileName == null) return;
+  final state = ref.read(uploadProvider);
+    if (state.selectedFileName == null) return;
+    
+    final filePath = _selectedFilePath ?? '';
     await ref.read(uploadProvider.notifier).uploadFile(
-          filePath: _selectedFilePath!,
+          filePath: filePath,
           filename: state.selectedFileName!,
           fileSize: state.selectedFileSize ?? 0,
         );
     _selectedFilePath = null;
+    
   }
 
   // ── Filtrer les fichiers ─────────────────────────────────────────────────
@@ -382,6 +393,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
         ],
       ),
     );
+
   }
 
   // ── Liste fichiers uploadés ──────────────────────────────────────────────
@@ -680,7 +692,42 @@ class _FileItem extends StatelessWidget {
 
             // Bouton delete
             GestureDetector(
-              onTap: onDelete,
+              onTap: () async {
+                // ── Confirmation dialog ──────────────────────────────
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                    title: const Text(
+                      'Delete Model',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1C1C1E)),
+                    ),
+                    content: Text(
+                      'Delete "${file.originalFilename}" permanently?',
+                      style: const TextStyle(
+                          fontSize: 14, color: Color(0xFF8E8E93)),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel',
+                            style: TextStyle(color: Color(0xFF8E8E93))),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Delete',
+                            style: TextStyle(
+                                color: Color(0xFFFF3B30),
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) onDelete();
+              },
               child: Container(
                 width: 32,
                 height: 32,
