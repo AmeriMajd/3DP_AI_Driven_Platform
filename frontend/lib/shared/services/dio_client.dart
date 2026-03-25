@@ -16,7 +16,7 @@ class DioClient {
         // Android emulator  → http://10.0.2.2:8000
         // iOS simulator     → http://localhost:8000
         // Physical device   → http://YOUR_PC_IP:8000
-        baseUrl: 'http://192.168.1.8:8000',
+        baseUrl: 'http://172.20.10.6:8000',
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(seconds: 30),
         headers: {
