@@ -13,4 +13,12 @@ class AppRoutes {
 
   // ── Dashboard (à venir) ──
   static const String dashboard   = '/dashboard';
+
+  static const String upload = '/upload';
+  static const String fileDetail = '/upload/file';
+  static const String fleet = '/fleet';
+  static const String schedule = '/schedule';
+  static const String monitoring = '/monitoring';
+  
+
 }

@@ -149,13 +149,15 @@ class AuthRepositoryImpl implements AuthRepository {
         await StorageService.saveRefreshToken(refreshToken);
       }
 
-      // ← ADD — save role and user id for routing and future use
+      //  save role and user id for routing and future use
       final user = response.data['user'];
       if (user != null) {
         final role = user['role'] as String?;
         final userId = user['id'] as String?;
+        final fullName = response.data['user']['full_name'] as String?;
         if (role != null) await StorageService.saveUserRole(role);
         if (userId != null) await StorageService.saveUserId(userId);
+        if (fullName != null) await StorageService.saveFullName(fullName);
       }
     } on DioException catch (e) {
       throw Exception(_handleError(e));
