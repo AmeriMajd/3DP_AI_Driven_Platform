@@ -14,7 +14,7 @@ import '../../shared/widgets/main_shell.dart';
 import 'app_routes.dart';
 
 final appRouter = GoRouter(
-  initialLocation: AppRoutes.upload,
+  initialLocation: AppRoutes.login,
   debugLogDiagnostics: true,
   routerNeglect: false, // logs navigation en console
   routes: [
@@ -60,22 +60,21 @@ final appRouter = GoRouter(
     ),
 
     GoRoute(
-    path: AppRoutes.resetPassword,
-    builder: (context, state) {
-    final token = state.uri.queryParameters['token'] ?? '';
-    return ResetPasswordScreen(token: token);
-  },
-),
-    
-   
-  //  GoRoute(
-  //  path: '${AppRoutes.fileDetail}/:id',
-  //  builder: (context, state) {
-  //    final id = state.pathParameters['id'] ?? '';
-  //    return FileDetailScreen(fileId: id); // à créer Sprint 2B
-  //},
-//),
-// ── Main routes (avec navbar) ─────────────────────────────────────────
+      path: AppRoutes.resetPassword,
+      builder: (context, state) {
+        final token = state.uri.queryParameters['token'] ?? '';
+        return ResetPasswordScreen(token: token);
+      },
+    ),
+
+    //  GoRoute(
+    //  path: '${AppRoutes.fileDetail}/:id',
+    //  builder: (context, state) {
+    //    final id = state.pathParameters['id'] ?? '';
+    //    return FileDetailScreen(fileId: id); // à créer Sprint 2B
+    //},
+    //),
+    // ── Main routes (avec navbar) ─────────────────────────────────────────
     ShellRoute(
       builder: (context, state, child) => MainShell(child: child),
       routes: [
@@ -104,7 +103,6 @@ final appRouter = GoRouter(
           path: AppRoutes.monitoring,
           builder: (_, __) => const PlaceholderScreen(title: 'Monitoring'),
         ),
-        
       ],
     ),
   ],
