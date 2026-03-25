@@ -7,7 +7,7 @@ import '../../data/auth_repository_mock.dart';
 import 'auth_state.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepositoryMock();
+  return AuthRepositoryImpl();
 });
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
@@ -158,16 +158,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
-  state = state.copyWith(status: AuthStatus.loading);
-  try {
-    await _repo.logout();
-    state = const AuthState(); // reset complet
-  } catch (e) {
-    // logout local même si backend échoue
-    await StorageService.clearAll();
-    state = const AuthState();
+    state = state.copyWith(status: AuthStatus.loading);
+    try {
+      await _repo.logout();
+      state = const AuthState(); // reset complet
+    } catch (e) {
+      // logout local même si backend échoue
+      await StorageService.clearAll();
+      state = const AuthState();
+    }
   }
-}
 
   void reset() => state = const AuthState();
 }
