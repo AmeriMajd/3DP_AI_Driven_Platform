@@ -9,3 +9,4 @@ python-dotenv
 email-validator
 pydantic-settings
 python-multipart
+pydantic
