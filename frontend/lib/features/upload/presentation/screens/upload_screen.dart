@@ -1,5 +1,5 @@
 import 'package:dotted_border/dotted_border.dart';
-import 'package:flutter/foundation.dart'; // ← pour kIsWeb
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,7 +39,6 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
     super.dispose();
   }
 
-  // ── Sélectionner un fichier ──────────────────────────────────────────────
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -49,35 +48,30 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
     if (result == null || result.files.isEmpty) return;
     final file = result.files.first;
 
-
-    // Sur web path n'existe pas — on utilise kIsWeb pour éviter le crash ──
-    // kIsWeb est un booléen Flutter qui vaut true sur web 
     if (!kIsWeb) {
-      _selectedFilePath = file.path; // mobile/desktop uniquement
+      _selectedFilePath = file.path;
     }
-    // Sur web _selectedFilePath reste null → _uploadFile() passe '' à la place
-    ref.read(uploadProvider.notifier).selectFile(
-          filename: file.name,
-          fileSize: file.size,
-        );
+
+    ref
+        .read(uploadProvider.notifier)
+        .selectFile(filename: file.name, fileSize: file.size);
   }
 
-  // ── Uploader le fichier sélectionné ─────────────────────────────────────
   Future<void> _uploadFile() async {
-  final state = ref.read(uploadProvider);
+    final state = ref.read(uploadProvider);
     if (state.selectedFileName == null) return;
-    
+
     final filePath = _selectedFilePath ?? '';
-    await ref.read(uploadProvider.notifier).uploadFile(
+    await ref
+        .read(uploadProvider.notifier)
+        .uploadFile(
           filePath: filePath,
           filename: state.selectedFileName!,
           fileSize: state.selectedFileSize ?? 0,
         );
     _selectedFilePath = null;
-    
   }
 
-  // ── Filtrer les fichiers ─────────────────────────────────────────────────
   List<STLFile> _filteredFiles(List<dynamic> files) {
     if (_searchQuery.isEmpty) return files.cast<STLFile>();
     return files
@@ -86,61 +80,80 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
         .toList();
   }
 
-  // ── Temps relatif ────────────────────────────────────────────────────────
   String _timeAgo(DateTime date) {
     final diff = DateTime.now().difference(date);
     if (diff.inMinutes < 1) return 'Just now';
     if (diff.inMinutes < 60) return 'Uploaded ${diff.inMinutes}m ago';
     if (diff.inHours < 24) return 'Uploaded ${diff.inHours}h ago';
     if (diff.inDays < 7) return 'Uploaded ${diff.inDays}d ago';
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
   void _showAllFiles(List<STLFile> files) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,       // ← hauteur dynamique
-    backgroundColor: Colors.transparent,
-    builder: (ctx) => _AllFilesSheet(
-      files: files,
-      timeAgo: _timeAgo,
-      onDelete: (id) {
-        Navigator.pop(ctx);          // ← fermer le sheet
-        ref.read(uploadProvider.notifier).deleteFile(id: id);
-      },
-      onTap: (id) {
-        Navigator.pop(ctx);
-        context.go('${AppRoutes.upload}/file/$id');
-      },
-    ),
-  );
-}
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _AllFilesSheet(
+        files: files,
+        timeAgo: _timeAgo,
+        onDelete: (id) {
+          Navigator.pop(ctx);
+          ref.read(uploadProvider.notifier).deleteFile(id: id);
+        },
+        onTap: (id) {
+          Navigator.pop(ctx);
+          context.go('${AppRoutes.upload}/file/$id');
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(uploadProvider);
 
-    // ── Snackbars ──────────────────────────────────────────────────────────
     ref.listen<UploadState>(uploadProvider, (_, next) {
       if (next.status == UploadStatus.success && next.successMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(next.successMessage!),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.all(16),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.successMessage!),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
         ref.read(uploadProvider.notifier).reset();
       }
       if (next.status == UploadStatus.error && next.errorMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(next.errorMessage!),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.all(16),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.errorMessage!),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
         ref.read(uploadProvider.notifier).reset();
       }
     });
@@ -148,22 +161,18 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: SafeArea(
-        child: Center(
+        child: Align(
+          alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-
-                  
-
-                  // ── Search Bar ─────────────────────────────────────────
                   _buildSearchBar(),
                   const SizedBox(height: 16),
 
-                  // ── Subtitle ───────────────────────────────────────────
                   const Text(
                     'Upload your 3D model file to begin',
                     style: TextStyle(
@@ -173,19 +182,15 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // ── Upload Zone ────────────────────────────────────────
                   _buildUploadZone(),
                   const SizedBox(height: 14),
 
-                  // ── Fichier sélectionné ────────────────────────────────
                   if (state.hasFileSelected) ...[
                     _buildSelectedFile(state),
                     const SizedBox(height: 14),
                   ],
 
-                  // ── Liste fichiers ─────────────────────────────────────
                   _buildFileList(state),
-                  // éviter Scroll excessif 
                   SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
                 ],
               ),
@@ -196,9 +201,9 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
     );
   }
 
-  // ── Search Bar ───────────────────────────────────────────────────────────
   Widget _buildSearchBar() {
     return Container(
+      width: double.infinity,
       height: 44,
       decoration: BoxDecoration(
         color: const Color(0xFFEFEFF4),
@@ -206,30 +211,49 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
       ),
       child: TextField(
         controller: _searchController,
+        textAlignVertical: TextAlignVertical.center,
         style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
         decoration: InputDecoration(
           hintText: 'Search your library...',
-          hintStyle: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
-          prefixIcon: const Icon(Icons.search_rounded,
-              size: 20, color: AppColors.textSecondary),
+          hintStyle: const TextStyle(
+            fontSize: 14,
+            color: AppColors.textSecondary,
+          ),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            size: 20,
+            color: AppColors.textSecondary,
+          ),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 40,
+            minHeight: 44,
+          ),
           suffixIcon: _searchQuery.isNotEmpty
-              ? GestureDetector(
-                  onTap: () {
+              ? IconButton(
+                  onPressed: () {
                     _searchController.clear();
                     setState(() => _searchQuery = '');
                   },
-                  child: const Icon(Icons.close_rounded,
-                      size: 16, color: AppColors.textSecondary),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                  splashRadius: 18,
                 )
               : null,
+          suffixIconConstraints: const BoxConstraints(
+            minWidth: 40,
+            minHeight: 44,
+          ),
           border: InputBorder.none,
+          isDense: true,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
       ),
     );
   }
 
-  // ── Upload Zone ──────────────────────────────────────────────────────────
   Widget _buildUploadZone() {
     return DottedBorder(
       color: AppColors.primary.withValues(alpha: 0.4),
@@ -246,7 +270,6 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
         ),
         child: Column(
           children: [
-            // Icône upload
             Container(
               width: 56,
               height: 56,
@@ -261,7 +284,6 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
               ),
             ),
             const SizedBox(height: 16),
-
             const Text(
               'Drop your file here',
               style: TextStyle(
@@ -276,33 +298,34 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
-
-            // Bouton Select file
             SizedBox(
               width: 200,
               height: 46,
               child: ElevatedButton.icon(
                 onPressed: _pickFile,
-                icon: const Icon(Icons.insert_drive_file_outlined,
-                    size: 18, color: Colors.white),
+                icon: const Icon(
+                  Icons.insert_drive_file_outlined,
+                  size: 18,
+                  color: Colors.white,
+                ),
                 label: const Text(
                   'Select file',
                   style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-
-            // Badges formats
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: const [
@@ -317,12 +340,11 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
     );
   }
 
-  // ── Fichier sélectionné ──────────────────────────────────────────────────
   Widget _buildSelectedFile(UploadState state) {
     final sizeText = state.selectedFileSize != null
         ? state.selectedFileSize! < 1024 * 1024
-            ? '${(state.selectedFileSize! / 1024).toStringAsFixed(1)} KB'
-            : '${(state.selectedFileSize! / (1024 * 1024)).toStringAsFixed(1)} MB'
+              ? '${(state.selectedFileSize! / 1024).toStringAsFixed(1)} KB'
+              : '${(state.selectedFileSize! / (1024 * 1024)).toStringAsFixed(1)} MB'
         : '';
 
     return Container(
@@ -351,8 +373,11 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                   color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.insert_drive_file_outlined,
-                    color: AppColors.primary, size: 20),
+                child: const Icon(
+                  Icons.insert_drive_file_outlined,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -362,21 +387,29 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                     Text(
                       state.selectedFileName ?? '',
                       style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
-                    Text(sizeText,
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.textSecondary)),
+                    Text(
+                      sizeText,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
               GestureDetector(
                 onTap: () => ref.read(uploadProvider.notifier).reset(),
-                child: const Icon(Icons.close,
-                    size: 18, color: AppColors.textSecondary),
+                child: const Icon(
+                  Icons.close,
+                  size: 18,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
@@ -388,35 +421,43 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
               onPressed: state.isUploading ? null : _uploadFile,
               icon: state.isUploading
                   ? const SizedBox(
-                      width: 18, height: 18,
+                      width: 18,
+                      height: 18,
                       child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.cloud_upload_outlined,
-                      size: 18, color: Colors.white),
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.cloud_upload_outlined,
+                      size: 18,
+                      color: Colors.white,
+                    ),
               label: Text(
                 state.isUploading ? 'Uploading...' : 'Upload File',
                 style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                disabledBackgroundColor:
-                    AppColors.primary.withValues(alpha: 0.6),
+                disabledBackgroundColor: AppColors.primary.withValues(
+                  alpha: 0.6,
+                ),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
           ),
         ],
       ),
     );
-
   }
 
-  // ── Liste fichiers uploadés ──────────────────────────────────────────────
   Widget _buildFileList(UploadState state) {
     if (state.isLoadingFiles) {
       return const Center(
@@ -433,8 +474,6 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
-        // ── Header + View all ────────────────────────────────────────────
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -451,7 +490,9 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 2),
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
@@ -482,8 +523,6 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
           ],
         ),
         const SizedBox(height: 12),
-
-        // ── Vide ──────────────────────────────────────────────────────────
         if (state.files.isEmpty)
           Container(
             width: double.infinity,
@@ -495,17 +534,22 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
             ),
             child: const Column(
               children: [
-                Icon(Icons.inbox_outlined,
-                    size: 36, color: AppColors.textSecondary),
+                Icon(
+                  Icons.inbox_outlined,
+                  size: 36,
+                  color: AppColors.textSecondary,
+                ),
                 SizedBox(height: 8),
-                Text('No models uploaded yet',
-                    style: TextStyle(
-                        fontSize: 14, color: AppColors.textSecondary)),
+                Text(
+                  'No models uploaded yet',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
             ),
           )
-
-        // ── Recherche vide ────────────────────────────────────────────────
         else if (filtered.isEmpty)
           Container(
             width: double.infinity,
@@ -517,36 +561,41 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
             ),
             child: Column(
               children: [
-                const Icon(Icons.search_off_rounded,
-                    size: 32, color: AppColors.textSecondary),
+                const Icon(
+                  Icons.search_off_rounded,
+                  size: 32,
+                  color: AppColors.textSecondary,
+                ),
                 const SizedBox(height: 8),
-                Text('No results for "$_searchQuery"',
-                    style: const TextStyle(
-                        fontSize: 13, color: AppColors.textSecondary)),
+                Text(
+                  'No results for "$_searchQuery"',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
             ),
           )
-
-        // ── Items ─────────────────────────────────────────────────────────
         else
-          ...displayed.map((f) => _FileItem(
-                file: f,
-                timeAgo: _timeAgo(f.createdAt),
-                onDelete: () => ref
-                    .read(uploadProvider.notifier)
-                    .deleteFile(id: f.id),
-                onTap: () =>
-                    context.go('${AppRoutes.upload}/file/${f.id}'),
-              )),
-
-        // ── +X more ───────────────────────────────────────────────────────
+          ...displayed.map(
+            (f) => _FileItem(
+              file: f,
+              timeAgo: _timeAgo(f.createdAt),
+              onDelete: () =>
+                  ref.read(uploadProvider.notifier).deleteFile(id: f.id),
+              onTap: () => context.go('${AppRoutes.upload}/file/${f.id}'),
+            ),
+          ),
         if (filtered.length > 3) ...[
           const SizedBox(height: 8),
           Center(
             child: Text(
               '+${filtered.length - 3} more — tap View all',
               style: const TextStyle(
-                  fontSize: 12, color: AppColors.textSecondary),
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
         ],
@@ -555,7 +604,6 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
   }
 }
 
-// ── Format Badge ──────────────────────────────────────────────────────────────
 class _FormatBadge extends StatelessWidget {
   final String label;
   const _FormatBadge({required this.label});
@@ -581,7 +629,6 @@ class _FormatBadge extends StatelessWidget {
   }
 }
 
-// ── File Item ─────────────────────────────────────────────────────────────────
 class _FileItem extends StatelessWidget {
   final STLFile file;
   final String timeAgo;
@@ -597,28 +644,40 @@ class _FileItem extends StatelessWidget {
 
   Color get _statusColor {
     switch (file.status) {
-      case 'ready':     return AppColors.success;
-      case 'analyzing': return const Color(0xFFF59E0B);
-      case 'error':     return AppColors.error;
-      default:          return const Color(0xFF8B8BFF);
+      case 'ready':
+        return AppColors.success;
+      case 'analyzing':
+        return const Color(0xFFF59E0B);
+      case 'error':
+        return AppColors.error;
+      default:
+        return const Color(0xFF8B8BFF);
     }
   }
 
   String get _statusLabel {
     switch (file.status) {
-      case 'ready':     return 'Ready';
-      case 'analyzing': return 'Analyzing';
-      case 'error':     return 'Error';
-      default:          return 'Uploaded';
+      case 'ready':
+        return 'Ready';
+      case 'analyzing':
+        return 'Analyzing';
+      case 'error':
+        return 'Error';
+      default:
+        return 'Uploaded';
     }
   }
 
   IconData get _statusIcon {
     switch (file.status) {
-      case 'ready':     return Icons.check_circle_outline;
-      case 'analyzing': return Icons.hourglass_top_outlined;
-      case 'error':     return Icons.error_outline;
-      default:          return Icons.cloud_done_outlined;
+      case 'ready':
+        return Icons.check_circle_outline;
+      case 'analyzing':
+        return Icons.hourglass_top_outlined;
+      case 'error':
+        return Icons.error_outline;
+      default:
+        return Icons.cloud_done_outlined;
     }
   }
 
@@ -643,8 +702,6 @@ class _FileItem extends StatelessWidget {
         ),
         child: Row(
           children: [
-
-            // Icône fichier
             Container(
               width: 38,
               height: 38,
@@ -652,12 +709,13 @@ class _FileItem extends StatelessWidget {
                 color: AppColors.primary.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.insert_drive_file_outlined,
-                  color: AppColors.primary, size: 18),
+              child: const Icon(
+                Icons.insert_drive_file_outlined,
+                color: AppColors.primary,
+                size: 18,
+              ),
             ),
             const SizedBox(width: 12),
-
-            // Nom + temps · taille · type
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -675,20 +733,19 @@ class _FileItem extends StatelessWidget {
                   Text(
                     '$timeAgo · ${file.formattedSize} · ${file.fileExtension}',
                     style: const TextStyle(
-                        fontSize: 11, color: AppColors.textSecondary),
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
-
-            // Status badge
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: _statusColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                    color: _statusColor.withValues(alpha: 0.3)),
+                border: Border.all(color: _statusColor.withValues(alpha: 0.3)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -707,39 +764,47 @@ class _FileItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-
-            // Bouton delete
             GestureDetector(
               onTap: () async {
-                // ── Confirmation dialog ──────────────────────────────
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
                     backgroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     title: const Text(
                       'Delete Model',
                       style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1C1C1E)),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1C1C1E),
+                      ),
                     ),
                     content: Text(
                       'Delete "${file.originalFilename}" permanently?',
                       style: const TextStyle(
-                          fontSize: 14, color: Color(0xFF8E8E93)),
+                        fontSize: 14,
+                        color: Color(0xFF8E8E93),
+                      ),
                     ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel',
-                            style: TextStyle(color: Color(0xFF8E8E93))),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(color: Color(0xFF8E8E93)),
+                        ),
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Delete',
-                            style: TextStyle(
-                                color: Color(0xFFFF3B30),
-                                fontWeight: FontWeight.w600)),
+                        child: const Text(
+                          'Delete',
+                          style: TextStyle(
+                            color: Color(0xFFFF3B30),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -753,8 +818,11 @@ class _FileItem extends StatelessWidget {
                   color: AppColors.error.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.delete_outline,
-                    size: 16, color: AppColors.error),
+                child: const Icon(
+                  Icons.delete_outline,
+                  size: 16,
+                  color: AppColors.error,
+                ),
               ),
             ),
           ],
@@ -763,7 +831,7 @@ class _FileItem extends StatelessWidget {
     );
   }
 }
-// ── All Files Bottom Sheet ────────────────────────────────────────────────────
+
 class _AllFilesSheet extends StatelessWidget {
   final List<STLFile> files;
   final String Function(DateTime) timeAgo;
@@ -784,18 +852,13 @@ class _AllFilesSheet extends StatelessWidget {
         color: Color(0xFFF2F2F7),
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).padding.bottom,
-      ),
-      // Max 80% de la hauteur écran
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.80,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-
-          // ── Drag handle ─────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Container(
@@ -807,8 +870,6 @@ class _AllFilesSheet extends StatelessWidget {
               ),
             ),
           ),
-
-          // ── Header ──────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
@@ -827,7 +888,9 @@ class _AllFilesSheet extends StatelessWidget {
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
@@ -843,26 +906,26 @@ class _AllFilesSheet extends StatelessWidget {
                     ),
                   ],
                 ),
-                // Bouton fermer
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
                   child: Container(
                     width: 30,
                     height: 30,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE5E5EA),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE5E5EA),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.close_rounded,
-                        size: 16, color: Color(0xFF8E8E93)),
+                    child: const Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: Color(0xFF8E8E93),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 12),
-
-          // ── Liste scrollable ─────────────────────────────────────────────
           Flexible(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 20),

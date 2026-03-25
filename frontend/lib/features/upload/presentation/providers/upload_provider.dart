@@ -7,11 +7,12 @@ import '../../domain/stl_file.dart';
 import 'upload_state.dart';
 
 final stlRepositoryProvider = Provider<StlRepository>((ref) {
-  return StlRepositoryMock(); // ← changer en StlRepositoryImpl() pour le vrai backend
+  return StlRepositoryImpl(); // ← changer en StlRepositoryImpl() pour le vrai backend
 });
 
-final uploadProvider =
-    StateNotifierProvider<UploadNotifier, UploadState>((ref) {
+final uploadProvider = StateNotifierProvider<UploadNotifier, UploadState>((
+  ref,
+) {
   return UploadNotifier(ref.read(stlRepositoryProvider));
 });
 
@@ -67,10 +68,8 @@ class UploadNotifier extends StateNotifier<UploadState> {
         pollingFileId: state.pollingFileId,
       );
 
-
       // ── Démarrer le polling automatiquement après upload ──────────────
       startPolling(file.id);
-
     } catch (e) {
       state = state.copyWith(
         status: UploadStatus.error,
@@ -84,10 +83,7 @@ class UploadNotifier extends StateNotifier<UploadState> {
     state = state.copyWith(isLoadingFiles: true);
     try {
       final files = await _repo.getFiles();
-      state = state.copyWith(
-        files: files,
-        isLoadingFiles: false,
-      );
+      state = state.copyWith(files: files, isLoadingFiles: false);
     } catch (e) {
       state = state.copyWith(
         isLoadingFiles: false,
@@ -103,8 +99,9 @@ class UploadNotifier extends StateNotifier<UploadState> {
       if (state.pollingFileId == id) stopPolling();
 
       await _repo.deleteFile(id: id);
-      final updatedFiles =
-          state.files.where((f) => (f as STLFile).id != id).toList();
+      final updatedFiles = state.files
+          .where((f) => (f as STLFile).id != id)
+          .toList();
       state = state.copyWith(files: updatedFiles);
     } catch (e) {
       state = state.copyWith(
@@ -114,50 +111,50 @@ class UploadNotifier extends StateNotifier<UploadState> {
   }
 
   void startPolling(String fileId) {
-  stopPolling(); // ← 1. arrêter tout polling précédent
+    stopPolling(); // ← 1. arrêter tout polling précédent
 
-  state = state.copyWith(pollingFileId: fileId); // ← 2. mémoriser quel fichier on poll
-  _pollingTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
-    // ← 3. toutes les 2 secondes, exécuter ce bloc
-    try {
-      final updatedFile = await _repo.getFile(id: fileId); // ← 4. appel API
-      // ← 5. mettre à jour CE fichier dans la liste sans toucher les autres
-      final updatedFiles = state.files.map((f) {
-        final stlFile = f as STLFile;
-        return stlFile.id == fileId ? updatedFile : stlFile;
-      }).toList();
+    state = state.copyWith(
+      pollingFileId: fileId,
+    ); // ← 2. mémoriser quel fichier on poll
+    _pollingTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
+      // ← 3. toutes les 2 secondes, exécuter ce bloc
+      try {
+        final updatedFile = await _repo.getFile(id: fileId); // ← 4. appel API
+        // ← 5. mettre à jour CE fichier dans la liste sans toucher les autres
+        final updatedFiles = state.files.map((f) {
+          final stlFile = f as STLFile;
+          return stlFile.id == fileId ? updatedFile : stlFile;
+        }).toList();
 
-      state = state.copyWith(files: updatedFiles); // ← 6. UI se rebuild
+        state = state.copyWith(files: updatedFiles); // ← 6. UI se rebuild
 
-      // ← 7. si status final → arrêter automatiquement
-      if (updatedFile.status == 'ready' || updatedFile.status == 'error') {
-        stopPolling();
+        // ← 7. si status final → arrêter automatiquement
+        if (updatedFile.status == 'ready' || updatedFile.status == 'error') {
+          stopPolling();
+        }
+      } catch (e) {
+        // ← 8. erreur réseau → on continue silencieusement
       }
-    } catch (e) {
-      // ← 8. erreur réseau → on continue silencieusement
-    }
-  });
+    });
   }
 
   void stopPolling() {
-  _pollingTimer?.cancel(); // ← annule le timer — plus de ticks
-  _pollingTimer = null;    // ← libère la référence mémoire
-  state = UploadState(
-    files: state.files,
-    status: state.status,
-    selectedFileName: state.selectedFileName,
-    selectedFileSize: state.selectedFileSize,
-  );// ← UI sait que polling terminé
+    _pollingTimer?.cancel(); // ← annule le timer — plus de ticks
+    _pollingTimer = null; // ← libère la référence mémoire
+    state = UploadState(
+      files: state.files,
+      status: state.status,
+      selectedFileName: state.selectedFileName,
+      selectedFileSize: state.selectedFileSize,
+    ); // ← UI sait que polling terminé
   }
 
-// ── Reset ────────────────────────────────────────────────────────────────
+  // ── Reset ────────────────────────────────────────────────────────────────
   void reset() {
     print('🔴 reset() called — stack: ${StackTrace.current}');
-    state = UploadState(
-    files: state.files,
-    pollingFileId: state.pollingFileId,
-  );
+    state = UploadState(files: state.files, pollingFileId: state.pollingFileId);
   }
+
   @override
   void dispose() {
     // Nettoyer le timer quand le provider est détruit
