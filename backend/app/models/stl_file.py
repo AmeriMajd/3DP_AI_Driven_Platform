@@ -1,6 +1,7 @@
+from sqlalchemy import text
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
@@ -14,20 +15,19 @@ class STLFile(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-
     original_filename = Column(String, nullable=False)
     stored_filename = Column(String, nullable=False, unique=True)
     file_size_bytes = Column(Integer, nullable=False)
 
-    # Populated by Sprint 2B geometry extraction — all nullable at upload time
+    # Populated by geometry extraction — all nullable at upload time
     volume_cm3 = Column(Float, nullable=True)
     surface_area_cm2 = Column(Float, nullable=True)
     bbox_x_mm = Column(Float, nullable=True)
     bbox_y_mm = Column(Float, nullable=True)
     bbox_z_mm = Column(Float, nullable=True)
     triangle_count = Column(Integer, nullable=True)
-    has_overhangs = Column(String, nullable=True)   # 'yes' | 'no' | 'unknown'
-    has_thin_walls = Column(String, nullable=True)  # 'yes' | 'no' | 'unknown'
+    has_overhangs = Column(Boolean, nullable=True)  # None=unknown, True=yes, False=no
+    has_thin_walls = Column(Boolean, nullable=True)
 
     # Status progression: 'uploaded' → 'analyzing' → 'ready' | 'error'
     status = Column(String, nullable=False, default="uploaded")
@@ -37,3 +37,10 @@ class STLFile(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+    updated_at = Column(
+    DateTime(timezone=True),
+    nullable=False,
+    default=lambda: datetime.now(timezone.utc),
+    onupdate=lambda: datetime.now(timezone.utc),
+    server_default=text("now()"),  # ✅ lets Postgres handle it if Python default misses
+)

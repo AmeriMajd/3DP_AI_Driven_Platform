@@ -1,11 +1,9 @@
 from uuid import UUID
-
 from fastapi import APIRouter, Depends, UploadFile, File, status
 from sqlalchemy.orm import Session
-
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.schemas.stl import STLFileResponse, STLListResponse
+from app.schemas.stl import STLFileResponse, STLListResponse, STLStatusUpdate
 from app.services import stl_service
 
 router = APIRouter(prefix="/stl", tags=["STL Files"])
@@ -22,12 +20,11 @@ async def upload_stl(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    record = await stl_service.save_stl_file(
+    return await stl_service.save_stl_file(
         file=file,
         user_id=current_user["user_id"],
         db=db,
     )
-    return record
 
 
 @router.get(
@@ -61,6 +58,26 @@ def get_file(
     return stl_service.get_stl_file(
         stl_id=stl_id,
         user_id=current_user["user_id"],
+        db=db,
+    )
+
+
+@router.patch(
+    "/{stl_id}/status",
+    response_model=STLFileResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update the processing status of a file",
+)
+def update_status(
+    stl_id: UUID,
+    payload: STLStatusUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return stl_service.update_stl_status(
+        stl_id=stl_id,
+        user_id=current_user["user_id"],
+        new_status=payload.status,
         db=db,
     )
 
