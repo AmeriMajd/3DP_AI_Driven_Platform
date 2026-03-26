@@ -10,14 +10,20 @@ import '../../features/upload/presentation/screens/upload_screen.dart';
 //import '../../features/upload/presentation/screens/FileDetailScreen.dart';
 import '../../shared/widgets/placeholder_screen.dart';
 import '../../shared/widgets/main_shell.dart';
+import '../../features/auth/presentation/screens/splash_screen.dart';
 
 import 'app_routes.dart';
 
 final appRouter = GoRouter(
-  initialLocation: AppRoutes.login,
+  initialLocation: AppRoutes.splash,
   debugLogDiagnostics: true,
   routerNeglect: false, // logs navigation en console
   routes: [
+    GoRoute(
+      path: AppRoutes.splash,
+      name: AppRoutes.splash,
+      builder: (context, state) => const SplashScreen(),
+    ),
     // ── Auth routes (sans navbar) ─────────────────────────────────────────
     // ── Admin Signup ──
     GoRoute(
