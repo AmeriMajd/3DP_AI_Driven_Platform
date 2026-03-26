@@ -230,20 +230,42 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-Future<void> logout() async {
-  try {
-    final refreshToken = await StorageService.getRefreshToken();
-    await _dio.post(
-      '/auth/logout',
-      data: {'refresh_token': refreshToken},
-    );
-  } on DioException catch (e) {
-    // On logout, on ignore les erreurs réseau
-    // Le clearAll() se fait dans tous les cas
-  } finally {
-    await StorageService.clearAll();
+  Future<void> logout() async {
+    try {
+      final refreshToken = await StorageService.getRefreshToken();
+      await _dio.post('/auth/logout', data: {'refresh_token': refreshToken});
+    } on DioException catch (e) {
+      // On logout, on ignore les erreurs réseau
+      // Le clearAll() se fait dans tous les cas
+    } finally {
+      await StorageService.clearAll();
+    }
   }
-}
+
+  Future<bool> tryRefreshSession() async {
+    try {
+      final refreshToken = await StorageService.getRefreshToken();
+
+      if (refreshToken == null || refreshToken.isEmpty) {
+        return false;
+      }
+
+      final response = await _dio.post(
+        '/auth/refresh',
+        data: {'refresh_token': refreshToken},
+      );
+
+      final newAccessToken = response.data['access_token'];
+      if (newAccessToken == null || newAccessToken.toString().isEmpty) {
+        return false;
+      }
+
+      await StorageService.saveToken(newAccessToken.toString());
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 
   /// Extrait le message d'erreur lisible depuis la réponse Dio.
   String _handleError(DioException e) {
