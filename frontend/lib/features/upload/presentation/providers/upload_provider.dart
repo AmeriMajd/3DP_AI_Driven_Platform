@@ -1,9 +1,8 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/stl_repository.dart';
-import '../../data/stl_repository_mock.dart';
 import '../../data/stl_repository_impl.dart';
-import '../../domain/stl_file.dart';
 import 'upload_state.dart';
 
 final stlRepositoryProvider = Provider<StlRepository>((ref) {
@@ -51,6 +50,7 @@ class UploadNotifier extends StateNotifier<UploadState> {
     required String filePath,
     required String filename,
     required int fileSize,
+    Uint8List? fileBytes,
   }) async {
     state = state.copyWith(status: UploadStatus.uploading);
     try {
@@ -58,6 +58,7 @@ class UploadNotifier extends StateNotifier<UploadState> {
         filePath: filePath,
         filename: filename,
         fileSize: fileSize,
+        fileBytes: fileBytes,
       );
       // Ajouter le nouveau fichier en tête de liste
       final updatedFiles = [file, ...state.files];
@@ -99,9 +100,7 @@ class UploadNotifier extends StateNotifier<UploadState> {
       if (state.pollingFileId == id) stopPolling();
 
       await _repo.deleteFile(id: id);
-      final updatedFiles = state.files
-          .where((f) => (f as STLFile).id != id)
-          .toList();
+      final updatedFiles = state.files.where((f) => f.id != id).toList();
       state = state.copyWith(files: updatedFiles);
     } catch (e) {
       state = state.copyWith(
@@ -122,8 +121,7 @@ class UploadNotifier extends StateNotifier<UploadState> {
         final updatedFile = await _repo.getFile(id: fileId); // ← 4. appel API
         // ← 5. mettre à jour CE fichier dans la liste sans toucher les autres
         final updatedFiles = state.files.map((f) {
-          final stlFile = f as STLFile;
-          return stlFile.id == fileId ? updatedFile : stlFile;
+          return f.id == fileId ? updatedFile : f;
         }).toList();
 
         state = state.copyWith(files: updatedFiles); // ← 6. UI se rebuild
@@ -151,7 +149,6 @@ class UploadNotifier extends StateNotifier<UploadState> {
 
   // ── Reset ────────────────────────────────────────────────────────────────
   void reset() {
-    print('🔴 reset() called — stack: ${StackTrace.current}');
     state = UploadState(files: state.files, pollingFileId: state.pollingFileId);
   }
 

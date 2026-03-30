@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:frontend/core/router/app_router.dart';
 import 'package:frontend/core/router/app_routes.dart';
 import 'package:frontend/shared/services/storage_service.dart';
@@ -13,10 +15,7 @@ class DioClient {
   static Dio _createDio() {
     final dio = Dio(
       BaseOptions(
-        // Android emulator  → http://10.0.2.2:8000
-        // iOS simulator     → http://localhost:8000
-        // Physical device   → http://YOUR_PC_IP:8000
-        baseUrl: 'http://10.208.194.104:8000',
+        baseUrl: _resolveBaseUrl(),
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(seconds: 30),
         headers: {
@@ -103,12 +102,27 @@ class DioClient {
     return dio;
   }
 
+  static String _resolveBaseUrl() {
+    final configured = dotenv.maybeGet('API_BASE_URL');
+    if (configured != null && configured.isNotEmpty) {
+      return configured;
+    }
+
+    if (kIsWeb) {
+      return 'http://localhost:8000';
+    }
+
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => 'http://10.0.2.2:8000',
+      _ => 'http://localhost:8000',
+    };
+  }
+
   /// Clears all tokens and redirects to Login.
   static Future<void> _forceLogout() async {
     await StorageService.clearAll();
     try {
       appRouter.go(AppRoutes.login);
     } catch (_) {}
-    ;
   }
 }

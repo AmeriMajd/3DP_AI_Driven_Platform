@@ -6,7 +6,7 @@ import 'app.dart';
 
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
-  usePathUrlStrategy(); // ← supprime le # des URLs
+  //usePathUrlStrategy(); // ← supprime le # des URLs
   await dotenv.load(fileName: '.env');
   runApp(const ProviderScope(child: App()));
 }

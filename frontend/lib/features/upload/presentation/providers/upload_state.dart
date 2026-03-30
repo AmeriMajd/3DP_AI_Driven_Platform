@@ -1,8 +1,10 @@
+import '../../domain/stl_file.dart';
+
 enum UploadStatus { initial, uploading, success, error }
 
 class UploadState {
   final UploadStatus status;
-  final List<dynamic> files;
+  final List<STLFile> files;
   final bool isLoadingFiles;
   final String? selectedFileName;
   final int? selectedFileSize;
@@ -23,17 +25,17 @@ class UploadState {
 
   bool get isUploading => status == UploadStatus.uploading;
   bool get hasFileSelected => selectedFileName != null;
-  bool get isPolling => pollingFileId != null; 
+  bool get isPolling => pollingFileId != null;
 
   UploadState copyWith({
     UploadStatus? status,
-    List<dynamic>? files,
+    List<STLFile>? files,
     bool? isLoadingFiles,
     String? selectedFileName,
     int? selectedFileSize,
     String? errorMessage,
     String? successMessage,
-    String? pollingFileId, 
+    String? pollingFileId,
   }) {
     return UploadState(
       status: status ?? this.status,
@@ -41,9 +43,9 @@ class UploadState {
       isLoadingFiles: isLoadingFiles ?? this.isLoadingFiles,
       selectedFileName: selectedFileName ?? this.selectedFileName,
       selectedFileSize: selectedFileSize ?? this.selectedFileSize,
-      errorMessage: errorMessage ?? this.errorMessage,  
+      errorMessage: errorMessage ?? this.errorMessage,
       successMessage: successMessage ?? this.successMessage,
-      pollingFileId: pollingFileId ?? this.pollingFileId, 
+      pollingFileId: pollingFileId ?? this.pollingFileId,
     );
   }
 }

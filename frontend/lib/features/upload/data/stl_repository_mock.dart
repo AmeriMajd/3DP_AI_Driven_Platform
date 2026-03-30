@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../domain/stl_file.dart';
 import 'stl_repository.dart';
 
@@ -19,7 +21,6 @@ class StlRepositoryMock implements StlRepository {
       status: 'uploaded',
       createdAt: DateTime.now().subtract(const Duration(seconds: 30)),
     ),
-    
   ];
 
   @override
@@ -27,6 +28,7 @@ class StlRepositoryMock implements StlRepository {
     required String filePath,
     required String filename,
     required int fileSize,
+    Uint8List? fileBytes,
   }) async {
     await Future.delayed(const Duration(seconds: 2));
 
@@ -67,40 +69,39 @@ class StlRepositoryMock implements StlRepository {
   //   orElse: () => throw Exception('File not found'),
   // );
   // }
- 
   Future<STLFile> getFile({required String id}) async {
-  await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 300));
 
-  final index = _files.indexWhere((f) => f.id == id);
-  if (index == -1) throw Exception('File not found');
+    final index = _files.indexWhere((f) => f.id == id);
+    if (index == -1) throw Exception('File not found');
 
-  // Incrémenter le compteur de ticks pour ce fichier
-  _pollCount[id] = (_pollCount[id] ?? 0) + 1;
-  final ticks = _pollCount[id]!;
+    // Incrémenter le compteur de ticks pour ce fichier
+    _pollCount[id] = (_pollCount[id] ?? 0) + 1;
+    final ticks = _pollCount[id]!;
 
-  final file = _files[index];
+    final file = _files[index];
 
-  // tick 1-2 → uploaded, tick 3-4 → analyzing, tick 5+ → ready
-  String newStatus;
-  if (ticks <= 2) {
-    newStatus = 'uploaded';
-  } else if (ticks <= 4) {
-    newStatus = 'analyzing';
-  } else {
-    newStatus = 'ready';
+    // tick 1-2 → uploaded, tick 3-4 → analyzing, tick 5+ → ready
+    String newStatus;
+    if (ticks <= 2) {
+      newStatus = 'uploaded';
+    } else if (ticks <= 4) {
+      newStatus = 'analyzing';
+    } else {
+      newStatus = 'ready';
+    }
+
+    final updated = STLFile(
+      id: file.id,
+      originalFilename: file.originalFilename,
+      fileSizeBytes: file.fileSizeBytes,
+      status: newStatus,
+      createdAt: file.createdAt,
+    );
+
+    _files[index] = updated;
+    return updated;
   }
-
-  final updated = STLFile(
-    id: file.id,
-    originalFilename: file.originalFilename,
-    fileSizeBytes: file.fileSizeBytes,
-    status: newStatus,
-    createdAt: file.createdAt,
-  );
-
-  _files[index] = updated;
-  return updated;
-}
 
   @override
   Future<void> deleteFile({required String id}) async {
