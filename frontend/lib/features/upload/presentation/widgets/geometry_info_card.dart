@@ -7,99 +7,142 @@ class GeometryInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 0,
-      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      color: colorScheme.surface,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // ── Header ───────────────────────────────────────────────────
             Row(
               children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.view_in_ar_rounded,
-                    size: 16,
-                    color: Color(0xFF6366F1),
-                  ),
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 20,
+                  color: colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 10),
-                const Text(
-                  'Geometry',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: Color(0xFF1C1C1E),
-                  ),
+                const SizedBox(width: 8),
+                Text(
+                  'Model information',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurface,
+                      ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
 
-            // Grid 2x3
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 2.8,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
+            const SizedBox(height: 20),
+
+            // ── Dimensions label ─────────────────────────────────────────
+            Text(
+              'Dimensions (mm)',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+            ),
+            const SizedBox(height: 8),
+
+            // ── Dimension Pills ──────────────────────────────────────────
+            Row(
               children: [
-                _InfoTile(
-                  label: 'Dimension X',
-                  value: file.bboxXMm != null
-                      ? '${file.bboxXMm!.toStringAsFixed(1)} mm'
-                      : '---',
-                ),
-                _InfoTile(
-                  label: 'Dimension Y',
-                  value: file.bboxYMm != null
-                      ? '${file.bboxYMm!.toStringAsFixed(1)} mm'
-                      : '---',
-                ),
-                _InfoTile(
-                  label: 'Dimension Z',
-                  value: file.bboxZMm != null
-                      ? '${file.bboxZMm!.toStringAsFixed(1)} mm'
-                      : '---',
-                ),
-                _InfoTile(
-                  label: 'Volume',
-                  value: file.volumeCm3 != null
-                      ? '${(file.volumeCm3! * 1000).toStringAsFixed(0)} mm³'
-                      : '---',
-                ),
-                _InfoTile(
-                  label: 'Triangles',
-                  value: file.triangleCount != null
-                      ? _formatNumber(file.triangleCount!)
-                      : '---',
-                ),
-                _InfoTile(label: 'File Size', value: file.formattedSize),
+                _DimensionPill(axis: 'X', value: file.bboxXMm, colorScheme: colorScheme),
+                const SizedBox(width: 10),
+                _DimensionPill(axis: 'Y', value: file.bboxYMm, colorScheme: colorScheme),
+                const SizedBox(width: 10),
+                _DimensionPill(axis: 'Z', value: file.bboxZMm, colorScheme: colorScheme),
               ],
             ),
 
-            // Warnings — affichés seulement si status = ready
+            const SizedBox(height: 16),
+            Divider(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+              height: 1,
+            ),
+            const SizedBox(height: 16),
+
+            // ── Volume + Triangles ───────────────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: _StatItem(
+                    label: 'Volume',
+                    value: file.volumeCm3 != null
+                        ? '${_formatVolume(file.volumeCm3!)} mm³'
+                        : '---',
+                    colorScheme: colorScheme,
+                  ),
+                ),
+                Expanded(
+                  child: _StatItem(
+                    label: 'Triangles',
+                    value: file.triangleCount != null
+                        ? _formatNumber(file.triangleCount!)
+                        : '---',
+                    colorScheme: colorScheme,
+                  ),
+                ),
+              ],
+            ),
+
+            // ── File Size + Surface Area ──────────────────────────────────
+            // if (file.fileSizeBytes > 0) ...[
+            //   const SizedBox(height: 12),
+            //   Divider(
+            //     color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+            //     height: 1,
+            //   ),
+            //   const SizedBox(height: 12),
+            //   Row(
+            //     children: [
+            //       Expanded(
+            //         child: _StatItem(
+            //           label: 'File size',
+            //           value: file.formattedSize,
+            //           colorScheme: colorScheme,
+            //         ),
+            //       ),
+            //       if (file.surfaceAreaCm2 != null)
+            //         Expanded(
+            //           child: _StatItem(
+            //             label: 'Surface area',
+            //             value: '${file.surfaceAreaCm2!.toStringAsFixed(1)} cm²',
+            //             colorScheme: colorScheme,
+            //           ),
+            //         ),
+            //     ],
+            //   ),
+            // ],
+
+            // ── Warnings ─────────────────────────────────────────────────
             if (file.isReady) ...[
-              if (file.hasOverhangs == 'yes')
-                _WarningBanner(
-                  'Overhangs detected — support structures will be needed. '
-                  'This affects print time and material cost.',
+              if (file.hasOverhangs == 'yes') ...[
+                const SizedBox(height: 14),
+                const _WarningBanner(
+                  message:
+                      'Overhangs detected — support structures will be needed. '
+                      'This affects print time and material cost.',
                 ),
-              if (file.hasThinWalls == 'yes')
-                _WarningBanner(
-                  'Thin walls detected — some areas may not print correctly. '
-                  'Consider using a finer layer height.',
+              ],
+              if (file.hasThinWalls == 'yes') ...[
+                const SizedBox(height: 8),
+                const _WarningBanner(
+                  message:
+                      'Thin walls detected — some areas may not print correctly. '
+                      'Consider using a finer layer height.',
                 ),
+              ],
             ],
           ],
         ),
@@ -107,55 +150,123 @@ class GeometryInfoCard extends StatelessWidget {
     );
   }
 
-  String _formatNumber(int n) {
+  static String _formatVolume(double cm3) {
+    final mm3 = (cm3 * 1000).round();
+    final s = mm3.toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('\u202F');
+      buf.write(s[i]);
+    }
+    return buf.toString();
+  }
+
+  static String _formatNumber(int n) {
     if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
-    return n.toString();
+    final s = n.toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('\u202F');
+      buf.write(s[i]);
+    }
+    return buf.toString();
   }
 }
 
-// ── Info Tile ─────────────────────────────────────────────────────────────────
+// ── Dimension Pill ────────────────────────────────────────────────────────────
 
-class _InfoTile extends StatelessWidget {
+class _DimensionPill extends StatelessWidget {
+  final String axis;
+  final double? value;
+  final ColorScheme colorScheme;
+
+  const _DimensionPill({
+    required this.axis,
+    required this.value,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isPlaceholder = value == null;
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          // surfaceContainerHighest s'adapte automatiquement light/dark
+          color: colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Text(
+              axis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurfaceVariant,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              isPlaceholder
+                  ? '---'
+                  : value! % 1 == 0
+                      ? value!.toInt().toString()
+                      : value!.toStringAsFixed(1),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: isPlaceholder
+                    ? colorScheme.onSurfaceVariant.withValues(alpha: 0.3)
+                    : colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Stat Item ─────────────────────────────────────────────────────────────────
+
+class _StatItem extends StatelessWidget {
   final String label;
   final String value;
-  const _InfoTile({required this.label, required this.value});
+  final ColorScheme colorScheme;
+
+  const _StatItem({
+    required this.label,
+    required this.value,
+    required this.colorScheme,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isPlaceholder = value == '---';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F4F8),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF8E8E93),
-              letterSpacing: 0.3,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: isPlaceholder
-                  ? const Color(0xFFD1D1D6)
-                  : const Color(0xFF1C1C1E),
-            ),
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isPlaceholder
+                    ? colorScheme.onSurfaceVariant.withValues(alpha: 0.3)
+                    : colorScheme.onSurface,
+              ),
+        ),
+      ],
     );
   }
 }
@@ -164,36 +275,44 @@ class _InfoTile extends StatelessWidget {
 
 class _WarningBanner extends StatelessWidget {
   final String message;
-  const _WarningBanner(this.message);
+  const _WarningBanner({required this.message});
 
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(top: 10),
-    padding: const EdgeInsets.all(10),
-    decoration: BoxDecoration(
-      color: Colors.orange.withValues(alpha: 0.10),
-      border: Border.all(color: Colors.orange.withValues(alpha: 0.40)),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(top: 1),
-          child: Icon(
-            Icons.warning_amber_rounded,
-            color: Colors.orange,
-            size: 16,
-          ),
+  Widget build(BuildContext context) {
+    // Couleurs fixes — le orange warning ne dépend pas du thème
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.orange.withValues(alpha: 0.4),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            message,
-            style: const TextStyle(color: Colors.orange, fontSize: 12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.orange,
+              size: 16,
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Color(0xFF7A4500),
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

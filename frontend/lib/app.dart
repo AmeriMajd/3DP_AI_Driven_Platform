@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/core/theme/app_theme.dart';
-import 'package:frontend/features/auth/presentation/screens/admin_signup_screen.dart';
-import 'package:frontend/features/auth/presentation/screens/invite_user_screen.dart';
-import 'package:frontend/features/auth/presentation/screens/register_screen.dart';
 import 'package:frontend/core/router/app_router.dart';
 
 class App extends StatelessWidget {
@@ -15,8 +12,8 @@ class App extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.light,
       routerConfig: appRouter,
-      //home: const RegisterScreen(),
     );
   }
 }
