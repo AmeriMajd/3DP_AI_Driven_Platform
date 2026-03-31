@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/services/storage_service.dart';
 import '../../data/auth_repository.dart';
 import '../../data/auth_repository_impl.dart';
+import '../../data/auth_repository_mock.dart';
 import 'auth_state.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

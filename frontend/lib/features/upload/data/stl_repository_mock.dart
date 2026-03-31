@@ -13,7 +13,7 @@ class StlRepositoryMock implements StlRepository {
       fileSizeBytes: 2400000,
       status: 'ready',
       createdAt: DateTime.now().subtract(const Duration(minutes: 2)),
-      glbUrl: 'mock', // non-null → viewer se charge
+      glbUrl: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb', // non-null → viewer se charge
       volumeCm3: 26.4,
       surfaceAreaCm2: 48.2,
       bboxXMm: 42.0,
@@ -99,7 +99,7 @@ class StlRepositoryMock implements StlRepository {
       status: newStatus,
       createdAt: file.createdAt,
       // ← glbUrl non-null dès que ready (le mock n'a pas de vrai fichier)
-      glbUrl: isReady ? 'mock' : null,
+      glbUrl: isReady ? 'https://modelviewer.dev/shared-assets/models/Astronaut.glb' : null,
       volumeCm3: isReady ? 18.7 : null,
       surfaceAreaCm2: isReady ? 34.5 : null,
       bboxXMm: isReady ? 55.0 : null,

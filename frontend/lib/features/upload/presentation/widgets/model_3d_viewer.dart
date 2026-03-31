@@ -47,7 +47,10 @@ class _Model3DViewerState extends State<Model3DViewer> {
     }
 
     // State 2 : prêt → charger GLB
-    final glbUrl = '$baseUrl/stl/${widget.file.id}/glb';
+    //final glbUrl = '$baseUrl/stl/${widget.file.id}/glb';
+    final glbUrl = widget.file.glbUrl!.startsWith('http')
+    ? widget.file.glbUrl!
+    : '$baseUrl/stl/${widget.file.id}/glb';
 
     return ModelViewer(
       src: glbUrl,
