@@ -6,7 +6,6 @@ import '../../../../../core/utils/validators.dart';
 import '../../../../../core/router/app_routes.dart';
 import '../providers/auth_provider.dart';
 import '../providers/auth_state.dart';
-import '../widgets/auth_card.dart';
 import '../widgets/auth_primary_button.dart';
 import '../widgets/login_text_field.dart';
 

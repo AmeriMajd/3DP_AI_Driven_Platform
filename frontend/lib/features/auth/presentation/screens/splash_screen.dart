@@ -64,7 +64,7 @@ class _SplashScreenState extends State<SplashScreen> {
         await StorageService.clearAll();
         _go(AppRoutes.login);
       }
-    } catch (e, st) {
+    } catch (e) {
       await StorageService.clearAll();
       _go(AppRoutes.login);
     }
