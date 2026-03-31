@@ -13,6 +13,15 @@ class StlRepositoryMock implements StlRepository {
       fileSizeBytes: 2400000,
       status: 'ready',
       createdAt: DateTime.now().subtract(const Duration(minutes: 2)),
+      glbUrl: 'mock', // non-null → viewer se charge
+      volumeCm3: 26.4,
+      surfaceAreaCm2: 48.2,
+      bboxXMm: 42.0,
+      bboxYMm: 30.0,
+      bboxZMm: 20.0,
+      triangleCount: 12480,
+      hasOverhangs: 'yes',
+      hasThinWalls: 'no',
     ),
     STLFile(
       id: 'mock-002',
@@ -32,13 +41,10 @@ class StlRepositoryMock implements StlRepository {
   }) async {
     await Future.delayed(const Duration(seconds: 2));
 
-    // Simuler erreur extension
     final ext = filename.split('.').last.toLowerCase();
     if (!['stl', '3mf'].contains(ext)) {
       throw Exception('Only STL and 3MF files are allowed');
     }
-
-    // Simuler erreur taille
     if (fileSize > 50 * 1024 * 1024) {
       throw Exception('File exceeds 50 MB limit');
     }
@@ -62,20 +68,12 @@ class StlRepositoryMock implements StlRepository {
   }
 
   @override
-  // Future<STLFile> getFile({required String id}) async {
-  //   await Future.delayed(const Duration(milliseconds: 500));
-  //   return _files.firstWhere(
-  //   (f) => f.id == id,
-  //   orElse: () => throw Exception('File not found'),
-  // );
-  // }
   Future<STLFile> getFile({required String id}) async {
     await Future.delayed(const Duration(milliseconds: 300));
 
     final index = _files.indexWhere((f) => f.id == id);
     if (index == -1) throw Exception('File not found');
 
-    // Incrémenter le compteur de ticks pour ce fichier
     _pollCount[id] = (_pollCount[id] ?? 0) + 1;
     final ticks = _pollCount[id]!;
 
@@ -91,12 +89,25 @@ class StlRepositoryMock implements StlRepository {
       newStatus = 'ready';
     }
 
+    // Remplir les champs geometry + glbUrl uniquement à ready
+    final isReady = newStatus == 'ready';
+
     final updated = STLFile(
       id: file.id,
       originalFilename: file.originalFilename,
       fileSizeBytes: file.fileSizeBytes,
       status: newStatus,
       createdAt: file.createdAt,
+      // ← glbUrl non-null dès que ready (le mock n'a pas de vrai fichier)
+      glbUrl: isReady ? 'mock' : null,
+      volumeCm3: isReady ? 18.7 : null,
+      surfaceAreaCm2: isReady ? 34.5 : null,
+      bboxXMm: isReady ? 55.0 : null,
+      bboxYMm: isReady ? 40.0 : null,
+      bboxZMm: isReady ? 25.0 : null,
+      triangleCount: isReady ? 8960 : null,
+      hasOverhangs: isReady ? 'yes' : null,
+      hasThinWalls: isReady ? 'no' : null,
     );
 
     _files[index] = updated;

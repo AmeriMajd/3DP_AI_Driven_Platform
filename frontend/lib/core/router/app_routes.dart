@@ -20,4 +20,6 @@ class AppRoutes {
   static const String schedule = '/schedule';
   static const String monitoring = '/monitoring';
   static const String splash = '/splash';
+
+  static const String recommendForm = '/recommend-form';
 }

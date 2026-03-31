@@ -7,7 +7,7 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/upload/presentation/screens/upload_screen.dart';
-//import '../../features/upload/presentation/screens/FileDetailScreen.dart';
+import '../../features/upload/presentation/screens/FileDetailScreen.dart';
 import '../../shared/widgets/placeholder_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
@@ -86,7 +86,7 @@ final appRouter = GoRouter(
               path: 'file/:id',
               builder: (context, state) {
                 final id = state.pathParameters['id'] ?? '';
-                return PlaceholderScreen(title: 'File Detail — $id');
+                return FileDetailScreen(fileId: id);
               },
             ),
           ],
