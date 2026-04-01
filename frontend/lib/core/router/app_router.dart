@@ -7,7 +7,7 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/upload/presentation/screens/upload_screen.dart';
-//import '../../features/upload/presentation/screens/FileDetailScreen.dart';
+import '../../features/upload/presentation/screens/FileDetailScreen.dart';
 import '../../shared/widgets/placeholder_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
@@ -67,19 +67,13 @@ final appRouter = GoRouter(
 
     GoRoute(
       path: AppRoutes.resetPassword,
+      name: AppRoutes.resetPassword,
       builder: (context, state) {
         final token = state.uri.queryParameters['token'] ?? '';
         return ResetPasswordScreen(token: token);
       },
     ),
 
-    //  GoRoute(
-    //  path: '${AppRoutes.fileDetail}/:id',
-    //  builder: (context, state) {
-    //    final id = state.pathParameters['id'] ?? '';
-    //    return FileDetailScreen(fileId: id); // à créer Sprint 2B
-    //},
-    //),
     // ── Main routes (avec navbar) ─────────────────────────────────────────
     ShellRoute(
       builder: (context, state, child) => MainShell(child: child),
@@ -92,7 +86,7 @@ final appRouter = GoRouter(
               path: 'file/:id',
               builder: (context, state) {
                 final id = state.pathParameters['id'] ?? '';
-                return PlaceholderScreen(title: 'File Detail — $id');
+                return FileDetailScreen(fileId: id);
               },
             ),
           ],

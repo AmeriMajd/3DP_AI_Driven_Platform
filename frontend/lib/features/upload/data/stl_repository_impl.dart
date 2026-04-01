@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import '../../../shared/services/dio_client.dart';
 import '../domain/stl_file.dart';
@@ -12,14 +14,20 @@ class StlRepositoryImpl implements StlRepository {
     required String filePath,
     required String filename,
     required int fileSize,
+    Uint8List? fileBytes,
   }) async {
     try {
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(
-          filePath,
-          filename: filename,
-        ),
-      });
+      if ((fileBytes == null || fileBytes.isEmpty) && filePath.isEmpty) {
+        throw Exception(
+          'Selected file is unavailable. Please pick the file again.',
+        );
+      }
+
+      final multipartFile = (fileBytes != null && fileBytes.isNotEmpty)
+          ? MultipartFile.fromBytes(fileBytes, filename: filename)
+          : await MultipartFile.fromFile(filePath, filename: filename);
+
+      final formData = FormData.fromMap({'file': multipartFile});
 
       final response = await _dio.post(
         '/stl/upload',
@@ -87,14 +95,21 @@ class StlRepositoryImpl implements StlRepository {
         return 'Server took too long to respond';
       default:
         switch (e.response?.statusCode) {
-        case 400: return 'Invalid file — check extension and size';
-        case 401: return 'Not authenticated';
-        case 404: return 'File not found';
-        case 413: return 'File exceeds 50 MB limit';
-        case 422: return 'Malformed request — please try again';
-        case 500: return 'Server error — please try again later';
-        default:  return 'An unexpected error occurred';
-      }
+          case 400:
+            return 'Invalid file — check extension and size';
+          case 401:
+            return 'Not authenticated';
+          case 404:
+            return 'File not found';
+          case 413:
+            return 'File exceeds 50 MB limit';
+          case 422:
+            return 'Malformed request — please try again';
+          case 500:
+            return 'Server error — please try again later';
+          default:
+            return 'An unexpected error occurred';
+        }
     }
   }
 }
