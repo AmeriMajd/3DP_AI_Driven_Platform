@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:frontend/features/auth/data/auth_repository_mock.dart';
 import '../../../../shared/services/storage_service.dart';
 import '../../data/auth_repository.dart';
 import '../../data/auth_repository_impl.dart';

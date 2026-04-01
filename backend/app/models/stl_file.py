@@ -38,9 +38,12 @@ class STLFile(Base):
         default=lambda: datetime.now(timezone.utc),
     )
     updated_at = Column(
-    DateTime(timezone=True),
-    nullable=False,
-    default=lambda: datetime.now(timezone.utc),
-    onupdate=lambda: datetime.now(timezone.utc),
-    server_default=text("now()"),  # ✅ lets Postgres handle it if Python default misses
-)
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+    )
+
+    # Null until conversion has completed successfully.
+    glb_filename = Column(String, nullable=True)

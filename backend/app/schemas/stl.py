@@ -22,6 +22,8 @@ class STLFileResponse(BaseModel):
     has_overhangs: Optional[bool] = None
     has_thin_walls: Optional[bool] = None
 
+    glb_url: Optional[str] = None
+
     model_config = {"from_attributes": True}
 
 

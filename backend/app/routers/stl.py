@@ -1,10 +1,12 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, UploadFile, File, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.schemas.stl import STLFileResponse, STLListResponse, STLStatusUpdate
 from app.services import stl_service
+from fastapi import BackgroundTasks
 
 router = APIRouter(prefix="/stl", tags=["STL Files"])
 
@@ -16,6 +18,7 @@ router = APIRouter(prefix="/stl", tags=["STL Files"])
     summary="Upload an STL or 3MF file",
 )
 async def upload_stl(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -24,6 +27,7 @@ async def upload_stl(
         file=file,
         user_id=current_user["user_id"],
         db=db,
+        background_tasks=background_tasks,
     )
 
 
@@ -96,4 +100,26 @@ def delete_file(
         stl_id=stl_id,
         user_id=current_user["user_id"],
         db=db,
+    )
+
+
+@router.get(
+    "/{stl_id}/glb",
+    status_code=status.HTTP_200_OK,
+    summary="Download converted GLB for a file (owner only)",
+)
+def download_glb(
+    stl_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    glb_path = stl_service.get_glb_path(
+        stl_id=stl_id,
+        user_id=current_user["user_id"],
+        db=db,
+    )
+    return FileResponse(
+        path=str(glb_path),
+        media_type="application/octet-stream",
+        filename=glb_path.name,
     )
