@@ -10,3 +10,6 @@ email-validator
 pydantic-settings
 python-multipart
 pydantic
+numpy==1.26.4
+trimesh==4.3.1
+scipy
