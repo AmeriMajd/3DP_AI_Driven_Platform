@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
+import 'package:dio/dio.dart';
 
 import '../../domain/stl_file.dart';
 import 'package:frontend/shared/services/dio_client.dart';
@@ -14,55 +18,94 @@ class Model3DViewer extends StatefulWidget {
 
 class _Model3DViewerState extends State<Model3DViewer> {
   bool _viewerError = false;
+  late Future<String?> _glbDataUrlFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _glbDataUrlFuture = _loadGlbAsDataUrl();
+  }
 
   @override
   void didUpdateWidget(Model3DViewer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Reset erreur si le fichier change de status
-    if (oldWidget.file.status != widget.file.status) {
-      setState(() => _viewerError = false);
+    if (oldWidget.file.id != widget.file.id ||
+        oldWidget.file.status != widget.file.status) {
+      _viewerError = false;
+      _glbDataUrlFuture = _loadGlbAsDataUrl();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final baseUrl = DioClient.instance.options.baseUrl;
-
     return SizedBox(
       height: 280,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: _buildViewer(baseUrl),
+        child: _buildViewer(),
       ),
     );
   }
 
-  Widget _buildViewer(String baseUrl) {
+  Widget _buildViewer() {
     // State 3 : erreur viewer
     if (_viewerError) return _buildError();
 
     // State 1 : pas encore prêt
-    if (!widget.file.isReady || widget.file.glbUrl == null) {
+    if (!widget.file.isReady) {
       return _buildPlaceholder();
     }
 
-    // State 2 : prêt → charger GLB
-    //final glbUrl = '$baseUrl/stl/${widget.file.id}/glb';
-    final glbUrl = widget.file.glbUrl!.startsWith('http')
-    ? widget.file.glbUrl!
-    : '$baseUrl/stl/${widget.file.id}/glb';
+    // State 2 : prêt → charger le GLB via Dio pour garder l'auth Bearer.
+    return FutureBuilder<String?>(
+      future: _glbDataUrlFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return _buildPlaceholder();
+        }
 
-    return ModelViewer(
-      src: glbUrl,
-      alt: widget.file.originalFilename,
-      ar: false,
-      autoRotate: true,
-      cameraControls: true,
-      backgroundColor: const Color(0xFF1E1E2E),
+        final src = snapshot.data;
+        if (src == null || src.isEmpty) {
+          return _buildError();
+        }
+
+        return ModelViewer(
+          src: src,
+          alt: widget.file.originalFilename,
+          ar: false,
+          autoRotate: true,
+          cameraControls: true,
+          backgroundColor: const Color(0xFF1E1E2E),
+        );
+      },
     );
     // Note : model_viewer_plus ne lève pas d'exception synchrone —
     // les erreurs de chargement (CORS, 404) sont gérées en interne.
     // Pour capturer les erreurs web, écouter les messages JS si nécessaire.
+  }
+
+  Future<String?> _loadGlbAsDataUrl() async {
+    if (!widget.file.isReady) {
+      return null;
+    }
+
+    try {
+      final response = await DioClient.instance.get<List<int>>(
+        '/stl/${widget.file.id}/glb',
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      final raw = response.data;
+      if (raw == null || raw.isEmpty) {
+        return null;
+      }
+
+      final bytes = raw is Uint8List ? raw : Uint8List.fromList(raw);
+      final base64Data = base64Encode(bytes);
+      return 'data:model/gltf-binary;base64,$base64Data';
+    } catch (_) {
+      return null;
+    }
   }
 
   Widget _buildPlaceholder() {
@@ -145,10 +188,7 @@ class _RotatingCubeIconState extends State<_RotatingCubeIcon>
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.07),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.15),
-            width: 1.5,
-          ),
+          border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.5),
         ),
         child: const Icon(
           Icons.view_in_ar_rounded,

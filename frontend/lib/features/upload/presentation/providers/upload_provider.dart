@@ -7,7 +7,7 @@ import '../../data/stl_repository_mock.dart';
 import 'upload_state.dart';
 
 final stlRepositoryProvider = Provider<StlRepository>((ref) {
-  return StlRepositoryMock(); // ← changer en StlRepositoryImpl() pour le vrai backend
+  return StlRepositoryImpl(); // ← changer en StlRepositoryImpl() pour le vrai backend
 });
 
 final uploadProvider = StateNotifierProvider<UploadNotifier, UploadState>((
