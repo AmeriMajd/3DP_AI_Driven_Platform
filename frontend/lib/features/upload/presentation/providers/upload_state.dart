@@ -36,19 +36,27 @@ class UploadState {
     String? errorMessage,
     String? successMessage,
     String? pollingFileId,
-    // ← flag spécial pour mettre pollingFileId à null sans conflit avec
-    //   le comportement "null = garder l'ancienne valeur" de copyWith
+    // Clear flags — permettent de mettre explicitement un champ à null.
+    // Nécessaires car copyWith ignore les null par convention "garder l'ancienne valeur".
+    bool clearSelectedFile = false,
+    bool clearErrorMessage = false,
+    bool clearSuccessMessage = false,
     bool clearPollingFileId = false,
   }) {
     return UploadState(
       status: status ?? this.status,
       files: files ?? this.files,
       isLoadingFiles: isLoadingFiles ?? this.isLoadingFiles,
-      selectedFileName: selectedFileName ?? this.selectedFileName,
-      selectedFileSize: selectedFileSize ?? this.selectedFileSize,
-      errorMessage: errorMessage ?? this.errorMessage,
-      successMessage: successMessage ?? this.successMessage,
-      pollingFileId: clearPollingFileId ? null : (pollingFileId ?? this.pollingFileId),
+      selectedFileName:
+          clearSelectedFile ? null : (selectedFileName ?? this.selectedFileName),
+      selectedFileSize:
+          clearSelectedFile ? null : (selectedFileSize ?? this.selectedFileSize),
+      errorMessage:
+          clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      successMessage:
+          clearSuccessMessage ? null : (successMessage ?? this.successMessage),
+      pollingFileId:
+          clearPollingFileId ? null : (pollingFileId ?? this.pollingFileId),
     );
   }
 }

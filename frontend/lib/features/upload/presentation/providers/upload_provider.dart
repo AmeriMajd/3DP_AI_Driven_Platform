@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/stl_repository.dart';
 import '../../data/stl_repository_impl.dart';
+import '../../data/stl_repository_mock.dart';
 import '../../domain/stl_file.dart';
 import 'upload_state.dart';
 
@@ -10,28 +11,29 @@ final stlRepositoryProvider = Provider<StlRepository>((ref) {
   return StlRepositoryImpl();
 });
 
-final uploadProvider = StateNotifierProvider<UploadNotifier, UploadState>((
-  ref,
-) {
+final uploadProvider = StateNotifierProvider<UploadNotifier, UploadState>((ref) {
   return UploadNotifier(ref.read(stlRepositoryProvider));
 });
 
 class UploadNotifier extends StateNotifier<UploadState> {
   final StlRepository _repo;
   Timer? _pollingTimer;
+
   static const _pollInterval = Duration(seconds: 2);
   static const _maxPollAttempts = 150;
   static const _staleUploadedThreshold = Duration(minutes: 10);
 
   UploadNotifier(this._repo) : super(const UploadState());
 
-  /// Sélectionner un fichier localement — pas encore uploadé
+  // ── Sélectionner un fichier localement ────────────────────────────────────
+
   void selectFile({required String filename, required int fileSize}) {
     final ext = filename.split('.').last.toLowerCase();
     if (!['stl', '3mf'].contains(ext)) {
       state = state.copyWith(
         status: UploadStatus.error,
         errorMessage: 'Only STL and 3MF files are allowed',
+        clearSelectedFile: true,
       );
       return;
     }
@@ -39,6 +41,7 @@ class UploadNotifier extends StateNotifier<UploadState> {
       state = state.copyWith(
         status: UploadStatus.error,
         errorMessage: 'File exceeds 50 MB limit',
+        clearSelectedFile: true,
       );
       return;
     }
@@ -46,17 +49,25 @@ class UploadNotifier extends StateNotifier<UploadState> {
       status: UploadStatus.initial,
       selectedFileName: filename,
       selectedFileSize: fileSize,
+      // Effacer les messages d'une opération précédente
+      clearErrorMessage: true,
+      clearSuccessMessage: true,
     );
   }
 
-  /// POST /stl/upload
+  // ── POST /stl/upload ──────────────────────────────────────────────────────
+
   Future<void> uploadFile({
     required String filePath,
     required String filename,
     required int fileSize,
     Uint8List? fileBytes,
   }) async {
-    state = state.copyWith(status: UploadStatus.uploading);
+    state = state.copyWith(
+      status: UploadStatus.uploading,
+      clearErrorMessage: true,
+      clearSuccessMessage: true,
+    );
     try {
       final file = await _repo.uploadFile(
         filePath: filePath,
@@ -64,11 +75,11 @@ class UploadNotifier extends StateNotifier<UploadState> {
         fileSize: fileSize,
         fileBytes: fileBytes,
       );
-      final updatedFiles = [file, ...state.files];
       state = state.copyWith(
         status: UploadStatus.success,
-        files: updatedFiles,
+        files: [file, ...state.files],
         successMessage: '${file.originalFilename} uploaded successfully',
+        clearSelectedFile: true,
       );
       startPolling(file.id);
     } catch (e) {
@@ -79,7 +90,8 @@ class UploadNotifier extends StateNotifier<UploadState> {
     }
   }
 
-  /// GET /stl/
+  // ── GET /stl/ ─────────────────────────────────────────────────────────────
+
   Future<void> loadFiles() async {
     state = state.copyWith(isLoadingFiles: true);
     try {
@@ -93,13 +105,15 @@ class UploadNotifier extends StateNotifier<UploadState> {
     }
   }
 
-  /// DELETE /stl/{id}
+  // ── DELETE /stl/{id} ──────────────────────────────────────────────────────
+
   Future<void> deleteFile({required String id}) async {
     try {
       if (state.pollingFileId == id) stopPolling();
       await _repo.deleteFile(id: id);
-      final updatedFiles = state.files.where((f) => f.id != id).toList();
-      state = state.copyWith(files: updatedFiles);
+      state = state.copyWith(
+        files: state.files.where((f) => f.id != id).toList(),
+      );
     } catch (e) {
       state = state.copyWith(
         errorMessage: e.toString().replaceAll('Exception: ', ''),
@@ -107,36 +121,38 @@ class UploadNotifier extends StateNotifier<UploadState> {
     }
   }
 
+  // ── Polling ───────────────────────────────────────────────────────────────
+
   void startPolling(String fileId) {
     stopPolling();
     state = state.copyWith(pollingFileId: fileId);
-
-    var pollAttempts = 0;
+    var attempts = 0;
 
     _pollingTimer = Timer.periodic(_pollInterval, (_) async {
-      pollAttempts++;
-
+      attempts++;
       try {
-        final updatedFile = await _repo.getFile(id: fileId);
-        _replaceFile(updatedFile);
+        final updated = await _repo.getFile(id: fileId);
+        _replaceFile(updated);
 
-        final isStaleUploaded =
-            updatedFile.status == 'uploaded' &&
-            DateTime.now().difference(updatedFile.createdAt) >
+        final isStale = updated.status == 'uploaded' &&
+            DateTime.now().difference(updated.createdAt) >
                 _staleUploadedThreshold;
 
-        if (updatedFile.status == 'ready' || updatedFile.status == 'error') {
+        if (updated.status == 'ready' || updated.status == 'error') {
           stopPolling();
-        } else if (isStaleUploaded) {
-          _failPolling('This file is stuck in uploaded status. Please re-upload it.');
+        } else if (isStale) {
+          _failPolling(
+              'File is stuck in uploaded status. Please re-upload it.');
           stopPolling();
-        } else if (pollAttempts >= _maxPollAttempts) {
-          _failPolling('File processing timed out. Status: ${updatedFile.status}');
+        } else if (attempts >= _maxPollAttempts) {
+          _failPolling(
+              'Processing timed out. Status: ${updated.status}');
           stopPolling();
         }
-      } catch (e) {
-        if (pollAttempts >= _maxPollAttempts) {
-          _failPolling('Network error during processing. Please check the file status manually.');
+      } catch (_) {
+        if (attempts >= _maxPollAttempts) {
+          _failPolling(
+              'Network error during processing. Check the file status manually.');
           stopPolling();
         }
       }
@@ -149,21 +165,24 @@ class UploadNotifier extends StateNotifier<UploadState> {
     state = state.copyWith(clearPollingFileId: true);
   }
 
+  // ── Reset UI state (efface status/messages, garde fichiers + polling) ─────
+
   void reset() {
-    state = UploadState(files: state.files, pollingFileId: state.pollingFileId);
+    state = state.copyWith(
+      status: UploadStatus.initial,
+      clearErrorMessage: true,
+      clearSuccessMessage: true,
+    );
   }
 
-  @override
-  void dispose() {
-    _pollingTimer?.cancel();
-    super.dispose();
-  }
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
-  void _replaceFile(STLFile updatedFile) {
-    final updatedFiles = state.files
-        .map((file) => file.id == updatedFile.id ? updatedFile : file)
-        .toList();
-    state = state.copyWith(files: updatedFiles);
+  void _replaceFile(STLFile updated) {
+    state = state.copyWith(
+      files: state.files
+          .map((f) => f.id == updated.id ? updated : f)
+          .toList(),
+    );
   }
 
   void _failPolling(String message) {
@@ -171,5 +190,11 @@ class UploadNotifier extends StateNotifier<UploadState> {
       status: UploadStatus.error,
       errorMessage: message,
     );
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
   }
 }

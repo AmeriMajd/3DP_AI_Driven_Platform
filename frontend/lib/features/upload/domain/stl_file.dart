@@ -15,6 +15,27 @@ class STLFile {
   final String? hasOverhangs; // 'yes' | 'no' | 'unknown'
   final String? hasThinWalls; // 'yes' | 'no' | 'unknown'
 
+
+   // Advanced geometry features (Sprint 2B) ──
+  final double? overhangRatio;       // 0.0–1.0
+  final double? maxOverhangAngle;    // degrees
+  final double? minWallThicknessMm;
+  final double? avgWallThicknessMm;
+  final double? complexityIndex;     // surface_area / volume
+  final double? aspectRatio;         // max(bbox) / min(bbox)
+  final bool? isWatertight;
+  final int? shellCount;
+  final double? comOffsetRatio;
+  final double? flatBaseAreaMm2;
+
+  // ── Orientation results (Sprint 2B) ──
+  final Map<String, dynamic>? bestOrientation1;
+  final Map<String, dynamic>? bestOrientation2;
+  final Map<String, dynamic>? bestOrientation3;
+  final double? bestOrientationScore;
+
+
+
   STLFile({
     required this.id,
     required this.originalFilename,
@@ -30,6 +51,20 @@ class STLFile {
     this.triangleCount,
     this.hasOverhangs,
     this.hasThinWalls,
+    this.overhangRatio,
+    this.maxOverhangAngle,
+    this.minWallThicknessMm,
+    this.avgWallThicknessMm,
+    this.complexityIndex,
+    this.aspectRatio,
+    this.isWatertight,
+    this.shellCount,
+    this.comOffsetRatio,
+    this.flatBaseAreaMm2,
+    this.bestOrientation1,
+    this.bestOrientation2,
+    this.bestOrientation3,
+    this.bestOrientationScore,
   });
 
   static String? _normalizeFlag(dynamic value) {
@@ -58,6 +93,22 @@ class STLFile {
     triangleCount: (json['triangle_count'] as num?)?.toInt(),
     hasOverhangs: _normalizeFlag(json['has_overhangs']),
     hasThinWalls: _normalizeFlag(json['has_thin_walls']),
+    // advanced
+    overhangRatio: json['overhang_ratio']?.toDouble(),
+    maxOverhangAngle: json['max_overhang_angle']?.toDouble(),
+    minWallThicknessMm: json['min_wall_thickness_mm']?.toDouble(),
+    avgWallThicknessMm: json['avg_wall_thickness_mm']?.toDouble(),
+    complexityIndex: json['complexity_index']?.toDouble(),
+    aspectRatio: json['aspect_ratio']?.toDouble(),
+    isWatertight: json['is_watertight'] as bool?,
+    shellCount: (json['shell_count'] as num?)?.toInt(),
+    comOffsetRatio: json['com_offset_ratio']?.toDouble(),
+    flatBaseAreaMm2: json['flat_base_area_mm2']?.toDouble(),
+    // orientations
+    bestOrientation1: json['best_orientation_1'] as Map<String, dynamic>?,
+    bestOrientation2: json['best_orientation_2'] as Map<String, dynamic>?,
+    bestOrientation3: json['best_orientation_3'] as Map<String, dynamic>?,
+    bestOrientationScore: json['best_orientation_score']?.toDouble(),
   );
 
   String get formattedSize {
@@ -72,4 +123,12 @@ class STLFile {
   bool get isReady => status == 'ready';
   bool get isAnalyzing => status == 'analyzing';
   bool get isError => status == 'error';
+
+  List<Map<String, dynamic>> get orientations {
+    return [
+      if (bestOrientation1 != null) bestOrientation1!,
+      if (bestOrientation2 != null) bestOrientation2!,
+      if (bestOrientation3 != null) bestOrientation3!,
+    ];
+  }
 }
