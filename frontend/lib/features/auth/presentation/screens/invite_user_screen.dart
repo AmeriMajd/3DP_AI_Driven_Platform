@@ -137,7 +137,6 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
         _invitationGenerated = true;
           _generatedEmail = _emailController.text.trim();
           _generatedRole = _selectedRole;
-          //remplacer par response.data['link'] du backend
           _generatedLink =  next.successMessage ?? '';
           
         });

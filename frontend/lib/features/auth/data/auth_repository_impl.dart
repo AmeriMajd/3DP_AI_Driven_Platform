@@ -149,13 +149,15 @@ class AuthRepositoryImpl implements AuthRepository {
         await StorageService.saveRefreshToken(refreshToken);
       }
 
-      // ← ADD — save role and user id for routing and future use
+      //  save role and user id for routing and future use
       final user = response.data['user'];
       if (user != null) {
         final role = user['role'] as String?;
         final userId = user['id'] as String?;
+        final fullName = response.data['user']['full_name'] as String?;
         if (role != null) await StorageService.saveUserRole(role);
         if (userId != null) await StorageService.saveUserId(userId);
+        if (fullName != null) await StorageService.saveFullName(fullName);
       }
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -228,20 +230,42 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-Future<void> logout() async {
-  try {
-    final refreshToken = await StorageService.getRefreshToken();
-    await _dio.post(
-      '/auth/logout',
-      data: {'refresh_token': refreshToken},
-    );
-  } on DioException catch (e) {
-    // On logout, on ignore les erreurs réseau
-    // Le clearAll() se fait dans tous les cas
-  } finally {
-    await StorageService.clearAll();
+  Future<void> logout() async {
+    try {
+      final refreshToken = await StorageService.getRefreshToken();
+      await _dio.post('/auth/logout', data: {'refresh_token': refreshToken});
+    } on DioException {
+      // On logout, on ignore les erreurs réseau
+      // Le clearAll() se fait dans tous les cas
+    } finally {
+      await StorageService.clearAll();
+    }
   }
-}
+
+  Future<bool> tryRefreshSession() async {
+    try {
+      final refreshToken = await StorageService.getRefreshToken();
+
+      if (refreshToken == null || refreshToken.isEmpty) {
+        return false;
+      }
+
+      final response = await _dio.post(
+        '/auth/refresh',
+        data: {'refresh_token': refreshToken},
+      );
+
+      final newAccessToken = response.data['access_token'];
+      if (newAccessToken == null || newAccessToken.toString().isEmpty) {
+        return false;
+      }
+
+      await StorageService.saveToken(newAccessToken.toString());
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 
   /// Extrait le message d'erreur lisible depuis la réponse Dio.
   String _handleError(DioException e) {

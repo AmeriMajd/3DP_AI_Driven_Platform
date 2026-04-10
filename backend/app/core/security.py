@@ -9,6 +9,7 @@ from app.core.database import get_db
 
 
 
+
 # PASSWORD HASHING
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def hash_password(password: str) -> str :
@@ -62,3 +63,22 @@ def require_role(*allowed_roles: str):
         return {"user_id": user_id, "role": user_role}
 
     return dependency
+bearer_scheme = HTTPBearer()
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+) -> dict:
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=["HS256"],
+        )
+        user_id: str = payload.get("sub")
+        role: str = payload.get("role")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token.")
+        return {"user_id": user_id, "role": role}
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.")
