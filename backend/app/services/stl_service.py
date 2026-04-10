@@ -1,5 +1,4 @@
 import uuid
-import logging
 from pathlib import Path
 from fastapi import BackgroundTasks
 from fastapi import UploadFile, HTTPException
@@ -7,10 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.models.stl_file import STLFile
-import app.models.user  # Ensure FK target table metadata is registered.
+import app.models.user
 from app.services.geometry_service import convert_to_glb, extract_ui_features
-
-logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = Path("/app/uploads/stl")
 GLB_DIR = Path("/app/uploads/glb")
@@ -198,6 +195,7 @@ def run_analysis_pipeline(stl_id: uuid.UUID, file_path: str) -> None:
         db.commit()
 
         features = extract_ui_features(file_path)
+
         glb_path = convert_to_glb(input_path=file_path, uuid=str(stl_id))
 
         record.volume_cm3 = features.get("volume_cm3")
@@ -212,21 +210,19 @@ def run_analysis_pipeline(stl_id: uuid.UUID, file_path: str) -> None:
         record.status = "ready"
 
         db.commit()
-    except Exception:
+    except Exception as e:
         db.rollback()
         error_record = db.query(STLFile).filter(STLFile.id == stl_id).first()
         if error_record:
             try:
                 error_record.status = "error"
                 db.commit()
-            except Exception:
+            except Exception as err:
                 db.rollback()
-        logger.exception("Background STL analysis failed", extra={"stl_id": str(stl_id)})
     finally:
         db.close()
 
 
 def _with_glb_url(record: STLFile) -> STLFile:
-    # Attach a computed URL used by the response schema without exposing disk paths.
     record.glb_url = f"/stl/{record.id}/glb" if record.glb_filename else None
     return record

@@ -21,9 +21,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  ProviderSubscription<AuthState>? _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _authSubscription = ref.listenManual<AuthState>(authProvider, (previous, next) {
+      if (!mounted) return;
+
+      if (next.status == AuthStatus.success) {
+        ref.read(authProvider.notifier).reset();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) context.go(AppRoutes.upload);
+        });
+      }
+
+      if (next.status == AuthStatus.error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.errorMessage ?? 'Invalid email or password'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        ref.read(authProvider.notifier).reset();
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _authSubscription?.close();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -41,25 +69,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
 
-    ref.listen<AuthState>(authProvider, (_, next) {
-      if (next.status == AuthStatus.success) {
-        ref.read(authProvider.notifier).reset();
-        context.go(AppRoutes.upload);
-      }
-      if (next.status == AuthStatus.error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.errorMessage ?? 'Invalid email or password'),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        ref.read(authProvider.notifier).reset();
-      }
-    });
-
     return Scaffold(
-      backgroundColor:AppColors.backgroundLight ,
+      backgroundColor: AppColors.backgroundLight,
       body: Container(
         // ── Gradient background ──
         decoration: const BoxDecoration(

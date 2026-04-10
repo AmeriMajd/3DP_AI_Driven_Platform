@@ -3,11 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/stl_repository.dart';
 import '../../data/stl_repository_impl.dart';
-import '../../data/stl_repository_mock.dart';
+import '../../domain/stl_file.dart';
 import 'upload_state.dart';
 
 final stlRepositoryProvider = Provider<StlRepository>((ref) {
-  return StlRepositoryImpl(); // ← changer en StlRepositoryImpl() pour le vrai backend
+  return StlRepositoryImpl();
 });
 
 final uploadProvider = StateNotifierProvider<UploadNotifier, UploadState>((
@@ -19,6 +19,9 @@ final uploadProvider = StateNotifierProvider<UploadNotifier, UploadState>((
 class UploadNotifier extends StateNotifier<UploadState> {
   final StlRepository _repo;
   Timer? _pollingTimer;
+  static const _pollInterval = Duration(seconds: 2);
+  static const _maxPollAttempts = 150;
+  static const _staleUploadedThreshold = Duration(minutes: 10);
 
   UploadNotifier(this._repo) : super(const UploadState());
 
@@ -67,7 +70,6 @@ class UploadNotifier extends StateNotifier<UploadState> {
         files: updatedFiles,
         successMessage: '${file.originalFilename} uploaded successfully',
       );
-      // Démarrer polling automatiquement
       startPolling(file.id);
     } catch (e) {
       state = state.copyWith(
@@ -109,19 +111,34 @@ class UploadNotifier extends StateNotifier<UploadState> {
     stopPolling();
     state = state.copyWith(pollingFileId: fileId);
 
-    _pollingTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
+    var pollAttempts = 0;
+
+    _pollingTimer = Timer.periodic(_pollInterval, (_) async {
+      pollAttempts++;
+
       try {
         final updatedFile = await _repo.getFile(id: fileId);
-        final updatedFiles = state.files.map((f) {
-          return f.id == fileId ? updatedFile : f;
-        }).toList();
-        state = state.copyWith(files: updatedFiles);
+        _replaceFile(updatedFile);
+
+        final isStaleUploaded =
+            updatedFile.status == 'uploaded' &&
+            DateTime.now().difference(updatedFile.createdAt) >
+                _staleUploadedThreshold;
 
         if (updatedFile.status == 'ready' || updatedFile.status == 'error') {
           stopPolling();
+        } else if (isStaleUploaded) {
+          _failPolling('This file is stuck in uploaded status. Please re-upload it.');
+          stopPolling();
+        } else if (pollAttempts >= _maxPollAttempts) {
+          _failPolling('File processing timed out. Status: ${updatedFile.status}');
+          stopPolling();
         }
-      } catch (_) {
-        // Erreur réseau silencieuse — on continue
+      } catch (e) {
+        if (pollAttempts >= _maxPollAttempts) {
+          _failPolling('Network error during processing. Please check the file status manually.');
+          stopPolling();
+        }
       }
     });
   }
@@ -129,9 +146,6 @@ class UploadNotifier extends StateNotifier<UploadState> {
   void stopPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = null;
-    // ── CORRECTION : utiliser copyWith pour ne pas perdre les autres champs ──
-    // L'ancienne implémentation recréait UploadState() de zéro, perdant
-    // isLoadingFiles, errorMessage, successMessage, etc.
     state = state.copyWith(clearPollingFileId: true);
   }
 
@@ -143,5 +157,19 @@ class UploadNotifier extends StateNotifier<UploadState> {
   void dispose() {
     _pollingTimer?.cancel();
     super.dispose();
+  }
+
+  void _replaceFile(STLFile updatedFile) {
+    final updatedFiles = state.files
+        .map((file) => file.id == updatedFile.id ? updatedFile : file)
+        .toList();
+    state = state.copyWith(files: updatedFiles);
+  }
+
+  void _failPolling(String message) {
+    state = state.copyWith(
+      status: UploadStatus.error,
+      errorMessage: message,
+    );
   }
 }
