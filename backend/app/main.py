@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from app.core.database import engine, Base
 
 # ── Import ALL models before create_all ───────────────────────────────────────
@@ -18,6 +19,30 @@ from app.routers.stl import router as stl_router
 
 # ── Create all tables ──────────────────────────────────────────────────────────
 Base.metadata.create_all(bind=engine)
+
+
+def _sync_stl_files_schema() -> None:
+    """
+    Lightweight schema backfill for existing databases.
+    Ensures newly added STL analysis columns exist without manual DB reset.
+    """
+    statements = [
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS volume_cm3 DOUBLE PRECISION",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS surface_area_cm2 DOUBLE PRECISION",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS bbox_x_mm DOUBLE PRECISION",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS bbox_y_mm DOUBLE PRECISION",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS bbox_z_mm DOUBLE PRECISION",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS triangle_count INTEGER",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS has_overhangs BOOLEAN",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS has_thin_walls BOOLEAN",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS glb_filename VARCHAR",
+    ]
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+
+
+_sync_stl_files_schema()
 
 app = FastAPI(
     title="3DP Intelligence Platform",
