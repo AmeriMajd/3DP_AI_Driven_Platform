@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_routes.dart';
 import '../../domain/stl_file.dart';
+import '../../domain/orientation_result.dart';
 import '../providers/upload_provider.dart';
+import '../providers/orientation_provider.dart';
 import '../widgets/model_3d_viewer.dart';
 import '../widgets/geometry_details_card.dart';
 import '../widgets/model_status_banner.dart';
@@ -24,7 +26,7 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
 
   // Orientation sélectionnée par l'utilisateur (index + données)
   int? _selectedOrientationIndex;
-  Map<String, dynamic>? _selectedOrientation;
+  Map<String, dynamic>? _selectedOrientation; // toCardData() d'un OrientationResult
 
   @override
   void initState() {
@@ -33,9 +35,16 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final files = ref.read(uploadProvider).files;
       final file = _findFile(files);
-      if (file != null && !file.isReady && !file.isError) {
+      if (file == null) return;
+
+      if (!file.isReady && !file.isError) {
+        // Fichier encore en cours de traitement — lancer le polling.
+        // orientationsProvider se rechargera automatiquement quand
+        // uploadProvider mettra status à 'ready'.
         ref.read(uploadProvider.notifier).startPolling(widget.fileId);
       }
+      // Si déjà ready : orientationsProvider(fileId) se déclenche
+      // automatiquement au premier watch dans le build.
     });
   }
 
@@ -164,13 +173,37 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
           _GeometryTab(file: file),
 
           // ── Tab 3: Orientation ─────────────────────────────────────────
-          _OrientationTab(
-            file: file,
-            onSelect: (index, data) {
-              setState(() {
-                _selectedOrientationIndex = index;
-                _selectedOrientation = data;
-              });
+          // orientationsProvider gère le cache, loading et erreurs.
+          Consumer(
+            builder: (context, ref, _) {
+              final orientationsAsync =
+                  ref.watch(orientationsProvider(widget.fileId));
+              return orientationsAsync.when(
+                data: (orientations) => _OrientationTab(
+                  file: file,
+                  orientations: orientations,
+                  isLoading: false,
+                  selectedOrientationIndex: _selectedOrientationIndex,
+                  onSelect: (index, result) {
+                    setState(() {
+                      _selectedOrientationIndex = index;
+                      _selectedOrientation = result.toCardData();
+                    });
+                  },
+                ),
+                loading: () => _OrientationTab(
+                  file: file,
+                  orientations: const [],
+                  isLoading: true,
+                  onSelect: (_, __) {},
+                ),
+                error: (e, _) => _OrientationTab(
+                  file: file,
+                  orientations: const [],
+                  isLoading: false,
+                  onSelect: (_, __) {},
+                ),
+              );
             },
           ),
         ],
@@ -330,11 +363,22 @@ class _GeometryTab extends StatelessWidget {
 // ── Tab 3: Orientation ─────────────────────────────────────────────────────────
 class _OrientationTab extends StatelessWidget {
   final STLFile file;
-  final void Function(int index, Map<String, dynamic> orientation) onSelect;
-  const _OrientationTab({required this.file, required this.onSelect});
+  final List<OrientationResult> orientations;
+  final bool isLoading;
+  final void Function(int index, OrientationResult result) onSelect;
+  final int? selectedOrientationIndex;
+
+  const _OrientationTab({
+    required this.file,
+    required this.orientations,
+    required this.isLoading,
+    required this.onSelect,
+    this.selectedOrientationIndex,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // Fichier pas encore ready — analyse en cours
     if (!file.isReady) {
       return Center(
         child: Padding(
@@ -356,11 +400,36 @@ class _OrientationTab extends StatelessWidget {
         ),
       );
     }
+
+    // Fichier ready mais orientations pas encore chargées
+    if (isLoading || orientations.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: Color(0xFF6366F1)),
+              SizedBox(height: 16),
+              Text(
+                'Loading orientations...',
+                style: TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          OrientationCard(file: file, onSelect: onSelect),
+          OrientationCard(
+            orientations: orientations,
+            selectedIndex: selectedOrientationIndex,
+            onSelect: onSelect,
+          ),
           SizedBox(height: MediaQuery.of(context).padding.bottom + 100),
         ],
       ),

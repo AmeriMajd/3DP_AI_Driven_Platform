@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../../../shared/services/dio_client.dart';
 import '../domain/stl_file.dart';
+import '../domain/orientation_result.dart';
 import 'stl_repository.dart';
 
 class StlRepositoryImpl implements StlRepository {
@@ -77,6 +78,22 @@ class StlRepositoryImpl implements StlRepository {
     }
   }
 
+
+  /// GET /stl/{id}/orientations
+  /// Appelé une seule fois quand le polling détecte status == 'ready'.
+  @override
+  Future<List<OrientationResult>> getOrientations({required String id}) async {
+    try {
+      final response = await _dio.get('/stl/$id/orientation');
+      final data = response.data as List;
+      return data
+          .map((o) => OrientationResult.fromJson(o as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+  
   /// Extrait le message d'erreur lisible depuis la réponse Dio
   String _handleError(DioException e) {
     if (e.response?.data != null) {

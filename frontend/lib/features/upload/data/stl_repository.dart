@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../domain/stl_file.dart';
+import '../domain/orientation_result.dart';
 
 abstract class StlRepository {
   /// POST /stl/upload — upload un fichier STL ou 3MF
@@ -16,6 +17,9 @@ abstract class StlRepository {
 
   /// GET /stl/{id} — récupère les métadonnées d'un fichier
   Future<STLFile> getFile({required String id});
+
+  /// GET /stl/{id}/orientations — récupère les orientations calculées pour un fichier
+  Future<List<OrientationResult>> getOrientations({required String id});
 
   /// DELETE /stl/{id} — supprime un fichier
   Future<void> deleteFile({required String id});

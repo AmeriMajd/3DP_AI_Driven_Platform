@@ -1,17 +1,18 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/stl_repository_mock.dart';
 import '../../data/stl_repository.dart';
 import '../../data/stl_repository_impl.dart';
-import '../../data/stl_repository_mock.dart';
 import '../../domain/stl_file.dart';
 import 'upload_state.dart';
 
 final stlRepositoryProvider = Provider<StlRepository>((ref) {
-  return StlRepositoryImpl();
+  return StlRepositoryMock();
 });
 
-final uploadProvider = StateNotifierProvider<UploadNotifier, UploadState>((ref) {
+final uploadProvider =
+    StateNotifierProvider<UploadNotifier, UploadState>((ref) {
   return UploadNotifier(ref.read(stlRepositoryProvider));
 });
 
@@ -49,7 +50,6 @@ class UploadNotifier extends StateNotifier<UploadState> {
       status: UploadStatus.initial,
       selectedFileName: filename,
       selectedFileSize: fileSize,
-      // Effacer les messages d'une opération précédente
       clearErrorMessage: true,
       clearSuccessMessage: true,
     );
@@ -140,13 +140,14 @@ class UploadNotifier extends StateNotifier<UploadState> {
 
         if (updated.status == 'ready' || updated.status == 'error') {
           stopPolling();
+          // Le orientationsProvider(fileId) se rechargera automatiquement
+          // car il watch le status du fichier via FutureProvider.family
         } else if (isStale) {
           _failPolling(
               'File is stuck in uploaded status. Please re-upload it.');
           stopPolling();
         } else if (attempts >= _maxPollAttempts) {
-          _failPolling(
-              'Processing timed out. Status: ${updated.status}');
+          _failPolling('Processing timed out. Status: ${updated.status}');
           stopPolling();
         }
       } catch (_) {
@@ -165,7 +166,7 @@ class UploadNotifier extends StateNotifier<UploadState> {
     state = state.copyWith(clearPollingFileId: true);
   }
 
-  // ── Reset UI state (efface status/messages, garde fichiers + polling) ─────
+  // ── Reset UI state ────────────────────────────────────────────────────────
 
   void reset() {
     state = state.copyWith(

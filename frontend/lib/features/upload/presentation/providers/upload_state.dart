@@ -36,8 +36,6 @@ class UploadState {
     String? errorMessage,
     String? successMessage,
     String? pollingFileId,
-    // Clear flags — permettent de mettre explicitement un champ à null.
-    // Nécessaires car copyWith ignore les null par convention "garder l'ancienne valeur".
     bool clearSelectedFile = false,
     bool clearErrorMessage = false,
     bool clearSuccessMessage = false,

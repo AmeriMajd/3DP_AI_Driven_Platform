@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../domain/stl_file.dart';
+import '../domain/orientation_result.dart';
 import 'stl_repository.dart';
 
 class StlRepositoryMock implements StlRepository {
@@ -22,7 +23,6 @@ class StlRepositoryMock implements StlRepository {
       triangleCount: 12480,
       hasOverhangs: 'yes',
       hasThinWalls: 'no',
-      // advanced geometry
       overhangRatio: 0.31,
       maxOverhangAngle: 52.4,
       minWallThicknessMm: 1.2,
@@ -33,32 +33,6 @@ class StlRepositoryMock implements StlRepository {
       shellCount: 1,
       comOffsetRatio: 0.08,
       flatBaseAreaMm2: 420.0,
-      // orientations
-      bestOrientation1: {
-        'rx': 0.0,
-        'ry': 0.0,
-        'rz': 0.0,
-        'score': 0.88,
-        'overhang_reduction_pct': 34.0,
-        'print_height_mm': 20.0,
-      },
-      bestOrientation2: {
-        'rx': 90.0,
-        'ry': 0.0,
-        'rz': 0.0,
-        'score': 0.74,
-        'overhang_reduction_pct': 18.0,
-        'print_height_mm': 42.0,
-      },
-      bestOrientation3: {
-        'rx': 0.0,
-        'ry': 90.0,
-        'rz': 0.0,
-        'score': 0.61,
-        'overhang_reduction_pct': 8.0,
-        'print_height_mm': 30.0,
-      },
-      bestOrientationScore: 0.88,
     ),
     STLFile(
       id: 'mock-002',
@@ -139,7 +113,6 @@ class StlRepositoryMock implements StlRepository {
       triangleCount: isReady ? 8960 : null,
       hasOverhangs: isReady ? 'yes' : null,
       hasThinWalls: isReady ? 'no' : null,
-      // advanced
       overhangRatio: isReady ? 0.28 : null,
       maxOverhangAngle: isReady ? 47.2 : null,
       minWallThicknessMm: isReady ? 1.5 : null,
@@ -150,38 +123,6 @@ class StlRepositoryMock implements StlRepository {
       shellCount: isReady ? 1 : null,
       comOffsetRatio: isReady ? 0.05 : null,
       flatBaseAreaMm2: isReady ? 380.0 : null,
-      // orientations
-      bestOrientation1: isReady
-          ? {
-              'rx': 0.0,
-              'ry': 0.0,
-              'rz': 0.0,
-              'score': 0.85,
-              'overhang_reduction_pct': 28.0,
-              'print_height_mm': 25.0,
-            }
-          : null,
-      bestOrientation2: isReady
-          ? {
-              'rx': 90.0,
-              'ry': 0.0,
-              'rz': 0.0,
-              'score': 0.70,
-              'overhang_reduction_pct': 14.0,
-              'print_height_mm': 55.0,
-            }
-          : null,
-      bestOrientation3: isReady
-          ? {
-              'rx': 0.0,
-              'ry': 90.0,
-              'rz': 0.0,
-              'score': 0.55,
-              'overhang_reduction_pct': 5.0,
-              'print_height_mm': 40.0,
-            }
-          : null,
-      bestOrientationScore: isReady ? 0.85 : null,
     );
 
     _files[index] = updated;
@@ -192,5 +133,51 @@ class StlRepositoryMock implements StlRepository {
   Future<void> deleteFile({required String id}) async {
     await Future.delayed(const Duration(milliseconds: 500));
     _files.removeWhere((f) => f.id == id);
+  }
+
+  /// GET /stl/{id}/orientation — simulé
+  /// Retourne 3 orientations réalistes après un délai.
+  @override
+  Future<List<OrientationResult>> getOrientations({required String id}) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    final file = _files.firstWhere(
+      (f) => f.id == id,
+      orElse: () => throw Exception('File not found'),
+    );
+
+    if (file.status != 'ready') {
+      throw Exception('Geometry analysis not complete yet');
+    }
+
+    return [
+      const OrientationResult(
+        rank: 1,
+        rxDeg: 0.0,
+        ryDeg: 0.0,
+        rzDeg: 0.0,
+        score: 0.88,
+        overhangReductionPct: 34.0,
+        printHeightMm: 20.0,
+      ),
+      const OrientationResult(
+        rank: 2,
+        rxDeg: 90.0,
+        ryDeg: 0.0,
+        rzDeg: 0.0,
+        score: 0.74,
+        overhangReductionPct: 18.0,
+        printHeightMm: 42.0,
+      ),
+      const OrientationResult(
+        rank: 3,
+        rxDeg: 0.0,
+        ryDeg: 90.0,
+        rzDeg: 0.0,
+        score: 0.61,
+        overhangReductionPct: 8.0,
+        printHeightMm: 30.0,
+      ),
+    ];
   }
 }

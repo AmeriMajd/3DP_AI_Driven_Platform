@@ -28,13 +28,6 @@ class STLFile {
   final double? comOffsetRatio;
   final double? flatBaseAreaMm2;
 
-  // ── Orientation results (Sprint 2B) ──
-  final Map<String, dynamic>? bestOrientation1;
-  final Map<String, dynamic>? bestOrientation2;
-  final Map<String, dynamic>? bestOrientation3;
-  final double? bestOrientationScore;
-
-
 
   STLFile({
     required this.id,
@@ -61,10 +54,7 @@ class STLFile {
     this.shellCount,
     this.comOffsetRatio,
     this.flatBaseAreaMm2,
-    this.bestOrientation1,
-    this.bestOrientation2,
-    this.bestOrientation3,
-    this.bestOrientationScore,
+
   });
 
   static String? _normalizeFlag(dynamic value) {
@@ -104,11 +94,6 @@ class STLFile {
     shellCount: (json['shell_count'] as num?)?.toInt(),
     comOffsetRatio: json['com_offset_ratio']?.toDouble(),
     flatBaseAreaMm2: json['flat_base_area_mm2']?.toDouble(),
-    // orientations
-    bestOrientation1: json['best_orientation_1'] as Map<String, dynamic>?,
-    bestOrientation2: json['best_orientation_2'] as Map<String, dynamic>?,
-    bestOrientation3: json['best_orientation_3'] as Map<String, dynamic>?,
-    bestOrientationScore: json['best_orientation_score']?.toDouble(),
   );
 
   String get formattedSize {
@@ -124,11 +109,4 @@ class STLFile {
   bool get isAnalyzing => status == 'analyzing';
   bool get isError => status == 'error';
 
-  List<Map<String, dynamic>> get orientations {
-    return [
-      if (bestOrientation1 != null) bestOrientation1!,
-      if (bestOrientation2 != null) bestOrientation2!,
-      if (bestOrientation3 != null) bestOrientation3!,
-    ];
-  }
 }

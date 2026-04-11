@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
-import '../../domain/stl_file.dart';
+import '../../domain/orientation_result.dart';
 
-/// Affiche les 3 meilleures orientations — toutes en layout compact horizontal.
+/// Affiche les meilleures orientations d'impression — toutes en layout compact horizontal.
+/// Reçoit directement la liste [OrientationResult] depuis le provider.
 class OrientationCard extends StatefulWidget {
-  final STLFile file;
-  final void Function(int index, Map<String, dynamic> orientation)? onSelect;
+  final List<OrientationResult> orientations;
+  final void Function(int index, OrientationResult result)? onSelect;
+  /// Index de l'orientation actuellement sélectionnée — géré par le parent
+  /// pour survivre aux reconstructions du widget.
+  final int? selectedIndex;
 
   const OrientationCard({
-    required this.file,
+    required this.orientations,
     this.onSelect,
+    this.selectedIndex,
     super.key,
   });
 
@@ -17,16 +22,13 @@ class OrientationCard extends StatefulWidget {
 }
 
 class _OrientationCardState extends State<OrientationCard> {
-  int? _selectedIndex;
-
-  void _select(int index, Map<String, dynamic> data) {
-    setState(() => _selectedIndex = index);
-    widget.onSelect?.call(index, data);
+  void _select(int index, OrientationResult result) {
+    widget.onSelect?.call(index, result);
   }
 
   @override
   Widget build(BuildContext context) {
-    final orientations = widget.file.orientations;
+    final orientations = widget.orientations;
 
     if (orientations.isEmpty) {
       return _buildEmpty();
@@ -51,7 +53,7 @@ class _OrientationCardState extends State<OrientationCard> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'The AI computed the top ${orientations.length} print orientations. '
+                  'The AI found the top ${orientations.length} print orientations. '
                   'Select one to use in the recommendation.',
                   style: const TextStyle(
                     fontSize: 12,
@@ -70,14 +72,14 @@ class _OrientationCardState extends State<OrientationCard> {
           if (i > 0) const SizedBox(height: 10),
           _OrientationTile(
             index: i,
-            data: orientations[i],
-            isSelected: _selectedIndex == i,
+            result: orientations[i],
+            isSelected: widget.selectedIndex == i,
             onSelect: () => _select(i, orientations[i]),
           ),
         ],
 
         // ── Confirmation sélection ──
-        if (_selectedIndex != null) ...[
+        if (widget.selectedIndex != null) ...[
           const SizedBox(height: 12),
           Container(
             padding:
@@ -95,7 +97,7 @@ class _OrientationCardState extends State<OrientationCard> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Orientation ${_selectedIndex! + 1} selected — '
+                    'Orientation ${widget.selectedIndex! + 1} selected — '
                     'this will be used in your AI recommendation.',
                     style: const TextStyle(
                         fontSize: 12, color: Color(0xFF166534)),
@@ -136,16 +138,16 @@ class _OrientationCardState extends State<OrientationCard> {
   }
 }
 
-// ── Orientation Tile — layout compact horizontal pour toutes les cartes ───────
+// ── Orientation Tile ──────────────────────────────────────────────────────────
 class _OrientationTile extends StatelessWidget {
   final int index;
-  final Map<String, dynamic> data;
+  final OrientationResult result;
   final bool isSelected;
   final VoidCallback onSelect;
 
   const _OrientationTile({
     required this.index,
-    required this.data,
+    required this.result,
     required this.isSelected,
     required this.onSelect,
   });
@@ -157,14 +159,12 @@ class _OrientationTile extends StatelessWidget {
   ];
   static const _rankLabels = ['1st', '2nd', '3rd'];
 
-  double get _score => (data['score'] as num?)?.toDouble() ?? 0.0;
-  double get _overhangReduction =>
-      (data['overhang_reduction_pct'] as num?)?.toDouble() ?? 0.0;
-  double get _printHeight =>
-      (data['print_height_mm'] as num?)?.toDouble() ?? 0.0;
-  double get _rx => (data['rx'] as num?)?.toDouble() ?? 0.0;
-  double get _ry => (data['ry'] as num?)?.toDouble() ?? 0.0;
-  double get _rz => (data['rz'] as num?)?.toDouble() ?? 0.0;
+  double get _score => result.score;
+  double get _overhangReduction => result.overhangReductionPct;
+  double get _printHeight => result.printHeightMm;
+  double get _rx => result.rxDeg;
+  double get _ry => result.ryDeg;
+  double get _rz => result.rzDeg;
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +178,8 @@ class _OrientationTile extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isSelected ? const Color(0xFF6366F1) : const Color(0xFFE5E5EA),
+          color:
+              isSelected ? const Color(0xFF6366F1) : const Color(0xFFE5E5EA),
           width: isSelected ? 2 : 1.5,
         ),
         boxShadow: [
@@ -200,7 +201,6 @@ class _OrientationTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Rank badge + check icon
                 Row(
                   children: [
                     _RankBadge(label: rankLabel, color: rankColor),
@@ -212,12 +212,8 @@ class _OrientationTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-
-                // Score bar
                 _ScoreBar(score: _score),
                 const SizedBox(height: 10),
-
-                // Angles Rx / Ry / Rz
                 Row(
                   children: [
                     _AnglePill(axis: 'Rx', value: _rx),
@@ -230,9 +226,7 @@ class _OrientationTile extends StatelessWidget {
               ],
             ),
           ),
-
           const SizedBox(width: 14),
-
           // ── Colonne droite : stats + bouton ──
           Expanded(
             flex: 4,
@@ -255,8 +249,6 @@ class _OrientationTile extends StatelessWidget {
                   value: '${_printHeight.toStringAsFixed(1)} mm',
                 ),
                 const SizedBox(height: 12),
-
-                // Select button
                 SizedBox(
                   width: double.infinity,
                   child: AnimatedSwitcher(
@@ -264,7 +256,8 @@ class _OrientationTile extends StatelessWidget {
                     child: isSelected
                         ? Container(
                             key: const ValueKey('sel'),
-                            padding: const EdgeInsets.symmetric(vertical: 9),
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 9),
                             decoration: BoxDecoration(
                               color: const Color(0xFF6366F1),
                               borderRadius: BorderRadius.circular(8),
@@ -336,11 +329,11 @@ class _RankBadge extends StatelessWidget {
         children: [
           Icon(Icons.emoji_events_outlined, size: 12, color: color),
           const SizedBox(width: 3),
-          Text(
-            label,
-            style: TextStyle(
-                fontSize: 11, fontWeight: FontWeight.w700, color: color),
-          ),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: color)),
         ],
       ),
     );
