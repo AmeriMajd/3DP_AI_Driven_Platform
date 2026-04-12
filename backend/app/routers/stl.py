@@ -86,6 +86,26 @@ def update_status(
     )
 
 
+@router.post(
+    "/{stl_id}/reprocess",
+    response_model=STLFileResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Re-run analysis pipeline for a file",
+)
+def reprocess_file(
+    stl_id: UUID,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return stl_service.queue_reprocess(
+        stl_id=stl_id,
+        user_id=current_user["user_id"],
+        db=db,
+        background_tasks=background_tasks,
+    )
+
+
 @router.delete(
     "/{stl_id}",
     status_code=status.HTTP_204_NO_CONTENT,

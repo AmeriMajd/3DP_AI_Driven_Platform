@@ -16,6 +16,7 @@ from app.routers import refresh
 from app.routers import password_reset
 from app.routers import logout
 from app.routers.stl import router as stl_router
+from app.services import stl_service
 
 # ── Create all tables ──────────────────────────────────────────────────────────
 Base.metadata.create_all(bind=engine)
@@ -67,6 +68,11 @@ app.include_router(invitations.router)
 app.include_router(password_reset.router)
 app.include_router(logout.router)
 app.include_router(stl_router)
+
+
+@app.on_event("startup")
+def recover_stl_jobs() -> None:
+    stl_service.recover_pending_files()
 
 @app.get("/", tags=["Health"])
 def root():

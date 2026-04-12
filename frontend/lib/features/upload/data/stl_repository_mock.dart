@@ -13,7 +13,8 @@ class StlRepositoryMock implements StlRepository {
       fileSizeBytes: 2400000,
       status: 'ready',
       createdAt: DateTime.now().subtract(const Duration(minutes: 2)),
-      glbUrl: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb', // non-null → viewer se charge
+      glbUrl:
+          'https://modelviewer.dev/shared-assets/models/Astronaut.glb', // non-null → viewer se charge
       volumeCm3: 26.4,
       surfaceAreaCm2: 48.2,
       bboxXMm: 42.0,
@@ -99,7 +100,9 @@ class StlRepositoryMock implements StlRepository {
       status: newStatus,
       createdAt: file.createdAt,
       // ← glbUrl non-null dès que ready (le mock n'a pas de vrai fichier)
-      glbUrl: isReady ? 'https://modelviewer.dev/shared-assets/models/Astronaut.glb' : null,
+      glbUrl: isReady
+          ? 'https://modelviewer.dev/shared-assets/models/Astronaut.glb'
+          : null,
       volumeCm3: isReady ? 18.7 : null,
       surfaceAreaCm2: isReady ? 34.5 : null,
       bboxXMm: isReady ? 55.0 : null,
@@ -118,5 +121,26 @@ class StlRepositoryMock implements StlRepository {
   Future<void> deleteFile({required String id}) async {
     await Future.delayed(const Duration(milliseconds: 500));
     _files.removeWhere((f) => f.id == id);
+  }
+
+  @override
+  Future<STLFile> reprocessFile({required String id}) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    final index = _files.indexWhere((f) => f.id == id);
+    if (index == -1) throw Exception('File not found');
+
+    _pollCount[id] = 0;
+    final file = _files[index];
+    final reset = STLFile(
+      id: file.id,
+      originalFilename: file.originalFilename,
+      fileSizeBytes: file.fileSizeBytes,
+      status: 'uploaded',
+      createdAt: file.createdAt,
+    );
+
+    _files[index] = reset;
+    return reset;
   }
 }

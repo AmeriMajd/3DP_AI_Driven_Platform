@@ -19,4 +19,7 @@ abstract class StlRepository {
 
   /// DELETE /stl/{id} — supprime un fichier
   Future<void> deleteFile({required String id});
+
+  /// POST /stl/{id}/reprocess — relance l'analyse geometry + preview
+  Future<STLFile> reprocessFile({required String id});
 }
