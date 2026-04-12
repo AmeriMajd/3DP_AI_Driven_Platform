@@ -24,9 +24,9 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final files = ref.read(uploadProvider).files;
       final file = files.cast<STLFile?>().firstWhere(
-            (f) => f?.id == widget.fileId,
-            orElse: () => null,
-          );
+        (f) => f?.id == widget.fileId,
+        orElse: () => null,
+      );
       if (file != null && !file.isReady && !file.isError) {
         ref.read(uploadProvider.notifier).startPolling(widget.fileId);
       }
@@ -94,9 +94,9 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen> {
     // ── Lookup sécurisé — le fichier peut ne plus exister après suppression ──
     final files = ref.watch(uploadProvider).files;
     final STLFile? file = files.cast<STLFile?>().firstWhere(
-          (f) => f?.id == widget.fileId,
-          orElse: () => null,
-        );
+      (f) => f?.id == widget.fileId,
+      orElse: () => null,
+    );
 
     if (file == null) {
       // Fichier supprimé ou introuvable
@@ -145,6 +145,29 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen> {
 
             // Section 2 : Status Banner
             ModelStatusBanner(status: file.status),
+            if (file.isError) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 44,
+                child: OutlinedButton.icon(
+                  onPressed: () => ref
+                      .read(uploadProvider.notifier)
+                      .reprocessFile(id: file.id),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text(
+                    'Retry Analysis',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF6366F1),
+                    side: const BorderSide(color: Color(0xFF6366F1)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
 
             // Section 3 : Geometry Info + Warnings

@@ -105,6 +105,29 @@ class UploadNotifier extends StateNotifier<UploadState> {
     }
   }
 
+  /// POST /stl/{id}/reprocess
+  Future<void> reprocessFile({required String id}) async {
+    try {
+      final reprocessed = await _repo.reprocessFile(id: id);
+      final updatedFiles = state.files.map((f) {
+        return f.id == id ? reprocessed : f;
+      }).toList();
+
+      state = state.copyWith(
+        files: updatedFiles,
+        successMessage: '${reprocessed.originalFilename} reprocessing started',
+        status: UploadStatus.success,
+      );
+
+      startPolling(id);
+    } catch (e) {
+      state = state.copyWith(
+        status: UploadStatus.error,
+        errorMessage: e.toString().replaceAll('Exception: ', ''),
+      );
+    }
+  }
+
   void startPolling(String fileId) {
     stopPolling();
     state = state.copyWith(pollingFileId: fileId);

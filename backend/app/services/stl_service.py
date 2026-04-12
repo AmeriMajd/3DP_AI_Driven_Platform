@@ -1,6 +1,7 @@
 import uuid
 import logging
 from pathlib import Path
+from typing import Any
 from fastapi import BackgroundTasks
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
@@ -21,6 +22,38 @@ VALID_STATUSES = {"uploaded", "analyzing", "ready", "error"}
 
 def _get_extension(filename: str) -> str:
     return Path(filename).suffix.lower()
+
+
+def _safe_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_bool(value: Any) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"true", "yes", "1"}:
+            return True
+        if lowered in {"false", "no", "0"}:
+            return False
+    return None
 
 
 async def save_stl_file(file: UploadFile, user_id: uuid.UUID, db: Session, background_tasks: BackgroundTasks,) -> STLFile:
@@ -170,13 +203,71 @@ def get_glb_path(stl_id: uuid.UUID, user_id: uuid.UUID, db: Session) -> Path:
     Raises 404 if file does not exist, is not owned, or GLB is not ready.
     """
     record = get_stl_file(stl_id=stl_id, user_id=user_id, db=db)
-    if not record.glb_filename:
+    if record.glb_filename:
+        glb_path = GLB_DIR / record.glb_filename
+        if glb_path.exists() and glb_path.is_file():
+            return glb_path
+
+    # Self-heal inconsistent rows where DB says the file exists but GLB is missing.
+    source_path = UPLOAD_DIR / record.stored_filename
+    if not source_path.exists() or not source_path.is_file():
         raise HTTPException(status_code=404, detail="GLB not available yet.")
 
-    glb_path = GLB_DIR / record.glb_filename
-    if not glb_path.exists() or not glb_path.is_file():
-        raise HTTPException(status_code=404, detail="GLB not available yet.")
-    return glb_path
+    try:
+        regenerated_glb = convert_to_glb(input_path=str(source_path), uuid=str(record.id))
+    except Exception as exc:
+        logger.exception("Failed to regenerate missing GLB", extra={"stl_id": str(stl_id)})
+        raise HTTPException(status_code=404, detail="GLB not available yet.") from exc
+
+    record.glb_filename = Path(regenerated_glb).name
+    if record.status != "ready":
+        record.status = "ready"
+
+    try:
+        db.commit()
+        db.refresh(record)
+    except Exception:
+        db.rollback()
+
+    return Path(regenerated_glb)
+
+
+def queue_reprocess(
+    stl_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: Session,
+    background_tasks: BackgroundTasks,
+) -> STLFile:
+    """Queue analysis again for an owned file and reset stale derived fields."""
+    record = get_stl_file(stl_id=stl_id, user_id=user_id, db=db)
+    source_path = UPLOAD_DIR / record.stored_filename
+    if not source_path.exists() or not source_path.is_file():
+        raise HTTPException(status_code=404, detail="Source STL/3MF file not found on server.")
+
+    record.status = "uploaded"
+    record.volume_cm3 = None
+    record.surface_area_cm2 = None
+    record.bbox_x_mm = None
+    record.bbox_y_mm = None
+    record.bbox_z_mm = None
+    record.triangle_count = None
+    record.has_overhangs = None
+    record.has_thin_walls = None
+    record.glb_filename = None
+
+    try:
+        db.commit()
+        db.refresh(record)
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to queue reprocessing.") from exc
+
+    background_tasks.add_task(
+        run_analysis_pipeline,
+        stl_id=record.id,
+        file_path=str(source_path),
+    )
+    return _with_glb_url(record)
 
 
 def run_analysis_pipeline(stl_id: uuid.UUID, file_path: str) -> None:
@@ -200,14 +291,14 @@ def run_analysis_pipeline(stl_id: uuid.UUID, file_path: str) -> None:
         features = extract_ui_features(file_path)
         glb_path = convert_to_glb(input_path=file_path, uuid=str(stl_id))
 
-        record.volume_cm3 = features.get("volume_cm3")
-        record.surface_area_cm2 = features.get("surface_area_cm2")
-        record.bbox_x_mm = features.get("bbox_x_mm")
-        record.bbox_y_mm = features.get("bbox_y_mm")
-        record.bbox_z_mm = features.get("bbox_z_mm")
-        record.triangle_count = features.get("triangle_count")
-        record.has_overhangs = features.get("has_overhangs")
-        record.has_thin_walls = features.get("has_thin_walls")
+        record.volume_cm3 = _safe_float(features.get("volume_cm3"))
+        record.surface_area_cm2 = _safe_float(features.get("surface_area_cm2"))
+        record.bbox_x_mm = _safe_float(features.get("bbox_x_mm"))
+        record.bbox_y_mm = _safe_float(features.get("bbox_y_mm"))
+        record.bbox_z_mm = _safe_float(features.get("bbox_z_mm"))
+        record.triangle_count = _safe_int(features.get("triangle_count"))
+        record.has_overhangs = _safe_bool(features.get("has_overhangs"))
+        record.has_thin_walls = _safe_bool(features.get("has_thin_walls"))
         record.glb_filename = Path(glb_path).name
         record.status = "ready"
 
@@ -230,3 +321,32 @@ def _with_glb_url(record: STLFile) -> STLFile:
     # Attach a computed URL used by the response schema without exposing disk paths.
     record.glb_url = f"/stl/{record.id}/glb" if record.glb_filename else None
     return record
+
+
+def recover_pending_files(max_files: int = 50) -> None:
+    """
+    Best-effort startup recovery for rows stuck in uploaded/analyzing.
+    Existing healthy rows are untouched.
+    """
+    db = SessionLocal()
+    try:
+        records = (
+            db.query(STLFile)
+            .filter(STLFile.status.in_(["uploaded", "analyzing"]))
+            .order_by(STLFile.created_at.desc())
+            .limit(max_files)
+            .all()
+        )
+        db.close()
+
+        for record in records:
+            source_path = UPLOAD_DIR / record.stored_filename
+            if not source_path.exists() or not source_path.is_file():
+                continue
+            run_analysis_pipeline(stl_id=record.id, file_path=str(source_path))
+    except Exception:
+        logger.exception("Failed to run STL startup recovery")
+        try:
+            db.close()
+        except Exception:
+            pass

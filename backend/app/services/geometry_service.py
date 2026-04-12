@@ -12,26 +12,51 @@ def _load_mesh(file_path: Path) -> trimesh.Trimesh:
     Load STL/3MF and always return a single Trimesh.
     If the file contains multiple geometries, concatenate them.
     """
-    loaded = trimesh.load(file_path, force="scene")
+    mesh: trimesh.Trimesh | None = None
 
-    if isinstance(loaded, trimesh.Scene):
-        meshes = [
-            g for g in loaded.geometry.values()
-            if isinstance(g, trimesh.Trimesh) and len(g.faces) > 0
-        ]
-        if not meshes:
-            raise ValueError("No valid mesh geometry found.")
-        mesh = trimesh.util.concatenate(meshes)
-    elif isinstance(loaded, trimesh.Trimesh):
-        mesh = loaded
-    else:
-        raise ValueError("Unsupported mesh type.")
+    # First pass: keep all geometry by loading as scene.
+    try:
+        loaded = trimesh.load(file_path, force="scene")
+
+        if isinstance(loaded, trimesh.Scene):
+            meshes = [
+                g for g in loaded.geometry.values()
+                if isinstance(g, trimesh.Trimesh) and len(g.faces) > 0
+            ]
+            if meshes:
+                mesh = trimesh.util.concatenate(meshes) if len(meshes) > 1 else meshes[0]
+        elif isinstance(loaded, trimesh.Trimesh):
+            mesh = loaded
+    except Exception:
+        mesh = None
+
+    # Fallback for edge-case files that don't deserialize cleanly as scene.
+    if mesh is None:
+        try:
+            loaded_mesh = trimesh.load(file_path, force="mesh", process=False)
+            if isinstance(loaded_mesh, trimesh.Trimesh):
+                mesh = loaded_mesh
+        except Exception:
+            mesh = None
+
+    if mesh is None or mesh.is_empty or len(mesh.faces) == 0:
+        raise ValueError("No valid mesh geometry found.")
+
+    mesh = mesh.copy()
+
+    # Keep preprocessing permissive so imperfect real-world meshes still pass.
+    try:
+        mesh.process(validate=False)
+    except Exception:
+        pass
+
+    try:
+        mesh.remove_unreferenced_vertices()
+    except Exception:
+        pass
 
     if mesh.is_empty or len(mesh.faces) == 0:
         raise ValueError("Mesh is empty.")
-
-    mesh = mesh.copy().process(validate=True)
-    mesh.remove_unreferenced_vertices()
 
     return mesh
 

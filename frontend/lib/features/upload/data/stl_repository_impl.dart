@@ -77,6 +77,17 @@ class StlRepositoryImpl implements StlRepository {
     }
   }
 
+  /// POST /stl/{id}/reprocess
+  @override
+  Future<STLFile> reprocessFile({required String id}) async {
+    try {
+      final response = await _dio.post('/stl/$id/reprocess');
+      return STLFile.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
   /// Extrait le message d'erreur lisible depuis la réponse Dio
   String _handleError(DioException e) {
     if (e.response?.data != null) {
