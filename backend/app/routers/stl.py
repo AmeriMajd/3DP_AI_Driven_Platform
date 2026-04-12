@@ -124,6 +124,23 @@ def delete_file(
 
 
 @router.get(
+    "/{stl_id}/orientation",
+    status_code=status.HTTP_200_OK,
+    summary="Get the top 3 pre-computed print orientations for a file (owner only)",
+)
+def get_orientation(
+    stl_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return stl_service.get_orientations(
+        stl_id=stl_id,
+        user_id=current_user["user_id"],
+        db=db,
+    )
+
+
+@router.get(
     "/{stl_id}/glb",
     status_code=status.HTTP_200_OK,
     summary="Download converted GLB for a file (owner only)",
