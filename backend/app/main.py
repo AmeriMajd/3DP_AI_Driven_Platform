@@ -28,6 +28,7 @@ def _sync_stl_files_schema() -> None:
     Ensures newly added STL analysis columns exist without manual DB reset.
     """
     statements = [
+        # Pre-existing columns
         "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS volume_cm3 DOUBLE PRECISION",
         "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS surface_area_cm2 DOUBLE PRECISION",
         "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS bbox_x_mm DOUBLE PRECISION",
@@ -37,6 +38,23 @@ def _sync_stl_files_schema() -> None:
         "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS has_overhangs BOOLEAN",
         "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS has_thin_walls BOOLEAN",
         "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS glb_filename VARCHAR",
+        # Sprint 2B — geometry feature columns
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS overhang_ratio DOUBLE PRECISION",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS max_overhang_angle DOUBLE PRECISION",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS min_wall_thickness_mm DOUBLE PRECISION",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS avg_wall_thickness_mm DOUBLE PRECISION",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS complexity_index DOUBLE PRECISION",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS aspect_ratio DOUBLE PRECISION",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS is_watertight BOOLEAN",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS shell_count INTEGER",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS com_offset_ratio DOUBLE PRECISION",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS flat_base_area_mm2 DOUBLE PRECISION",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS face_normal_histogram JSONB",
+        # Sprint 2B — orientation result columns
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS best_orientation_1 JSONB",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS best_orientation_2 JSONB",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS best_orientation_3 JSONB",
+        "ALTER TABLE stl_files ADD COLUMN IF NOT EXISTS best_orientation_score DOUBLE PRECISION",
     ]
     with engine.begin() as connection:
         for statement in statements:

@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.models.stl_file import STLFile
 import app.models.user  # Ensure FK target table metadata is registered.
-from app.services.geometry_service import convert_to_glb, extract_ui_features
+from app.services.geometry_service import convert_to_glb, extract_all_features
+from app.services import orientation_service
 
 logger = logging.getLogger(__name__)
 
@@ -254,6 +255,22 @@ def queue_reprocess(
     record.has_overhangs = None
     record.has_thin_walls = None
     record.glb_filename = None
+    # Sprint 2B fields
+    record.overhang_ratio = None
+    record.max_overhang_angle = None
+    record.min_wall_thickness_mm = None
+    record.avg_wall_thickness_mm = None
+    record.complexity_index = None
+    record.aspect_ratio = None
+    record.is_watertight = None
+    record.shell_count = None
+    record.com_offset_ratio = None
+    record.flat_base_area_mm2 = None
+    record.face_normal_histogram = None
+    record.best_orientation_1 = None
+    record.best_orientation_2 = None
+    record.best_orientation_3 = None
+    record.best_orientation_score = None
 
     try:
         db.commit()
@@ -268,6 +285,29 @@ def queue_reprocess(
         file_path=str(source_path),
     )
     return _with_glb_url(record)
+
+
+def get_orientations(stl_id: uuid.UUID, user_id: uuid.UUID, db: Session) -> list:
+    """
+    Return the top 3 pre-computed orientations for an owned file.
+    - 404 if file not found or not owned by current user.
+    - 400 if geometry analysis hasn't completed yet.
+    """
+    record = get_stl_file(stl_id, user_id, db)  # raises 404 if not owned
+
+    if record.status != "ready":
+        raise HTTPException(
+            status_code=400,
+            detail="Geometry analysis still in progress. Please try again shortly.",
+        )
+
+    orientations = [
+        record.best_orientation_1,
+        record.best_orientation_2,
+        record.best_orientation_3,
+    ]
+    # Filter out any None slots (e.g. if mesh had fewer than 3 candidates)
+    return [o for o in orientations if o is not None]
 
 
 def run_analysis_pipeline(stl_id: uuid.UUID, file_path: str) -> None:
@@ -288,9 +328,13 @@ def run_analysis_pipeline(stl_id: uuid.UUID, file_path: str) -> None:
         record.status = "analyzing"
         db.commit()
 
-        features = extract_ui_features(file_path)
+        # Extract all geometry features
+        features = extract_all_features(file_path)
+
+        # Convert to GLB for 3D preview
         glb_path = convert_to_glb(input_path=file_path, uuid=str(stl_id))
 
+        # Write pre-existing fields
         record.volume_cm3 = _safe_float(features.get("volume_cm3"))
         record.surface_area_cm2 = _safe_float(features.get("surface_area_cm2"))
         record.bbox_x_mm = _safe_float(features.get("bbox_x_mm"))
@@ -299,6 +343,37 @@ def run_analysis_pipeline(stl_id: uuid.UUID, file_path: str) -> None:
         record.triangle_count = _safe_int(features.get("triangle_count"))
         record.has_overhangs = _safe_bool(features.get("has_overhangs"))
         record.has_thin_walls = _safe_bool(features.get("has_thin_walls"))
+
+        # Write Sprint 2B geometry fields
+        record.overhang_ratio = _safe_float(features.get("overhang_ratio"))
+        record.max_overhang_angle = _safe_float(features.get("max_overhang_angle"))
+        record.min_wall_thickness_mm = _safe_float(features.get("min_wall_thickness_mm"))
+        record.avg_wall_thickness_mm = _safe_float(features.get("avg_wall_thickness_mm"))
+        record.complexity_index = _safe_float(features.get("complexity_index"))
+        record.aspect_ratio = _safe_float(features.get("aspect_ratio"))
+        record.is_watertight = _safe_bool(features.get("is_watertight"))
+        record.shell_count = _safe_int(features.get("shell_count"))
+        record.com_offset_ratio = _safe_float(features.get("com_offset_ratio"))
+        record.flat_base_area_mm2 = _safe_float(features.get("flat_base_area_mm2"))
+        record.face_normal_histogram = features.get("face_normal_histogram")
+
+        # Compute best orientations using the same mesh (reload for orientation service)
+        import trimesh as _trimesh
+        from pathlib import Path as _Path
+        _mesh = _trimesh.load(str(_Path(file_path)), force="mesh", process=False)
+        if isinstance(_mesh, _trimesh.Scene):
+            meshes = [g for g in _mesh.geometry.values() if isinstance(g, _trimesh.Trimesh)]
+            _mesh = _trimesh.util.concatenate(meshes) if len(meshes) > 1 else meshes[0]
+
+        orientations = orientation_service.find_best_orientations(_mesh)
+        if len(orientations) >= 1:
+            record.best_orientation_1 = orientations[0]
+            record.best_orientation_score = _safe_float(orientations[0].get("score"))
+        if len(orientations) >= 2:
+            record.best_orientation_2 = orientations[1]
+        if len(orientations) >= 3:
+            record.best_orientation_3 = orientations[2]
+
         record.glb_filename = Path(glb_path).name
         record.status = "ready"
 
