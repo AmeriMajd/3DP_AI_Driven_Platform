@@ -4,6 +4,7 @@ class STLFile {
   final int fileSizeBytes;
   final String status; // 'uploaded' | 'analyzing' | 'ready' | 'error'
   final DateTime createdAt;
+  final DateTime updatedAt;
   final String? glbUrl; // URL vers l'endpoint GET /stl/{id}/glb
   // geometry — nullable jusqu'à status = ready
   final double? volumeCm3;
@@ -27,7 +28,7 @@ class STLFile {
   final int? shellCount;
   final double? comOffsetRatio;
   final double? flatBaseAreaMm2;
-
+  final List<double>? faceNormalHistogram; // 18-bin histogram — ML input feature
 
   STLFile({
     required this.id,
@@ -35,6 +36,7 @@ class STLFile {
     required this.fileSizeBytes,
     required this.status,
     required this.createdAt,
+    required this.updatedAt,
     this.glbUrl,
     this.volumeCm3,
     this.surfaceAreaCm2,
@@ -54,7 +56,7 @@ class STLFile {
     this.shellCount,
     this.comOffsetRatio,
     this.flatBaseAreaMm2,
-
+    this.faceNormalHistogram,
   });
 
   static String? _normalizeFlag(dynamic value) {
@@ -74,6 +76,7 @@ class STLFile {
     fileSizeBytes: (json['file_size_bytes'] as num).toInt(),
     status: (json['status'] ?? '').toString(),
     createdAt: DateTime.parse(json['created_at']),
+    updatedAt: DateTime.parse(json['updated_at']),
     glbUrl: json['glb_url']?.toString(),
     volumeCm3: json['volume_cm3']?.toDouble(),
     surfaceAreaCm2: json['surface_area_cm2']?.toDouble(),
@@ -94,6 +97,9 @@ class STLFile {
     shellCount: (json['shell_count'] as num?)?.toInt(),
     comOffsetRatio: json['com_offset_ratio']?.toDouble(),
     flatBaseAreaMm2: json['flat_base_area_mm2']?.toDouble(),
+    faceNormalHistogram: (json['face_normal_histogram'] as List<dynamic>?)
+        ?.map((e) => (e as num).toDouble())
+        .toList(),
   );
 
   String get formattedSize {

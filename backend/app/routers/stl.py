@@ -1,10 +1,11 @@
+from typing import List
 from uuid import UUID
 from fastapi import APIRouter, Depends, UploadFile, File, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.schemas.stl import STLFileResponse, STLListResponse, STLStatusUpdate
+from app.schemas.stl import STLFileResponse, STLListResponse, STLStatusUpdate, OrientationResult
 from app.services import stl_service
 from fastapi import BackgroundTasks
 
@@ -86,6 +87,26 @@ def update_status(
     )
 
 
+@router.post(
+    "/{stl_id}/reprocess",
+    response_model=STLFileResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Re-run analysis pipeline for a file",
+)
+def reprocess_file(
+    stl_id: UUID,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return stl_service.queue_reprocess(
+        stl_id=stl_id,
+        user_id=current_user["user_id"],
+        db=db,
+        background_tasks=background_tasks,
+    )
+
+
 @router.delete(
     "/{stl_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -97,6 +118,24 @@ def delete_file(
     db: Session = Depends(get_db),
 ):
     stl_service.delete_stl_file(
+        stl_id=stl_id,
+        user_id=current_user["user_id"],
+        db=db,
+    )
+
+
+@router.get(
+    "/{stl_id}/orientation",
+    response_model=List[OrientationResult],
+    status_code=status.HTTP_200_OK,
+    summary="Get the top 3 pre-computed print orientations for a file (owner only)",
+)
+def get_orientation(
+    stl_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return stl_service.get_orientations(
         stl_id=stl_id,
         user_id=current_user["user_id"],
         db=db,

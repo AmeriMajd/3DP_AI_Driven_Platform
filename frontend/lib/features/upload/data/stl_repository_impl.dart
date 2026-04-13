@@ -78,14 +78,12 @@ class StlRepositoryImpl implements StlRepository {
     }
   }
 
-
-  /// GET /stl/{id}/orientations
-  /// Appelé une seule fois quand le polling détecte status == 'ready'.
+  /// GET /stl/{id}/orientation
   @override
   Future<List<OrientationResult>> getOrientations({required String id}) async {
     try {
       final response = await _dio.get('/stl/$id/orientation');
-      final data = response.data as List;
+      final data = response.data as List<dynamic>;
       return data
           .map((o) => OrientationResult.fromJson(o as Map<String, dynamic>))
           .toList();
@@ -93,7 +91,18 @@ class StlRepositoryImpl implements StlRepository {
       throw Exception(_handleError(e));
     }
   }
-  
+
+  /// POST /stl/{id}/reprocess
+  @override
+  Future<STLFile> reprocessFile({required String id}) async {
+    try {
+      final response = await _dio.post('/stl/$id/reprocess');
+      return STLFile.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
   /// Extrait le message d'erreur lisible depuis la réponse Dio
   String _handleError(DioException e) {
     if (e.response?.data != null) {

@@ -162,6 +162,8 @@ class _OrientationTile extends StatelessWidget {
   double get _score => result.score;
   double get _overhangReduction => result.overhangReductionPct;
   double get _printHeight => result.printHeightMm;
+  double get _supportVolume => result.supportVolumeMm3;
+  double get _contactArea => result.contactAreaMm2;
   double get _rx => result.rxDeg;
   double get _ry => result.ryDeg;
   double get _rz => result.rzDeg;
@@ -247,6 +249,21 @@ class _OrientationTile extends StatelessWidget {
                   icon: Icons.height_outlined,
                   label: 'Height',
                   value: '${_printHeight.toStringAsFixed(1)} mm',
+                ),
+                const SizedBox(height: 6),
+                _InfoRow(
+                  icon: Icons.layers_outlined,
+                  label: 'Support Vol.',
+                  value: '${_supportVolume.toStringAsFixed(0)} mm³',
+                  valueColor: _supportVolume < 100
+                      ? const Color(0xFF22C55E)
+                      : const Color(0xFF8E8E93),
+                ),
+                const SizedBox(height: 6),
+                _InfoRow(
+                  icon: Icons.crop_square_outlined,
+                  label: 'Contact Area',
+                  value: '${_contactArea.toStringAsFixed(0)} mm²',
                 ),
                 const SizedBox(height: 12),
                 SizedBox(

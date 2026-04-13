@@ -14,6 +14,7 @@ class StlRepositoryMock implements StlRepository {
       fileSizeBytes: 2400000,
       status: 'ready',
       createdAt: DateTime.now().subtract(const Duration(minutes: 2)),
+      updatedAt: DateTime.now().subtract(const Duration(minutes: 1)),
       glbUrl: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
       volumeCm3: 26.4,
       surfaceAreaCm2: 48.2,
@@ -40,6 +41,7 @@ class StlRepositoryMock implements StlRepository {
       fileSizeBytes: 850000,
       status: 'uploaded',
       createdAt: DateTime.now().subtract(const Duration(seconds: 30)),
+      updatedAt: DateTime.now().subtract(const Duration(seconds: 30)),
     ),
   ];
 
@@ -58,12 +60,14 @@ class StlRepositoryMock implements StlRepository {
     if (fileSize > 50 * 1024 * 1024) {
       throw Exception('File exceeds 50 MB limit');
     }
+    final now = DateTime.now();
     final newFile = STLFile(
-      id: 'mock-${DateTime.now().millisecondsSinceEpoch}',
+      id: 'mock-${now.millisecondsSinceEpoch}',
       originalFilename: filename,
       fileSizeBytes: fileSize,
       status: 'uploaded',
-      createdAt: DateTime.now(),
+      createdAt: now,
+      updatedAt: now,
     );
     _files.insert(0, newFile);
     return newFile;
@@ -102,6 +106,7 @@ class StlRepositoryMock implements StlRepository {
       fileSizeBytes: file.fileSizeBytes,
       status: newStatus,
       createdAt: file.createdAt,
+      updatedAt: DateTime.now(),
       glbUrl: isReady
           ? 'https://modelviewer.dev/shared-assets/models/Astronaut.glb'
           : null,
@@ -159,6 +164,9 @@ class StlRepositoryMock implements StlRepository {
         score: 0.88,
         overhangReductionPct: 34.0,
         printHeightMm: 20.0,
+        supportVolumeMm3: 45.0,
+        contactAreaMm2: 380.0,
+        buildHeightMm: 20.0,
       ),
       const OrientationResult(
         rank: 2,
@@ -168,6 +176,9 @@ class StlRepositoryMock implements StlRepository {
         score: 0.74,
         overhangReductionPct: 18.0,
         printHeightMm: 42.0,
+        supportVolumeMm3: 210.0,
+        contactAreaMm2: 180.0,
+        buildHeightMm: 42.0,
       ),
       const OrientationResult(
         rank: 3,
@@ -177,7 +188,33 @@ class StlRepositoryMock implements StlRepository {
         score: 0.61,
         overhangReductionPct: 8.0,
         printHeightMm: 30.0,
+        supportVolumeMm3: 320.0,
+        contactAreaMm2: 120.0,
+        buildHeightMm: 30.0,
       ),
     ];
+  }
+
+  @override
+  Future<STLFile> reprocessFile({required String id}) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    final index = _files.indexWhere((f) => f.id == id);
+    if (index == -1) throw Exception('File not found');
+
+    _pollCount[id] = 0;
+    final file = _files[index];
+    final now = DateTime.now();
+    final reset = STLFile(
+      id: file.id,
+      originalFilename: file.originalFilename,
+      fileSizeBytes: file.fileSizeBytes,
+      status: 'uploaded',
+      createdAt: file.createdAt,
+      updatedAt: now,
+    );
+
+    _files[index] = reset;
+    return reset;
   }
 }

@@ -26,7 +26,8 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
 
   // Orientation sélectionnée par l'utilisateur (index + données)
   int? _selectedOrientationIndex;
-  Map<String, dynamic>? _selectedOrientation; // toCardData() d'un OrientationResult
+  Map<String, dynamic>?
+  _selectedOrientation; // toCardData() d'un OrientationResult
 
   @override
   void initState() {
@@ -55,11 +56,10 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
     super.dispose();
   }
 
-  STLFile? _findFile(List<STLFile> files) =>
-      files.cast<STLFile?>().firstWhere(
-        (f) => f?.id == widget.fileId,
-        orElse: () => null,
-      );
+  STLFile? _findFile(List<STLFile> files) => files.cast<STLFile?>().firstWhere(
+    (f) => f?.id == widget.fileId,
+    orElse: () => null,
+  );
 
   Future<void> _confirmDelete(BuildContext context, STLFile file) async {
     final confirm = await showDialog<bool>(
@@ -70,9 +70,10 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
         title: const Text(
           'Delete Model',
           style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1C1C1E)),
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1C1C1E),
+          ),
         ),
         content: Text(
           'Delete "${file.originalFilename}" permanently?\n'
@@ -82,14 +83,20 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel',
-                style: TextStyle(color: Color(0xFF8E8E93))),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF8E8E93)),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete',
-                style: TextStyle(
-                    color: Color(0xFFFF3B30), fontWeight: FontWeight.w600)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(
+                color: Color(0xFFFF3B30),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -109,8 +116,10 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
       return Scaffold(
         appBar: AppBar(leading: const BackButton()),
         body: const Center(
-          child: Text('Model not found',
-              style: TextStyle(color: Color(0xFF8E8E93))),
+          child: Text(
+            'Model not found',
+            style: TextStyle(color: Color(0xFF8E8E93)),
+          ),
         ),
       );
     }
@@ -126,9 +135,10 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
           file.originalFilename,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1C1C1E)),
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1C1C1E),
+          ),
         ),
         actions: [
           IconButton(
@@ -147,9 +157,13 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
               indicatorColor: const Color(0xFF6366F1),
               indicatorWeight: 2.5,
               labelStyle: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
               unselectedLabelStyle: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w400),
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
               tabs: const [
                 Tab(text: '3D Preview'),
                 Tab(text: 'Geometry'),
@@ -170,14 +184,19 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
           ),
 
           // ── Tab 2: Geometry Analysis ───────────────────────────────────
-          _GeometryTab(file: file),
+          _GeometryTab(
+            file: file,
+            onRetry: () =>
+                ref.read(uploadProvider.notifier).reprocessFile(id: file.id),
+          ),
 
           // ── Tab 3: Orientation ─────────────────────────────────────────
           // orientationsProvider gère le cache, loading et erreurs.
           Consumer(
             builder: (context, ref, _) {
-              final orientationsAsync =
-                  ref.watch(orientationsProvider(widget.fileId));
+              final orientationsAsync = ref.watch(
+                orientationsProvider(widget.fileId),
+              );
               return orientationsAsync.when(
                 data: (orientations) => _OrientationTab(
                   file: file,
@@ -250,9 +269,18 @@ class _PreviewTab extends StatelessWidget {
                       file: file,
                       orientationAngles: selectedOrientation != null
                           ? (
-                              rx: (selectedOrientation!['rx'] as num?)?.toDouble() ?? 0.0,
-                              ry: (selectedOrientation!['ry'] as num?)?.toDouble() ?? 0.0,
-                              rz: (selectedOrientation!['rz'] as num?)?.toDouble() ?? 0.0,
+                              rx:
+                                  (selectedOrientation!['rx'] as num?)
+                                      ?.toDouble() ??
+                                  0.0,
+                              ry:
+                                  (selectedOrientation!['ry'] as num?)
+                                      ?.toDouble() ??
+                                  0.0,
+                              rz:
+                                  (selectedOrientation!['rz'] as num?)
+                                      ?.toDouble() ??
+                                  0.0,
                             )
                           : null,
                     ),
@@ -303,8 +331,7 @@ class _OrientationBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.rotate_90_degrees_cw_outlined,
-              size: 12, color: color),
+          Icon(Icons.rotate_90_degrees_cw_outlined, size: 12, color: color),
           const SizedBox(width: 5),
           Text(
             '$label orientation',
@@ -323,7 +350,9 @@ class _OrientationBadge extends StatelessWidget {
 // ── Tab 2: Geometry Analysis ───────────────────────────────────────────────────
 class _GeometryTab extends StatelessWidget {
   final STLFile file;
-  const _GeometryTab({required this.file});
+  final VoidCallback onRetry;
+
+  const _GeometryTab({required this.file, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -340,9 +369,29 @@ class _GeometryTab extends StatelessWidget {
                 file.isError
                     ? 'Geometry extraction failed'
                     : 'Geometry analysis in progress...',
-                style: const TextStyle(
-                    fontSize: 14, color: Color(0xFF8E8E93)),
+                style: const TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
               ),
+              if (file.isError) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text(
+                      'Retry Analysis',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF6366F1),
+                      side: const BorderSide(color: Color(0xFF6366F1)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -392,8 +441,7 @@ class _OrientationTab extends StatelessWidget {
                 file.isError
                     ? 'Orientation analysis failed'
                     : 'Computing best orientations...',
-                style: const TextStyle(
-                    fontSize: 14, color: Color(0xFF8E8E93)),
+                style: const TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
               ),
             ],
           ),
@@ -451,7 +499,11 @@ class _BottomCTA extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.fromLTRB(
-          16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
+        16,
+        12,
+        16,
+        MediaQuery.of(context).padding.bottom + 12,
+      ),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Color(0xFFE5E5EA))),
@@ -475,20 +527,25 @@ class _BottomCTA extends StatelessWidget {
                 '${AppRoutes.recommendForm}?fileId=${file.id}'
                 '${selectedOrientationIndex != null ? '&orientation=$selectedOrientationIndex' : ''}',
               ),
-              icon: const Icon(Icons.auto_awesome,
-                  color: Colors.white, size: 18),
+              icon: const Icon(
+                Icons.auto_awesome,
+                color: Colors.white,
+                size: 18,
+              ),
               label: const Text(
                 'Continue to AI Analysis',
                 style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF6366F1),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
