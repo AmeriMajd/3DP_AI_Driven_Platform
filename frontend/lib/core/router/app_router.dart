@@ -80,7 +80,7 @@ final appRouter = GoRouter(
       routes: [
         GoRoute(
           path: AppRoutes.upload,
-          builder: (_, __) => const UploadScreen(),
+          builder: (_, _) => const UploadScreen(),
           routes: [
             GoRoute(
               path: 'file/:id',
@@ -93,15 +93,15 @@ final appRouter = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.fleet,
-          builder: (_, __) => const PlaceholderScreen(title: 'Printers'),
+          builder: (_, _) => const PlaceholderScreen(title: 'Printers'),
         ),
         GoRoute(
           path: AppRoutes.schedule,
-          builder: (_, __) => const PlaceholderScreen(title: 'schedule'),
+          builder: (_, _) => const PlaceholderScreen(title: 'schedule'),
         ),
         GoRoute(
           path: AppRoutes.monitoring,
-          builder: (_, __) => const PlaceholderScreen(title: 'Monitoring'),
+          builder: (_, _) => const PlaceholderScreen(title: 'Monitoring'),
         ),
       ],
     ),
