@@ -1,3 +1,4 @@
+import io
 import uuid
 import logging
 from pathlib import Path
@@ -5,6 +6,9 @@ from typing import Any
 from fastapi import BackgroundTasks
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
+
+import numpy as np
+from scipy.spatial.transform import Rotation
 
 from app.core.database import SessionLocal
 from app.models.stl_file import STLFile
@@ -235,6 +239,63 @@ def get_glb_path(stl_id: uuid.UUID, user_id: uuid.UUID, db: Session) -> Path:
         db.rollback()
 
     return Path(regenerated_glb)
+
+
+def get_rotated_glb_bytes(
+    stl_id: uuid.UUID, user_id: uuid.UUID, rank: int, db: Session
+) -> bytes:
+    """
+    Load the original STL mesh, apply the stored rotation for the given rank
+    (1 / 2 / 3), and return the rotated mesh as raw GLB bytes.
+
+    This avoids any Euler-angle convention or coordinate-system ambiguity:
+    the rotation is baked directly into the mesh vertices before export.
+    """
+    record = get_stl_file(stl_id, user_id, db)
+
+    orientation_by_rank = {
+        1: record.best_orientation_1,
+        2: record.best_orientation_2,
+        3: record.best_orientation_3,
+    }
+    orientation = orientation_by_rank.get(rank)
+    if orientation is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Orientation rank {rank} not available for this file.",
+        )
+
+    rx_deg = float(orientation["rx_deg"])
+    ry_deg = float(orientation["ry_deg"])
+    rz_deg = float(orientation["rz_deg"])
+
+    # Reconstruct the rotation matrix from the stored extrinsic XYZ angles.
+    R = Rotation.from_euler("xyz", [rx_deg, ry_deg, rz_deg], degrees=True).as_matrix()
+    transform = np.eye(4)
+    transform[:3, :3] = R
+
+    # Load the original mesh and apply the rotation in-place.
+    source_path = UPLOAD_DIR / record.stored_filename
+    if not source_path.exists():
+        raise HTTPException(status_code=404, detail="Source STL file not found on disk.")
+
+    mesh = load_mesh(source_path)
+    mesh.apply_transform(transform)
+    
+    # Ground the model on the build plate: translate so min Z = 0
+    min_z = float(mesh.bounds[0][2])
+    if min_z != 0.0:
+        translation = np.eye(4)
+        translation[2, 3] = -min_z  # Translate Z by -min_z to ground at z=0
+        mesh.apply_transform(translation)
+
+    # Export to GLB bytes (no disk I/O needed).
+    glb_bytes = mesh.export(file_type="glb")
+    if isinstance(glb_bytes, str):
+        # Some trimesh versions return a string path instead of bytes — shouldn't
+        # happen with file_type kwarg but guard against it.
+        raise HTTPException(status_code=500, detail="GLB export failed.")
+    return bytes(glb_bytes)
 
 
 def queue_reprocess(

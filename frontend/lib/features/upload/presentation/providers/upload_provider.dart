@@ -8,7 +8,7 @@ import '../../domain/stl_file.dart';
 import 'upload_state.dart';
 
 final stlRepositoryProvider = Provider<StlRepository>((ref) {
-  return StlRepositoryMock();
+  return StlRepositoryImpl();
 });
 
 final uploadProvider =

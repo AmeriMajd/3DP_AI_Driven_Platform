@@ -8,22 +8,21 @@ import 'package:dio/dio.dart';
 import '../../domain/stl_file.dart';
 import 'package:frontend/shared/services/dio_client.dart';
 
-/// Record contenant les angles de rotation Rx/Ry/Rz en degrés.
-typedef OrientationAngles = ({double rx, double ry, double rz});
-
 class Model3DViewer extends StatefulWidget {
   final STLFile file;
 
-  /// Si non null, applique cette rotation au modèle 3D dans le viewer.
-  /// Format : ({ rx: 90.0, ry: 0.0, rz: 0.0 })
-  final OrientationAngles? orientationAngles;
+  /// When non-null, fetches a pre-rotated GLB from the backend
+  /// (GET /stl/{id}/glb?rank={selectedRank}) so the model appears in the
+  /// optimal print orientation without any client-side angle conversion.
+  /// Rank is 1-indexed (1 = best, 2 = second best, 3 = third best).
+  final int? selectedRank;
 
   /// Hauteur fixe optionnelle. Si null, prend toute la hauteur disponible.
   final double? height;
 
   const Model3DViewer({
     required this.file,
-    this.orientationAngles,
+    this.selectedRank,
     this.height,
     super.key,
   });
@@ -44,10 +43,14 @@ class _Model3DViewerState extends State<Model3DViewer> {
   @override
   void didUpdateWidget(Model3DViewer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Recharger si le fichier change ou si le statut passe à ready
+    // Reload when the file changes, its status changes, or the selected
+    // orientation rank changes (each rank serves a differently rotated GLB).
     if (oldWidget.file.id != widget.file.id ||
-        oldWidget.file.status != widget.file.status) {
-      _glbDataUrlFuture = _loadGlbAsDataUrl();
+        oldWidget.file.status != widget.file.status ||
+        oldWidget.selectedRank != widget.selectedRank) {
+      setState(() {
+        _glbDataUrlFuture = _loadGlbAsDataUrl();
+      });
     }
   }
 
@@ -60,7 +63,6 @@ class _Model3DViewerState extends State<Model3DViewer> {
         child: _buildViewer(),
       );
     }
-    // Sans height → SizedBox.expand pour remplir Expanded/Stack parent
     return SizedBox.expand(child: _buildViewer());
   }
 
@@ -76,13 +78,6 @@ class _Model3DViewerState extends State<Model3DViewer> {
         final src = snapshot.data;
         if (src == null || src.isEmpty) return _buildError();
 
-        // Convertit les angles en format attendu par model-viewer :
-        // "Xdeg Ydeg Zdeg" — correspond à orbit / orientation attribute
-        final angles = widget.orientationAngles;
-        final orientationStr = angles != null
-            ? '${angles.rx}deg ${angles.ry}deg ${angles.rz}deg'
-            : null;
-
         return ModelViewer(
           src: src,
           alt: widget.file.originalFilename,
@@ -90,8 +85,6 @@ class _Model3DViewerState extends State<Model3DViewer> {
           autoRotate: true,
           cameraControls: true,
           backgroundColor: const Color(0xFF1A1A2E),
-          // Applique la rotation si une orientation est sélectionnée
-          orientation: orientationStr,
         );
       },
     );
@@ -106,11 +99,15 @@ class _Model3DViewerState extends State<Model3DViewer> {
       return glbUrl;
     }
 
-    // Cas 2 : glbUrl est un chemin relatif — le télécharger via Dio avec le token Bearer.
-    // On préfère le chemin fourni par le backend, sinon on reconstruit l'endpoint standard.
-    final endpoint = (glbUrl != null && glbUrl.isNotEmpty)
+    // Build endpoint. When a rank is selected, append ?rank= so the backend
+    // returns a GLB with the rotation baked into the mesh vertices — this
+    // avoids all Euler-angle convention and Y-up/Z-up coordinate mismatches.
+    final base = (glbUrl != null && glbUrl.isNotEmpty)
         ? glbUrl
         : '/stl/${widget.file.id}/glb';
+    final endpoint = widget.selectedRank != null
+        ? '$base?rank=${widget.selectedRank}'
+        : base;
 
     try {
       final response = await DioClient.instance.get<List<int>>(

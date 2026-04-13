@@ -24,10 +24,9 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
-  // Orientation sélectionnée par l'utilisateur (index + données)
+  // 0-indexed slot of the orientation the user tapped in the Orientation tab.
+  // Converted to a 1-indexed rank when passed to Model3DViewer.
   int? _selectedOrientationIndex;
-  Map<String, dynamic>?
-  _selectedOrientation; // toCardData() d'un OrientationResult
 
   @override
   void initState() {
@@ -179,7 +178,10 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
           // ── Tab 1: 3D Preview ──────────────────────────────────────────
           _PreviewTab(
             file: file,
-            selectedOrientation: _selectedOrientation,
+            // rank is 1-indexed; _selectedOrientationIndex is 0-indexed
+            selectedRank: _selectedOrientationIndex != null
+                ? _selectedOrientationIndex! + 1
+                : null,
             selectedOrientationIndex: _selectedOrientationIndex,
           ),
 
@@ -206,7 +208,6 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
                   onSelect: (index, result) {
                     setState(() {
                       _selectedOrientationIndex = index;
-                      _selectedOrientation = result.toCardData();
                     });
                   },
                 ),
@@ -241,12 +242,14 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
 // ── Tab 1: 3D Preview ──────────────────────────────────────────────────────────
 class _PreviewTab extends StatelessWidget {
   final STLFile file;
-  final Map<String, dynamic>? selectedOrientation;
+  /// 1-indexed rank of the selected orientation (null = default GLB, no rotation).
+  final int? selectedRank;
+  /// 0-indexed for the badge label — derived from selectedRank by the parent.
   final int? selectedOrientationIndex;
 
   const _PreviewTab({
     required this.file,
-    this.selectedOrientation,
+    this.selectedRank,
     this.selectedOrientationIndex,
   });
 
@@ -267,27 +270,12 @@ class _PreviewTab extends StatelessWidget {
                   child: SizedBox.expand(
                     child: Model3DViewer(
                       file: file,
-                      orientationAngles: selectedOrientation != null
-                          ? (
-                              rx:
-                                  (selectedOrientation!['rx'] as num?)
-                                      ?.toDouble() ??
-                                  0.0,
-                              ry:
-                                  (selectedOrientation!['ry'] as num?)
-                                      ?.toDouble() ??
-                                  0.0,
-                              rz:
-                                  (selectedOrientation!['rz'] as num?)
-                                      ?.toDouble() ??
-                                  0.0,
-                            )
-                          : null,
+                      selectedRank: selectedRank,
                     ),
                   ),
                 ),
                 // Badge flottant si une orientation est sélectionnée
-                if (selectedOrientation != null)
+                if (selectedRank != null)
                   Positioned(
                     top: 12,
                     left: 12,
