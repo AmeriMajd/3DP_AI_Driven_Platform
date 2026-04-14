@@ -16,3 +16,9 @@ scipy
 networkx
 lxml
 numpy-stl==3.1.1
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.23.2
+httpx==0.25.2
+pytest-cov==4.1.0

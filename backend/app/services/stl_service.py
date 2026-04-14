@@ -29,6 +29,12 @@ ALLOWED_EXTENSIONS = {".stl", ".3mf"}
 VALID_STATUSES = {"uploaded", "analyzing", "ready", "error"}
 
 
+def _to_uuid(value: "uuid.UUID | str") -> uuid.UUID:
+    """Coerce a string UUID to a uuid.UUID object.
+    PostgreSQL's driver does this automatically; SQLite requires it explicitly."""
+    return uuid.UUID(value) if isinstance(value, str) else value
+
+
 def _get_extension(filename: str) -> str:
     return Path(filename).suffix.lower()
 
@@ -96,6 +102,10 @@ async def save_stl_file(file: UploadFile, user_id: uuid.UUID, db: Session, backg
     # 4. Generate stable UUID for both the DB row and the on-disk filename
     file_id = uuid.uuid4()
     stored_filename = f"{file_id}{ext}"
+    # Coerce string user_id to UUID object — PostgreSQL's driver does this
+    # automatically; SQLite and unit tests require an explicit conversion.
+    if isinstance(user_id, str):
+        user_id = uuid.UUID(user_id)
 
     # 5. Ensure upload directory exists and write file
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -135,6 +145,7 @@ async def save_stl_file(file: UploadFile, user_id: uuid.UUID, db: Session, backg
 
 def list_stl_files(user_id: uuid.UUID, db: Session) -> list[STLFile]:
     """Return all files for the current user, most recent first."""
+    user_id = _to_uuid(user_id)
     records = (
         db.query(STLFile)
         .filter(STLFile.user_id == user_id)
@@ -150,6 +161,8 @@ def get_stl_file(stl_id: uuid.UUID, user_id: uuid.UUID, db: Session) -> STLFile:
     404 whether the file doesn't exist OR belongs to another user —
     never expose that another user's file exists.
     """
+    stl_id = _to_uuid(stl_id)
+    user_id = _to_uuid(user_id)
     record = (
         db.query(STLFile)
         .filter(STLFile.id == stl_id, STLFile.user_id == user_id)
