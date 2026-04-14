@@ -1,7 +1,18 @@
 """
-Orientation Optimizer — Sprint 2B
-Deterministic algorithm (no ML). Samples 162 candidate orientations using the
-Fibonacci lattice, scores each one, and returns the top 3.
+Orientation Optimizer — Sprint 2B (improved)
+
+Deterministic algorithm (no ML). Samples candidate orientations using a
+two-stage Fibonacci strategy:
+  Stage 1 – 200 coarse Fibonacci candidates covering the full sphere.
+  Stage 2 – 24 fine local candidates around each of the top-12 coarse
+             results (≈ 488 total), converging on the actual optimum.
+
+Scoring improvements over the previous version:
+  • Weights now sum to exactly 1.0 (no silent clipping).
+  • Stability is computed per-orientation (CoM horizontal offset from
+    footprint centroid) instead of being a constant mesh property.
+  • base_term / contact_term overlap resolved: contact weight reduced.
+  • overhang_reduction_pct clamped to [0, 100].
 """
 from __future__ import annotations
 import math
@@ -12,7 +23,9 @@ import trimesh
 from scipy.spatial.transform import Rotation
 
 
-def generate_candidates(n: int = 162) -> np.ndarray:
+# ── Candidate generation ──────────────────────────────────────────────────────
+
+def generate_candidates(n: int = 200) -> np.ndarray:
     """
     Generate n unit vectors uniformly distributed on a sphere
     using the Fibonacci lattice method.
@@ -28,6 +41,43 @@ def generate_candidates(n: int = 162) -> np.ndarray:
     z = np.cos(theta)
     return np.column_stack([x, y, z])
 
+
+def generate_local_candidates(
+    center: np.ndarray,
+    n: int = 24,
+    half_angle_deg: float = 12.0,
+) -> np.ndarray:
+    """
+    Generate n unit vectors uniformly distributed within a spherical cap of
+    half_angle_deg around `center`, using the Fibonacci lattice on the cap.
+    Returns array of shape (n, 3).
+    """
+    center = center / (np.linalg.norm(center) + 1e-12)
+    half_angle = math.radians(half_angle_deg)
+    cos_min = math.cos(half_angle)
+
+    golden_ratio = (1.0 + math.sqrt(5.0)) / 2.0
+    indices = np.arange(n)
+
+    # Uniform sampling of cos(theta) in [cos_min, 1]
+    cos_theta = cos_min + (1.0 - cos_min) * (indices + 0.5) / n
+    theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+    phi = 2.0 * math.pi * indices / golden_ratio
+
+    x_local = np.sin(theta) * np.cos(phi)
+    y_local = np.sin(theta) * np.sin(phi)
+    z_local = np.cos(theta)
+    local_vecs = np.column_stack([x_local, y_local, z_local])
+
+    # Rotate local frame so local +Z aligns with `center`
+    R = _rotation_matrix_to_align_z(center)
+    global_vecs = (R @ local_vecs.T).T
+
+    norms = np.linalg.norm(global_vecs, axis=1, keepdims=True)
+    return global_vecs / (norms + 1e-12)
+
+
+# ── Geometry helpers ──────────────────────────────────────────────────────────
 
 def _rotation_matrix_to_align_z(target: np.ndarray) -> np.ndarray:
     """
@@ -60,6 +110,8 @@ def rotate_normals(normals: np.ndarray, R: np.ndarray) -> np.ndarray:
     """Apply rotation matrix R to all face normals. Returns array of same shape."""
     return (R @ normals.T).T
 
+
+# ── Per-orientation metrics ───────────────────────────────────────────────────
 
 def compute_overhang_area(rotated_normals: np.ndarray, areas: np.ndarray) -> float:
     """Sum areas of faces where rotated normal.z < -0.707 (cos 45°)."""
@@ -97,16 +149,15 @@ def compute_support_volume(
     z_min = float(rotated_vertices[:, 2].min())
 
     # Face centroid Z = mean Z of the 3 constituent vertices
-    face_verts_z = rotated_vertices[faces, 2]          # (F, 3)
-    centroid_z = face_verts_z.mean(axis=1)              # (F,)
+    face_verts_z = rotated_vertices[faces, 2]      # (F, 3)
+    centroid_z   = face_verts_z.mean(axis=1)        # (F,)
 
     overhang_centroid_z = centroid_z[overhang_mask]
-    overhang_areas = areas[overhang_mask]
-    overhang_nz = np.abs(rotated_normals[overhang_mask, 2])
+    overhang_areas      = areas[overhang_mask]
+    overhang_nz         = np.abs(rotated_normals[overhang_mask, 2])
 
-    # Project face area onto XY plane, multiply by height above plate
     projected = overhang_areas * overhang_nz
-    heights = np.maximum(overhang_centroid_z - z_min, 0.0)
+    heights   = np.maximum(overhang_centroid_z - z_min, 0.0)
     return float(np.sum(projected * heights))
 
 
@@ -121,6 +172,45 @@ def compute_contact_area(rotated_normals: np.ndarray, areas: np.ndarray) -> floa
     return float(np.sum(areas[mask] * np.abs(rotated_normals[mask, 2])))
 
 
+def compute_stability_ratio(
+    rotated_vertices: np.ndarray,
+    com_rotated: np.ndarray,
+) -> float:
+    """
+    Per-orientation stability: horizontal distance of the centre of mass
+    from the footprint centroid, normalised by the RMS footprint extent.
+
+    Returns a ratio in [0, 1]:
+      0.0 = CoM directly over footprint centre (maximally stable)
+      1.0 = CoM at the edge of the footprint (about to tip)
+
+    The footprint is defined as vertices within the bottom 3 % of model
+    height (or 1 mm, whichever is larger).
+    """
+    z_min   = float(rotated_vertices[:, 2].min())
+    z_range = float(rotated_vertices[:, 2].max()) - z_min
+    z_thresh = z_min + max(z_range * 0.03, 1.0)
+
+    mask = rotated_vertices[:, 2] <= z_thresh
+    footprint_pts = rotated_vertices[mask, :2]
+
+    if len(footprint_pts) < 3:
+        # Degenerate footprint — treat as slightly off-centre
+        return 0.3
+
+    centroid_xy = footprint_pts.mean(axis=0)
+
+    # RMS extent gives a size-representative radius of the footprint
+    rms_extent = float(
+        np.sqrt(np.mean(np.sum((footprint_pts - centroid_xy) ** 2, axis=1)) + 1e-6)
+    )
+
+    com_xy_offset = float(np.linalg.norm(com_rotated[:2] - centroid_xy))
+    return float(np.clip(com_xy_offset / (rms_extent + 1e-6), 0.0, 1.0))
+
+
+# ── Scoring ───────────────────────────────────────────────────────────────────
+
 def angle_between(v1: np.ndarray, v2: np.ndarray) -> float:
     """Return the angle in degrees between two unit vectors."""
     dot = float(np.clip(np.dot(v1, v2), -1.0, 1.0))
@@ -132,8 +222,8 @@ def score_orientation(
     base_area: float,
     print_height: float,
     support_vol: float,
-    contact_area: float,
-    com_offset_ratio: float,
+    contact_fraction: float,
+    stability_ratio: float,
     total_area: float,
     model_volume_cm3: float,
     max_diagonal: float,
@@ -142,15 +232,26 @@ def score_orientation(
     priority_face_bonus: float = 0.0,
 ) -> float:
     """
-    Improved scoring with support volume normalisation, CoM stability, and
-    an optional priority-face bonus.
+    Score an orientation in [0, 1].  Weights sum to exactly 1.0 so that
+    the formula spans the full range without silent clipping distortion.
 
-      score = w_o*(1 - overhang/total)
-            + w_b*(base/total)
-            + w_h*(1 - height/diagonal)
-            + w_s*(1 / (1 + support_norm*0.8))
-            + w_st*(1 - min(com_offset*5, 1))
-            + 0.08*priority_face_bonus
+    `contact_fraction` is the build-plate contact area divided by the
+    model's XY footprint area for that orientation (0–1).  This makes
+    the contact term scale-independent and properly penalises orientations
+    where the model barely touches the build plate.
+
+      Base weights (quality / standard):
+        w_o  = 0.25  overhang reduction   (key FDM metric)
+        w_s  = 0.18  support volume       (material cost)
+        w_b  = 0.16  flat base area       (adhesion & first layer)
+        w_h  = 0.12  print height         (build time proxy)
+        w_st = 0.14  stability            (CoM over footprint, per orientation)
+        w_c  = 0.15  contact fraction     (build-plate grip, model-relative)
+                                    sum = 1.00
+
+      priority_face_bonus (0–0.08) is additive; clipped overall to 1.0.
+
+    Mode overrides redistribute weights while keeping the total at 1.0.
     """
     if total_area <= 0 or model_volume_cm3 <= 0:
         return 0.0
@@ -159,32 +260,124 @@ def score_orientation(
     base_term      = base_area / total_area
     height_term    = 1.0 - (print_height / max_diagonal) if max_diagonal > 0 else 0.0
 
-    support_norm   = support_vol / (model_volume_cm3 * 1000)
+    support_norm   = support_vol / (model_volume_cm3 * 1000.0)
     support_term   = 1.0 / (1.0 + support_norm * 0.8)
 
-    stability_term = 1.0 - min(com_offset_ratio * 5.0, 1.0)
+    stability_term = 1.0 - stability_ratio   # high stability_ratio = bad
 
-    contact_term = min(contact_area / 8000.0, 1.0)   # normalize, cap at ~5000 mm² good OR # normalize around 8000 mm² as "excellent"
+    # Non-linear contact term: hard penalty below 5 % footprint coverage.
+    # Orientations that barely touch the plate (< 5 %) score at most 0.25
+    # on this term, preventing them from ranking above well-grounded ones.
+    cf = float(np.clip(contact_fraction, 0.0, 1.0))
+    if cf < 0.05:
+        contact_term = (cf / 0.05) * 0.25          # 0.00 → 0.25 for 0 → 5 %
+    else:
+        contact_term = 0.25 + (cf - 0.05) / 0.95 * 0.75   # 0.25 → 1.00 for 5 → 100 %
 
-    # Adjust weights slightly (total still ~1.0)
-    w_o, w_b, w_h, w_s, w_st = 0.30, 0.30, 0.15, 0.18, 0.05   # base up from 0.25
+    # Default balanced weights — sum = 1.00
+    w_o, w_s, w_b, w_h, w_st, w_c = 0.25, 0.18, 0.16, 0.12, 0.14, 0.15
 
     if budget_priority == "speed":
-        w_h, w_s = 0.25, 0.10
+        # Prioritise shorter print: boost height & support weight
+        w_o, w_s, w_b, w_h, w_st, w_c = 0.22, 0.16, 0.12, 0.25, 0.13, 0.12
+
     if surface_finish == "fine":
-        w_o, w_s = 0.45, 0.10
+        # Prioritise overhang reduction for surface quality
+        w_o, w_s, w_b, w_h, w_st, w_c = 0.38, 0.18, 0.14, 0.10, 0.12, 0.08
 
     score = (
         w_o  * overhang_term
+        + w_s  * support_term
         + w_b  * base_term
         + w_h  * height_term
-        + w_s  * support_term
         + w_st * stability_term
-        + 0.15 * contact_term
+        + w_c  * contact_term
         + 0.08 * priority_face_bonus
     )
 
     return float(np.clip(score, 0.0, 1.0))
+
+
+# ── Main entry point ──────────────────────────────────────────────────────────
+
+def _score_candidate(
+    candidate: np.ndarray,
+    normals: np.ndarray,
+    areas: np.ndarray,
+    vertices: np.ndarray,
+    faces: np.ndarray,
+    com_world: np.ndarray,
+    total_area: float,
+    model_volume_cm3: float,
+    max_diagonal: float,
+    baseline_overhang: float,
+    budget_priority: str,
+    surface_finish: str,
+    priority_face_normal: "np.ndarray | None",
+) -> Dict[str, Any]:
+    """Compute all metrics and score for a single candidate direction."""
+    R               = _rotation_matrix_to_align_z(candidate)
+    rotated_normals = rotate_normals(normals, R)
+    rotated_verts   = (R @ vertices.T).T
+    com_rotated     = R @ com_world
+
+    overhang    = compute_overhang_area(rotated_normals, areas)
+    base        = compute_base_area(rotated_normals, areas)
+    height      = float(rotated_verts[:, 2].max() - rotated_verts[:, 2].min())
+    support_vol = compute_support_volume(faces, rotated_verts, rotated_normals, areas)
+    contact     = compute_contact_area(rotated_normals, areas)
+    stability   = compute_stability_ratio(rotated_verts, com_rotated)
+
+    # Normalise contact by the XY bounding-box footprint area of *this*
+    # orientation so the term is model-size-independent.
+    xy_w = float(rotated_verts[:, 0].max() - rotated_verts[:, 0].min())
+    xy_h = float(rotated_verts[:, 1].max() - rotated_verts[:, 1].min())
+    footprint_area = max(xy_w * xy_h, 1e-6)
+    contact_fraction = float(np.clip(contact / footprint_area, 0.0, 1.0))
+
+    if priority_face_normal is not None:
+        pf_norm = priority_face_normal / (np.linalg.norm(priority_face_normal) + 1e-12)
+        pf_bonus = float(np.clip(np.dot(candidate, pf_norm), 0.0, 1.0))
+    else:
+        pf_bonus = 0.0
+
+    score = score_orientation(
+        overhang_area      = overhang,
+        base_area          = base,
+        print_height       = height,
+        support_vol        = support_vol,
+        contact_fraction   = contact_fraction,
+        stability_ratio    = stability,
+        total_area         = total_area,
+        model_volume_cm3   = model_volume_cm3,
+        max_diagonal       = max_diagonal,
+        budget_priority    = budget_priority,
+        surface_finish     = surface_finish,
+        priority_face_bonus= pf_bonus,
+    )
+
+    if baseline_overhang > 0:
+        reduction_pct = float(
+            np.clip((baseline_overhang - overhang) / baseline_overhang * 100.0, 0.0, 100.0)
+        )
+    else:
+        reduction_pct = 0.0
+
+    rot   = Rotation.from_matrix(R)
+    euler = rot.as_euler("xyz", degrees=True)
+
+    return {
+        "score":                    score,
+        "_candidate":               candidate,
+        "rx_deg":                   round(float(euler[0]), 2),
+        "ry_deg":                   round(float(euler[1]), 2),
+        "rz_deg":                   round(float(euler[2]), 2),
+        "overhang_reduction_pct":   reduction_pct,
+        "print_height_mm":          round(height, 2),
+        "support_volume_mm3":       round(support_vol, 2),
+        "contact_area_mm2":         round(contact, 2),
+        "build_height_mm":          round(height, 2),
+    }
 
 
 def find_best_orientations(
@@ -195,12 +388,20 @@ def find_best_orientations(
     surface_finish: str = "standard",
     n_candidates: int = 200,
     min_diversity_angle: float = 15.0,
+    n_refine_top: int = 12,
+    n_local: int = 24,
+    local_half_angle: float = 12.0,
 ) -> List[Dict[str, Any]]:
     """
-    Sample n_candidates orientations on a Fibonacci sphere, score each one
-    with the improved scoring formula, apply diversity filtering so the
-    returned top-3 orientations differ by at least min_diversity_angle degrees,
-    and return the top 3.
+    Two-stage orientation search:
+
+    Stage 1 — score `n_candidates` Fibonacci lattice orientations.
+    Stage 2 — take the top `n_refine_top` coarse results and generate
+               `n_local` fine local candidates (within `local_half_angle`°)
+               around each; score those too.
+
+    All coarse + fine candidates are merged, sorted, then diversity-filtered
+    so the returned top-3 differ by at least `min_diversity_angle` degrees.
 
     Each result dict contains:
       { rank, rx_deg, ry_deg, rz_deg, score,
@@ -219,78 +420,51 @@ def find_best_orientations(
     extents      = bounds[1] - bounds[0]
     max_diagonal = float(np.linalg.norm(extents))
 
-    # CoM offset ratio — how far the centre of mass is from the bounding-box
-    # centre, normalised by the diagonal (fallback: 0.05 if not on mesh object)
-    com_offset_ratio = float(getattr(mesh, "com_offset_ratio", 0.05))
+    # Centre of mass in original (unrotated) mesh frame — constant, rotated per candidate
+    com_world = np.asarray(mesh.center_mass, dtype=float)
 
-    # Baseline overhang (original orientation) for reduction % calculation
+    # Baseline overhang for reduction % (original orientation)
     baseline_overhang = compute_overhang_area(normals, areas)
 
-    candidates = generate_candidates(n_candidates)
-    scored: List[Dict[str, Any]] = []
+    # ── Shared kwargs ─────────────────────────────────────────────────────────
+    kwargs = dict(
+        normals              = normals,
+        areas                = areas,
+        vertices             = vertices,
+        faces                = faces,
+        com_world            = com_world,
+        total_area           = total_area,
+        model_volume_cm3     = model_volume_cm3,
+        max_diagonal         = max_diagonal,
+        baseline_overhang    = baseline_overhang,
+        budget_priority      = budget_priority,
+        surface_finish       = surface_finish,
+        priority_face_normal = priority_face_normal,
+    )
 
-    for candidate in candidates:
-        R               = _rotation_matrix_to_align_z(candidate)
-        rotated_normals = rotate_normals(normals, R)
-        rotated_verts   = (R @ vertices.T).T
+    # ── Stage 1: coarse Fibonacci sampling ───────────────────────────────────
+    coarse_candidates = generate_candidates(n_candidates)
+    scored: List[Dict[str, Any]] = [
+        _score_candidate(c, **kwargs) for c in coarse_candidates
+    ]
 
-        overhang    = compute_overhang_area(rotated_normals, areas)
-        base        = compute_base_area(rotated_normals, areas)
-        height      = float(rotated_verts[:, 2].max() - rotated_verts[:, 2].min())
-        support_vol = compute_support_volume(faces, rotated_verts, rotated_normals, areas)
-        contact     = compute_contact_area(rotated_normals, areas)
+    # ── Stage 2: fine local sampling around top-K coarse results ─────────────
+    coarse_sorted = sorted(scored, key=lambda x: x["score"], reverse=True)
+    top_k = [item["_candidate"] for item in coarse_sorted[:n_refine_top]]
 
-        # Priority-face bonus: reward orientations where the candidate direction
-        # is close to the requested face normal (cos similarity → [0, 1])
-        if priority_face_normal is not None:
-            pf_norm = priority_face_normal / (np.linalg.norm(priority_face_normal) + 1e-12)
-            priority_face_bonus = float(np.clip(np.dot(candidate, pf_norm), 0.0, 1.0))
-        else:
-            priority_face_bonus = 0.0
+    seen: set = set()
+    for tc in top_k:
+        for lc in generate_local_candidates(tc, n=n_local, half_angle_deg=local_half_angle):
+            key = tuple(np.round(lc, 3))
+            if key not in seen:
+                seen.add(key)
+                scored.append(_score_candidate(lc, **kwargs))
 
-        score = score_orientation(
-            overhang_area      = overhang,
-            base_area          = base,
-            print_height       = height,
-            support_vol        = support_vol,
-            contact_area       = contact,
-            com_offset_ratio   = com_offset_ratio,
-            total_area         = total_area,
-            model_volume_cm3   = model_volume_cm3,
-            max_diagonal       = max_diagonal,
-            budget_priority    = budget_priority,
-            surface_finish     = surface_finish,
-            priority_face_bonus= priority_face_bonus,
-        )
-
-        if baseline_overhang > 0:
-            reduction_pct = round(
-                (baseline_overhang - overhang) / baseline_overhang * 100.0, 1
-            )
-        else:
-            reduction_pct = 0.0
-
-        rot   = Rotation.from_matrix(R)
-        euler = rot.as_euler("xyz", degrees=True)
-
-        scored.append({
-            "score":                score,
-            "_candidate":           candidate,          # unit vector, used for diversity check
-            "rx_deg":               round(float(euler[0]), 2),
-            "ry_deg":               round(float(euler[1]), 2),
-            "rz_deg":               round(float(euler[2]), 2),
-            "overhang_reduction_pct": reduction_pct,
-            "print_height_mm":      round(height, 2),
-            "support_volume_mm3":   round(support_vol, 2),
-            "contact_area_mm2":     round(contact, 2),
-            "build_height_mm":      round(height, 2),
-        })
-
-    # ── Sort by score descending ──────────────────────────────────────────────
+    # ── Sort all candidates by score descending ───────────────────────────────
     scored.sort(key=lambda x: x["score"], reverse=True)
 
-    # ── Diversity filtering: greedily pick up to 3 orientations that are at
-    #    least min_diversity_angle degrees apart from each other ──────────────
+    # ── Diversity filtering: greedily select up to 3 orientations that are
+    #    at least min_diversity_angle degrees apart from each other ────────────
     selected: List[Dict[str, Any]] = []
     for item in scored:
         candidate = item["_candidate"]
@@ -302,12 +476,12 @@ def find_best_orientations(
         if len(selected) == 3:
             break
 
-    # Fallback: if diversity filtering left fewer than 3 results (very
-    # symmetric mesh), fill up with the next best un-selected candidates.
+    # Fallback: if diversity filtering produced fewer than 3 (very symmetric
+    # mesh), fill up with the next best un-selected candidates.
     if len(selected) < 3:
-        chosen_indices = {id(s) for s in selected}
+        chosen_ids = {id(s) for s in selected}
         for item in scored:
-            if id(item) not in chosen_indices:
+            if id(item) not in chosen_ids:
                 selected.append(item)
             if len(selected) == 3:
                 break
