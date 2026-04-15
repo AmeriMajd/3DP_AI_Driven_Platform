@@ -1,0 +1,151 @@
+import '../domain/alternative_recommendation.dart';
+import '../domain/recommend_request.dart';
+import '../domain/recommendation_result.dart';
+import 'recommendation_repository.dart';
+
+/// Offline mock — mirrors the backend stub prediction rules.
+/// To use: change recommendationRepositoryProvider to return this class.
+class RecommendationRepositoryMock implements RecommendationRepository {
+  final List<RecommendationResult> _history = [];
+
+  @override
+  Future<RecommendationResult> createRecommendation(
+      RecommendRequest request) async {
+    await Future.delayed(const Duration(seconds: 2));
+
+    double layerHeight;
+    int infillDensity;
+    int printSpeed;
+    int wallCount;
+    int coolingFan;
+    int supportDensity;
+    int costScore;
+    int qualityScore;
+    int speedScore;
+    String technology;
+    String material;
+    double technologyConfidence;
+    double materialConfidence;
+    String confidenceTier;
+    AlternativeRecommendation? alternative;
+
+    switch (request.intendedUse) {
+      case 'functional':
+        technology = 'FDM';
+        material = 'PETG';
+        technologyConfidence = 0.87;
+        materialConfidence = 0.83;
+        confidenceTier = 'high';
+        layerHeight = 0.20;
+        infillDensity = 40;
+        printSpeed = 50;
+        wallCount = 3;
+        coolingFan = 80;
+        supportDensity = 15;
+        costScore = 65;
+        qualityScore = 78;
+        speedScore = 72;
+        alternative = null;
+        break;
+      case 'decorative':
+        technology = 'FDM';
+        material = 'PLA';
+        technologyConfidence = 0.91;
+        materialConfidence = 0.88;
+        confidenceTier = 'high';
+        layerHeight = 0.15;
+        infillDensity = 20;
+        printSpeed = 45;
+        wallCount = 2;
+        coolingFan = 100;
+        supportDensity = 10;
+        costScore = 82;
+        qualityScore = 88;
+        speedScore = 70;
+        alternative = null;
+        break;
+      default: // prototype
+        technology = 'FDM';
+        material = 'PLA';
+        technologyConfidence = 0.62;
+        materialConfidence = 0.58;
+        confidenceTier = 'medium';
+        layerHeight = 0.20;
+        infillDensity = 15;
+        printSpeed = 55;
+        wallCount = 2;
+        coolingFan = 80;
+        supportDensity = 10;
+        costScore = 88;
+        qualityScore = 65;
+        speedScore = 82;
+        alternative = const AlternativeRecommendation(
+          technology: 'SLA',
+          material: 'Resin-Std',
+          confidence: 0.55,
+          costScore: 45,
+          qualityScore: 92,
+          speedScore: 40,
+        );
+    }
+
+    // Surface finish modifiers
+    if (request.surfaceFinish == 'fine') {
+      layerHeight = double.parse((layerHeight * 0.75).toStringAsFixed(3));
+      qualityScore = (qualityScore + 8).clamp(0, 100);
+    } else if (request.surfaceFinish == 'rough') {
+      layerHeight = double.parse((layerHeight * 1.5).toStringAsFixed(3));
+      speedScore = (speedScore + 5).clamp(0, 100);
+    }
+
+    final result = RecommendationResult(
+      id: 'mock-${DateTime.now().millisecondsSinceEpoch}',
+      stlFileId: request.fileId,
+      orientationRank: request.orientationRank,
+      intendedUse: request.intendedUse,
+      surfaceFinish: request.surfaceFinish,
+      needsFlexibility: request.needsFlexibility,
+      strengthRequired: request.strengthRequired,
+      budgetPriority: request.budgetPriority,
+      outdoorUse: request.outdoorUse,
+      priorityFace: request.priorityFace,
+      technology: technology,
+      material: material,
+      technologyConfidence: technologyConfidence,
+      materialConfidence: materialConfidence,
+      confidenceTier: confidenceTier,
+      layerHeight: layerHeight,
+      infillDensity: infillDensity,
+      printSpeed: printSpeed,
+      wallCount: wallCount,
+      coolingFan: coolingFan,
+      supportDensity: supportDensity,
+      costScore: costScore,
+      qualityScore: qualityScore,
+      speedScore: speedScore,
+      needsClarification: false,
+      alternative: alternative,
+      createdAt: DateTime.now(),
+    );
+
+    _history.insert(0, result);
+    return result;
+  }
+
+  @override
+  Future<RecommendationResult> rateRecommendation(
+      String id, int rating) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final idx = _history.indexWhere((r) => r.id == id);
+    if (idx == -1) throw Exception('Recommendation not found');
+    final updated = _history[idx].copyWith(userRating: rating);
+    _history[idx] = updated;
+    return updated;
+  }
+
+  @override
+  Future<List<RecommendationResult>> getHistory() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    return List.unmodifiable(_history);
+  }
+}

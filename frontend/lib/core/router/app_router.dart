@@ -8,6 +8,9 @@ import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/upload/presentation/screens/upload_screen.dart';
 import '../../features/upload/presentation/screens/FileDetailScreen.dart';
+import '../../features/recommendation/presentation/screens/recommendation_form_screen.dart';
+import '../../features/recommendation/presentation/screens/recommendation_result_screen.dart';
+import '../../features/recommendation/domain/recommendation_result.dart';
 import '../../shared/widgets/placeholder_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
@@ -71,6 +74,32 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final token = state.uri.queryParameters['token'] ?? '';
         return ResetPasswordScreen(token: token);
+      },
+    ),
+
+    // ── Recommendation routes (sans navbar) ──────────────────────────────
+    GoRoute(
+      path: AppRoutes.recommendForm,
+      name: AppRoutes.recommendForm,
+      builder: (context, state) {
+        final fileId = state.uri.queryParameters['fileId'] ?? '';
+        // URL carries the 0-based selectedOrientationIndex from FileDetailScreen.
+        // Convert to 1-based rank to match the backend orientation results (1,2,3).
+        final indexParam = int.tryParse(
+            state.uri.queryParameters['orientation'] ?? '');
+        final rank = indexParam != null ? indexParam + 1 : null;
+        return RecommendationFormScreen(
+          fileId: fileId,
+          orientationRank: rank,
+        );
+      },
+    ),
+    GoRoute(
+      path: AppRoutes.recommendResult,
+      name: AppRoutes.recommendResult,
+      builder: (context, state) {
+        final result = state.extra as RecommendationResult?;
+        return RecommendationResultScreen(result: result);
       },
     ),
 

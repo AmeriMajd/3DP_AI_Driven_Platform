@@ -9,6 +9,7 @@ import app.models.invitation
 import app.models.refresh_token
 import app.models.password_reset_token
 from app.models.stl_file import STLFile
+import app.models.recommendation
 
 # ── Import routers ─────────────────────────────────────────────────────────────
 from app.routers import auth, admin, invitations
@@ -16,6 +17,7 @@ from app.routers import refresh
 from app.routers import password_reset
 from app.routers import logout
 from app.routers.stl import router as stl_router
+from app.routers.recommendation import router as recommendation_router
 from app.services import stl_service
 
 # ── Create all tables ──────────────────────────────────────────────────────────
@@ -72,6 +74,35 @@ def _sync_stl_files_schema() -> None:
 
 _sync_stl_files_schema()
 
+
+def _sync_recommendations_schema() -> None:
+    """
+    Lightweight schema backfill for existing databases.
+    Ensures the recommendations table columns exist without manual DB reset.
+    """
+    statements = [
+        "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS orientation_rank INTEGER",
+        "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS layer_height_min DOUBLE PRECISION",
+        "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS layer_height_max DOUBLE PRECISION",
+        "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS clarification_question VARCHAR",
+        "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS clarification_field VARCHAR",
+        "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS alternative_json JSONB",
+        "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS user_rating INTEGER",
+    ]
+    try:
+        with engine.begin() as connection:
+            for statement in statements:
+                try:
+                    connection.execute(text(statement))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
+_sync_recommendations_schema()
+
+
 app = FastAPI(
     title="3DP Intelligence Platform",
     version="1.0.0",
@@ -95,6 +126,7 @@ app.include_router(invitations.router)
 app.include_router(password_reset.router)
 app.include_router(logout.router)
 app.include_router(stl_router)
+app.include_router(recommendation_router)
 
 
 @app.on_event("startup")

@@ -511,7 +511,7 @@ class _BottomCTA extends StatelessWidget {
             width: double.infinity,
             height: 50,
             child: ElevatedButton.icon(
-              onPressed: () => context.go(
+              onPressed: () => context.push(
                 '${AppRoutes.recommendForm}?fileId=${file.id}'
                 '${selectedOrientationIndex != null ? '&orientation=$selectedOrientationIndex' : ''}',
               ),
