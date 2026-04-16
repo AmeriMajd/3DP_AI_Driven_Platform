@@ -7,7 +7,6 @@ class RecommendRequest {
   final String strengthRequired; // low / medium / high
   final String budgetPriority;   // cost / quality / speed
   final bool outdoorUse;
-  final String priorityFace;     // top / bottom / front / none
 
   const RecommendRequest({
     required this.fileId,
@@ -18,7 +17,6 @@ class RecommendRequest {
     required this.strengthRequired,
     required this.budgetPriority,
     required this.outdoorUse,
-    required this.priorityFace,
   });
 
   Map<String, dynamic> toJson() => {
@@ -30,6 +28,5 @@ class RecommendRequest {
         'strength_required': strengthRequired,
         'budget_priority': budgetPriority,
         'outdoor_use': outdoorUse,
-        'priority_face': priorityFace,
       };
 }

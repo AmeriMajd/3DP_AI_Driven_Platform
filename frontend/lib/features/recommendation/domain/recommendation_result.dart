@@ -12,7 +12,6 @@ class RecommendationResult {
   final String strengthRequired;
   final String budgetPriority;
   final bool outdoorUse;
-  final String priorityFace;
 
   // Result
   final String? technology;
@@ -53,7 +52,6 @@ class RecommendationResult {
     required this.strengthRequired,
     required this.budgetPriority,
     required this.outdoorUse,
-    required this.priorityFace,
     this.technology,
     this.material,
     this.technologyConfidence,
@@ -89,7 +87,6 @@ class RecommendationResult {
       strengthRequired: strengthRequired,
       budgetPriority: budgetPriority,
       outdoorUse: outdoorUse,
-      priorityFace: priorityFace,
       technology: technology,
       material: material,
       technologyConfidence: technologyConfidence,
@@ -132,7 +129,6 @@ class RecommendationResult {
       strengthRequired: json['strength_required'] as String,
       budgetPriority: json['budget_priority'] as String,
       outdoorUse: json['outdoor_use'] as bool,
-      priorityFace: json['priority_face'] as String,
       technology: json['technology'] as String?,
       material: json['material'] as String?,
       technologyConfidence: (json['technology_confidence'] as num?)?.toDouble(),

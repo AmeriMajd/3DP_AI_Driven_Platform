@@ -108,7 +108,6 @@ class RecommendationRepositoryMock implements RecommendationRepository {
       strengthRequired: request.strengthRequired,
       budgetPriority: request.budgetPriority,
       outdoorUse: request.outdoorUse,
-      priorityFace: request.priorityFace,
       technology: technology,
       material: material,
       technologyConfidence: technologyConfidence,

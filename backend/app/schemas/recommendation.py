@@ -13,7 +13,6 @@ class RecommendRequest(BaseModel):
     strength_required: str   # low / medium / high
     budget_priority: str     # cost / quality / speed
     outdoor_use: bool
-    priority_face: str       # top / bottom / front / none
 
 
 class AlternativeRecommendation(BaseModel):
@@ -41,7 +40,6 @@ class RecommendationResponse(BaseModel):
     strength_required: str
     budget_priority: str
     outdoor_use: bool
-    priority_face: str
 
     # Result
     technology: Optional[str] = None

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.models.recommendation import Recommendation
 from app.models.stl_file import STLFile
 from app.schemas.recommendation import RecommendRequest
+from app.services import ml_inference
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,50 @@ def _stub_predict(request: RecommendRequest) -> dict[str, Any]:
     return base
 
 
+# ── ML prediction with stub fallback ─────────────────────────────────────────
+
+def _run_prediction(request: RecommendRequest, stl_file) -> dict[str, Any]:
+    """
+    Try the real ML pipeline first.  Fall back to the rule-based stub only if
+    the .joblib files are not yet available (e.g. during development before the
+    models have been placed in backend/models_ml/).
+    """
+    if ml_inference.models_available():
+        geo = {
+            "volume_cm3":            stl_file.volume_cm3,
+            "surface_area_cm2":      stl_file.surface_area_cm2,
+            "bbox_x_mm":             stl_file.bbox_x_mm,
+            "bbox_y_mm":             stl_file.bbox_y_mm,
+            "bbox_z_mm":             stl_file.bbox_z_mm,
+            "triangle_count":        stl_file.triangle_count,
+            "overhang_ratio":        stl_file.overhang_ratio,
+            "max_overhang_angle":    stl_file.max_overhang_angle,
+            "min_wall_thickness_mm": stl_file.min_wall_thickness_mm,
+            "avg_wall_thickness_mm": stl_file.avg_wall_thickness_mm,
+            "complexity_index":      stl_file.complexity_index,
+            "aspect_ratio":          stl_file.aspect_ratio,
+            "is_watertight":         stl_file.is_watertight,
+            "shell_count":           stl_file.shell_count,
+            "com_offset_ratio":      stl_file.com_offset_ratio,
+            "flat_base_area_mm2":    stl_file.flat_base_area_mm2,
+        }
+        intent = {
+            "intended_use":      request.intended_use,
+            "surface_finish":    request.surface_finish,
+            "needs_flexibility": request.needs_flexibility,
+            "strength_required": request.strength_required,
+            "budget_priority":   request.budget_priority,
+            "outdoor_use":       request.outdoor_use,
+        }
+        try:
+            return ml_inference.predict(geo, intent)
+        except Exception as exc:
+            logger.warning("ML inference failed, falling back to stub: %s", exc)
+
+    logger.debug("ML models not available — using stub predictor")
+    return _stub_predict(request)
+
+
 # ── Public service functions ──────────────────────────────────────────────────
 
 def create_recommendation(
@@ -138,7 +183,7 @@ def create_recommendation(
             detail="You do not have permission to access this file",
         )
 
-    prediction = _stub_predict(request)
+    prediction = _run_prediction(request, stl_file)
 
     rec = Recommendation(
         user_id=user_id,
@@ -150,7 +195,6 @@ def create_recommendation(
         strength_required=request.strength_required,
         budget_priority=request.budget_priority,
         outdoor_use=request.outdoor_use,
-        priority_face=request.priority_face,
         technology=prediction["technology"],
         material=prediction["material"],
         technology_confidence=prediction["technology_confidence"],

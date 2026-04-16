@@ -29,7 +29,6 @@ class Recommendation(Base):
     strength_required = Column(String, nullable=False)     # low/medium/high
     budget_priority = Column(String, nullable=False)       # cost/quality/speed
     outdoor_use = Column(Boolean, nullable=False)
-    priority_face = Column(String, nullable=False)         # top/bottom/front/none
 
     # ── Recommendation result ─────────────────────────────────────────────────
     technology = Column(String, nullable=True)             # FDM/SLA

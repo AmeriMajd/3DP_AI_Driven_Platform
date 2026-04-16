@@ -31,7 +31,6 @@ class _RecommendationFormScreenState
   String _strengthRequired = 'medium';
   String _budgetPriority = 'quality';
   bool _outdoorUse = false;
-  String _priorityFace = 'none';
 
   @override
   void initState() {
@@ -52,7 +51,6 @@ class _RecommendationFormScreenState
             strengthRequired: _strengthRequired,
             budgetPriority: _budgetPriority,
             outdoorUse: _outdoorUse,
-            priorityFace: _priorityFace,
           ),
         );
   }
@@ -367,15 +365,6 @@ class _RecommendationFormScreenState
               value: _outdoorUse,
               onChanged: (v) => setState(() => _outdoorUse = v),
             ),
-            const SizedBox(height: 22),
-
-            // ── Priority Face ─────────────────────────────────────────────
-            _buildLabel(
-              'Priority Face',
-              tooltip:
-                  'Which face of your model needs the best surface quality?\n\nThe chosen face will be oriented away from the print bed to avoid support marks. Select "None" to let the AI decide the optimal orientation.',
-            ),
-            _buildPriorityFaceSection(),
             const SizedBox(height: 22),
 
             // ── AI Tip ────────────────────────────────────────────────────
@@ -891,86 +880,6 @@ class _RecommendationFormScreenState
                   ),
                 ],
               ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildPriorityFaceSection() {
-    const options = [
-      (
-        'top',
-        'Top',
-        Icons.arrow_upward_rounded,
-      ),
-      (
-        'bottom',
-        'Bottom',
-        Icons.arrow_downward_rounded,
-      ),
-      (
-        'front',
-        'Front',
-        Icons.arrow_back_rounded,
-      ),
-      (
-        'none',
-        'None',
-        Icons.do_not_disturb_alt_rounded,
-      ),
-    ];
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: options.map((opt) {
-        final isSelected = _priorityFace == opt.$1;
-        return GestureDetector(
-          onTap: () => setState(() => _priorityFace = opt.$1),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.primary : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isSelected
-                    ? AppColors.primary
-                    : const Color(0xFFD1D5DB),
-              ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.2),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : [],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  opt.$3,
-                  size: 14,
-                  color:
-                      isSelected ? Colors.white : AppColors.textSecondary,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  opt.$2,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected
-                        ? Colors.white
-                        : AppColors.textSecondary,
-                  ),
-                ),
-              ],
             ),
           ),
         );

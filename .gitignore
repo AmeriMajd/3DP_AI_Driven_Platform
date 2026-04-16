@@ -16,3 +16,5 @@ Thumbs.db
 .vscode/
 
 docs/
+# ML model binaries — download separately
+backend/models_ml/*.joblib
