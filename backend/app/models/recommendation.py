@@ -57,6 +57,10 @@ class Recommendation(Base):
     # Stored as JSONB blob — avoids extra table; deserialized in Pydantic schema
     alternative_json = Column(JSON, nullable=True)
 
+    # Selected orientation details (rx/ry/rz/overhang_reduction_pct/print_height_mm)
+    # extracted from stl_file.best_orientation_{rank} at recommendation creation time
+    selected_orientation_json = Column(JSON, nullable=True)
+
     # ── User feedback ─────────────────────────────────────────────────────────
     user_rating = Column(Integer, nullable=True)           # 1–5
 

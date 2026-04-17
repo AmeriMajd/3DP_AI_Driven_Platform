@@ -39,6 +39,13 @@ class RecommendationResult {
 
   final AlternativeRecommendation? alternative;
 
+  // Orientation details for the selected orientation rank
+  final double? orientationRx;
+  final double? orientationRy;
+  final double? orientationRz;
+  final double? overhangReductionPct;
+  final double? orientationPrintHeightMm;
+
   final int? userRating;
   final DateTime createdAt;
 
@@ -72,6 +79,11 @@ class RecommendationResult {
     this.clarificationQuestion,
     this.clarificationField,
     this.alternative,
+    this.orientationRx,
+    this.orientationRy,
+    this.orientationRz,
+    this.overhangReductionPct,
+    this.orientationPrintHeightMm,
     this.userRating,
     required this.createdAt,
   });
@@ -107,6 +119,11 @@ class RecommendationResult {
       clarificationQuestion: clarificationQuestion,
       clarificationField: clarificationField,
       alternative: alternative,
+      orientationRx: orientationRx,
+      orientationRy: orientationRy,
+      orientationRz: orientationRz,
+      overhangReductionPct: overhangReductionPct,
+      orientationPrintHeightMm: orientationPrintHeightMm,
       userRating: userRating ?? this.userRating,
       createdAt: createdAt,
     );
@@ -149,6 +166,11 @@ class RecommendationResult {
       clarificationQuestion: json['clarification_question'] as String?,
       clarificationField: json['clarification_field'] as String?,
       alternative: alt,
+      orientationRx: (json['orientation_rx'] as num?)?.toDouble(),
+      orientationRy: (json['orientation_ry'] as num?)?.toDouble(),
+      orientationRz: (json['orientation_rz'] as num?)?.toDouble(),
+      overhangReductionPct: (json['overhang_reduction_pct'] as num?)?.toDouble(),
+      orientationPrintHeightMm: (json['orientation_print_height_mm'] as num?)?.toDouble(),
       userRating: json['user_rating'] as int?,
       createdAt: DateTime.parse(json['created_at'] as String),
     );

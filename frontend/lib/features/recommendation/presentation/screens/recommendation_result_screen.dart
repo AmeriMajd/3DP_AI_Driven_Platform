@@ -344,10 +344,37 @@ class _RecommendationResultScreenState
   // Section B — Print Parameters
   // ═══════════════════════════════════════════════════════════════════════════
 
+  Map<String, dynamic> _activeParams(RecommendationResult r, bool showAlt) {
+    if (showAlt && r.alternative != null) {
+      final a = r.alternative!;
+      return {
+        'layerHeight': a.layerHeight,
+        'layerHeightMin': null,
+        'layerHeightMax': null,
+        'infillDensity': a.infillDensity,
+        'printSpeed': a.printSpeed,
+        'wallCount': a.wallCount,
+        'coolingFan': a.coolingFan,
+        'supportDensity': a.supportDensity,
+        'isSLA': a.technology == 'SLA',
+      };
+    }
+    return {
+      'layerHeight': r.layerHeight,
+      'layerHeightMin': r.layerHeightMin,
+      'layerHeightMax': r.layerHeightMax,
+      'infillDensity': r.infillDensity,
+      'printSpeed': r.printSpeed,
+      'wallCount': r.wallCount,
+      'coolingFan': r.coolingFan,
+      'supportDensity': r.supportDensity,
+      'isSLA': r.technology == 'SLA',
+    };
+  }
+
   Widget _buildParametersCard(RecommendationResult r, bool showAlt) {
-    final isSLA = showAlt
-        ? (r.alternative?.technology == 'SLA')
-        : r.technology == 'SLA';
+    final p = _activeParams(r, showAlt);
+    final isSLA = p['isSLA'] as bool;
 
     return _Card(
       child: Column(
@@ -362,7 +389,7 @@ class _RecommendationResultScreenState
             ),
           ),
           const SizedBox(height: 14),
-          _buildLayerHeightParam(r, showAlt, isSLA),
+          _buildLayerHeightParam(p),
           _divider(),
           _paramItem(
             icon: Icons.grid_4x4_rounded,
@@ -370,7 +397,7 @@ class _RecommendationResultScreenState
             label: 'Infill Density',
             value: isSLA
                 ? 'N/A — solid resin print'
-                : (r.infillDensity != null ? '${r.infillDensity}%' : '—'),
+                : (p['infillDensity'] != null ? '${p['infillDensity']}%' : '—'),
             isNA: isSLA,
           ),
           _divider(),
@@ -378,8 +405,7 @@ class _RecommendationResultScreenState
             icon: Icons.speed_rounded,
             iconColor: const Color(0xFF0EA5E9),
             label: 'Print Speed',
-            value:
-                showAlt ? '—' : (r.printSpeed != null ? '${r.printSpeed} mm/s' : '—'),
+            value: p['printSpeed'] != null ? '${p['printSpeed']} mm/s' : '—',
           ),
           _divider(),
           _paramItem(
@@ -388,7 +414,7 @@ class _RecommendationResultScreenState
             label: 'Wall Line Count',
             value: isSLA
                 ? 'N/A — solid resin print'
-                : (r.wallCount != null ? '${r.wallCount}' : '—'),
+                : (p['wallCount'] != null ? '${p['wallCount']}' : '—'),
             isNA: isSLA,
           ),
           _divider(),
@@ -398,7 +424,7 @@ class _RecommendationResultScreenState
             label: 'Cooling Fan',
             value: isSLA
                 ? 'N/A — solid resin print'
-                : (r.coolingFan != null ? '${r.coolingFan}%' : '—'),
+                : (p['coolingFan'] != null ? '${p['coolingFan']}%' : '—'),
             isNA: isSLA,
           ),
           _divider(),
@@ -406,49 +432,36 @@ class _RecommendationResultScreenState
             icon: Icons.support_agent_rounded,
             iconColor: const Color(0xFFF59E0B),
             label: 'Support Density',
-            value: showAlt
-                ? '—'
-                : (r.supportDensity == 0
-                    ? 'No supports needed'
-                    : (r.supportDensity != null
-                        ? '${r.supportDensity}%'
-                        : '—')),
+            value: p['supportDensity'] == 0
+                ? 'No supports needed'
+                : (p['supportDensity'] != null ? '${p['supportDensity']}%' : '—'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildLayerHeightParam(
-      RecommendationResult r, bool showAlt, bool isSLA) {
-    if (showAlt && isSLA) {
+  Widget _buildLayerHeightParam(Map<String, dynamic> p) {
+    final layerHeight = p['layerHeight'] as double?;
+
+    if (layerHeight == null) {
       return _paramItem(
         icon: Icons.layers_rounded,
         iconColor: AppColors.primary,
         label: 'Layer Height',
-        value: '0.05 mm',
-        subWidget: _rangeBar(0.05, 0.025, 0.1),
+        value: '—',
       );
     }
 
-    if (!showAlt &&
-        r.layerHeight != null &&
-        r.layerHeightMin != null &&
-        r.layerHeightMax != null) {
-      return _paramItem(
-        icon: Icons.layers_rounded,
-        iconColor: AppColors.primary,
-        label: 'Layer Height',
-        value: '${r.layerHeight} mm',
-        subWidget: _rangeBar(r.layerHeight!, r.layerHeightMin!, r.layerHeightMax!),
-      );
-    }
+    final minH = p['layerHeightMin'] as double?;
+    final maxH = p['layerHeightMax'] as double?;
 
     return _paramItem(
       icon: Icons.layers_rounded,
       iconColor: AppColors.primary,
       label: 'Layer Height',
-      value: showAlt ? '—' : '${r.layerHeight ?? "—"} mm',
+      value: '${layerHeight.toStringAsFixed(2)} mm',
+      subWidget: (minH != null && maxH != null) ? _rangeBar(layerHeight, minH, maxH) : null,
     );
   }
 
@@ -643,6 +656,11 @@ class _RecommendationResultScreenState
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildOrientationCard(RecommendationResult r) {
+    String fmtAngle(double? v) => v != null ? '${v.toStringAsFixed(1)}°' : '—';
+
+    final overhang = r.overhangReductionPct;
+    final height = r.orientationPrintHeightMm;
+
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -674,11 +692,11 @@ class _RecommendationResultScreenState
           // RX / RY / RZ grid
           Row(
             children: [
-              _angleCell('RX', '0°'),
+              _angleCell('RX', fmtAngle(r.orientationRx)),
               const SizedBox(width: 8),
-              _angleCell('RY', '0°'),
+              _angleCell('RY', fmtAngle(r.orientationRy)),
               const SizedBox(width: 8),
-              _angleCell('RZ', '0°'),
+              _angleCell('RZ', fmtAngle(r.orientationRz)),
             ],
           ),
           const SizedBox(height: 8),
@@ -687,7 +705,9 @@ class _RecommendationResultScreenState
               Expanded(
                 child: _orientationInfoCell(
                   label: 'OVERHANG\nREDUCTION',
-                  value: '—',
+                  value: overhang != null
+                      ? '${overhang.toStringAsFixed(1)}%'
+                      : '—',
                   warm: true,
                 ),
               ),
@@ -695,7 +715,9 @@ class _RecommendationResultScreenState
               Expanded(
                 child: _orientationInfoCell(
                   label: 'PRINT HEIGHT',
-                  value: 'Rank #${r.orientationRank}',
+                  value: height != null
+                      ? '${height.toStringAsFixed(1)} mm'
+                      : 'Rank #${r.orientationRank}',
                   warm: false,
                 ),
               ),

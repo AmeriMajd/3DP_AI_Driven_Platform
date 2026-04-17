@@ -72,6 +72,12 @@ _BASE_PARAMS: dict[str, dict[str, Any]] = {
         "alternative": {
             "technology": "SLA",
             "material": "Resin-Std",
+            "layer_height": 0.05,
+            "infill_density": 100,
+            "print_speed": None,
+            "wall_count": 0,
+            "cooling_fan": 0,
+            "support_density": 10,
             "confidence": 0.55,
             "cost_score": 45,
             "quality_score": 92,
@@ -185,6 +191,11 @@ def create_recommendation(
 
     prediction = _run_prediction(request, stl_file)
 
+    selected_orientation = None
+    if request.orientation_rank is not None:
+        attr = f"best_orientation_{request.orientation_rank}"
+        selected_orientation = getattr(stl_file, attr, None)
+
     rec = Recommendation(
         user_id=user_id,
         stl_file_id=request.file_id,
@@ -215,6 +226,7 @@ def create_recommendation(
         clarification_question=prediction.get("clarification_question"),
         clarification_field=prediction.get("clarification_field"),
         alternative_json=prediction.get("alternative"),
+        selected_orientation_json=selected_orientation,
     )
 
     db.add(rec)

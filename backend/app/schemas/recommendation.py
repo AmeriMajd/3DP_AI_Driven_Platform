@@ -18,6 +18,12 @@ class RecommendRequest(BaseModel):
 class AlternativeRecommendation(BaseModel):
     technology: str
     material: str
+    layer_height: Optional[float] = None
+    infill_density: Optional[int] = None
+    print_speed: Optional[int] = None
+    wall_count: Optional[int] = None
+    cooling_fan: Optional[int] = None
+    support_density: Optional[int] = None
     confidence: float
     cost_score: int
     quality_score: int
@@ -68,6 +74,13 @@ class RecommendationResponse(BaseModel):
     # Computed from alternative_json — not a DB column, excluded from ORM mapping
     alternative: Optional[AlternativeRecommendation] = None
 
+    # Computed from selected_orientation_json — not a DB column
+    orientation_rx: Optional[float] = None
+    orientation_ry: Optional[float] = None
+    orientation_rz: Optional[float] = None
+    overhang_reduction_pct: Optional[float] = None
+    orientation_print_height_mm: Optional[float] = None
+
     user_rating: Optional[int] = None
     created_at: datetime
 
@@ -90,6 +103,15 @@ class RecommendationResponse(BaseModel):
                 instance.alternative = AlternativeRecommendation(**alt_data)
             except Exception:
                 pass
+
+        orient_data = getattr(obj, "selected_orientation_json", None)
+        if orient_data and isinstance(orient_data, dict):
+            instance.orientation_rx = orient_data.get("rx_deg")
+            instance.orientation_ry = orient_data.get("ry_deg")
+            instance.orientation_rz = orient_data.get("rz_deg")
+            instance.overhang_reduction_pct = orient_data.get("overhang_reduction_pct")
+            instance.orientation_print_height_mm = orient_data.get("print_height_mm")
+
         return instance
 
 

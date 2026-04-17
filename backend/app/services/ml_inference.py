@@ -376,6 +376,12 @@ def predict(geo: dict, intent: dict) -> dict[str, Any]:
             "technology": alt_tech,
             "material": alt_mat,
             "confidence": alt_tech_conf,
+            "layer_height": alt_params["layer_height"],
+            "infill_density": alt_params["infill_density"],
+            "print_speed": alt_params.get("print_speed"),
+            "wall_count": alt_params.get("wall_count"),
+            "cooling_fan": alt_params.get("cooling_fan"),
+            "support_density": alt_params.get("support_density"),
             **alt_scores,
         }
 
