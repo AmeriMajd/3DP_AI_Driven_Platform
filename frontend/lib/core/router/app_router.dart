@@ -8,6 +8,9 @@ import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/upload/presentation/screens/upload_screen.dart';
 import '../../features/upload/presentation/screens/FileDetailScreen.dart';
+import '../../features/recommendation/presentation/screens/recommendation_form_screen.dart';
+import '../../features/recommendation/presentation/screens/recommendation_result_screen.dart';
+import '../../features/recommendation/domain/recommendation_result.dart';
 import '../../shared/widgets/placeholder_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
@@ -81,15 +84,6 @@ final appRouter = GoRouter(
         GoRoute(
           path: AppRoutes.upload,
           builder: (_, _) => const UploadScreen(),
-          routes: [
-            GoRoute(
-              path: 'file/:id',
-              builder: (context, state) {
-                final id = state.pathParameters['id'] ?? '';
-                return FileDetailScreen(fileId: id);
-              },
-            ),
-          ],
         ),
         GoRoute(
           path: AppRoutes.fleet,
@@ -102,6 +96,37 @@ final appRouter = GoRouter(
         GoRoute(
           path: AppRoutes.monitoring,
           builder: (_, _) => const PlaceholderScreen(title: 'Monitoring'),
+        ),
+
+        // ── File detail & recommendation — navbar visible, no AppBar ──
+        GoRoute(
+          path: '/upload/file/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id'] ?? '';
+            return FileDetailScreen(fileId: id);
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.recommendForm,
+          name: AppRoutes.recommendForm,
+          builder: (context, state) {
+            final fileId = state.uri.queryParameters['fileId'] ?? '';
+            final indexParam = int.tryParse(
+                state.uri.queryParameters['orientation'] ?? '');
+            final rank = indexParam != null ? indexParam + 1 : null;
+            return RecommendationFormScreen(
+              fileId: fileId,
+              orientationRank: rank,
+            );
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.recommendResult,
+          name: AppRoutes.recommendResult,
+          builder: (context, state) {
+            final result = state.extra as RecommendationResult?;
+            return RecommendationResultScreen(result: result);
+          },
         ),
       ],
     ),

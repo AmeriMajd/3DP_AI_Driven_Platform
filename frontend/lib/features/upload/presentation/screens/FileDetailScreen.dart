@@ -1,3 +1,4 @@
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -124,49 +125,92 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Color(0xFF6366F1)),
-        title: Text(
-          file.originalFilename,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF1C1C1E),
-          ),
+        leading: BackButton(
+          color: AppColors.primary,
+          onPressed: () => context.canPop()
+              ? context.pop()
+              : context.go(AppRoutes.upload),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              file.originalFilename,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            Text(
+              '${file.formattedSize} · ${file.fileExtension}'
+              '${file.triangleCount != null ? ' · ${_fmtInt(file.triangleCount!)} triangles' : ''}',
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ],
         ),
         actions: [
+          if (file.isReady)
+            Container(
+              margin: const EdgeInsets.only(right: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.success.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: AppColors.success.withValues(alpha: 0.40)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: AppColors.success,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text('READY',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.success,
+                        letterSpacing: 0.5,
+                      )),
+                ],
+              ),
+            ),
           IconButton(
-            icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444)),
+            icon: const Icon(Icons.delete_outline,
+                color: Color(0xFFEF4444)),
             onPressed: () => _confirmDelete(context, file),
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(46),
+          preferredSize: const Size.fromHeight(66),
           child: Container(
             color: Colors.white,
-            child: TabBar(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: _PillTabBar(
               controller: _tabController,
-              labelColor: const Color(0xFF6366F1),
-              unselectedLabelColor: const Color(0xFF8E8E93),
-              indicatorColor: const Color(0xFF6366F1),
-              indicatorWeight: 2.5,
-              labelStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
               tabs: const [
-                Tab(text: '3D Preview'),
-                Tab(text: 'Geometry'),
-                Tab(text: 'Orientation'),
+                (icon: Icons.visibility_outlined, label: '3D Preview'),
+                (icon: Icons.view_in_ar_rounded,  label: 'Geometry'),
+                (icon: Icons.rotate_90_degrees_cw_outlined,
+                 label: 'Orientation'),
               ],
             ),
           ),
@@ -215,13 +259,13 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
                   file: file,
                   orientations: const [],
                   isLoading: true,
-                  onSelect: (_, __) {},
+                  onSelect: (_, _) {},
                 ),
                 error: (e, _) => _OrientationTab(
                   file: file,
                   orientations: const [],
                   isLoading: false,
-                  onSelect: (_, __) {},
+                  onSelect: (_, _) {},
                 ),
               );
             },
@@ -485,41 +529,55 @@ class _BottomCTA extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return ClipRect(
+    child: BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+      child: Container(
       padding: EdgeInsets.fromLTRB(
         16,
         12,
         16,
         MediaQuery.of(context).padding.bottom + 12,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE5E5EA))),
-      ),
+      decoration: BoxDecoration(
+            color: AppColors.surfaceBackground.withValues(alpha: 0.90),
+            border: const Border(
+                top: BorderSide(color: AppColors.outlineVariant)),
+          ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (selectedOrientationIndex == null) ...[
             const Text(
               'Select an orientation in the Orientation tab to continue',
-              style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+              style: TextStyle(
+                      fontSize: 11, color: AppColors.textMuted),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
           ],
-          SizedBox(
+            DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.20),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: SizedBox(
             width: double.infinity,
-            height: 50,
+            height: 48,
             child: ElevatedButton.icon(
-              onPressed: () => context.go(
+              onPressed: () => context.push(
                 '${AppRoutes.recommendForm}?fileId=${file.id}'
                 '${selectedOrientationIndex != null ? '&orientation=$selectedOrientationIndex' : ''}',
               ),
-              icon: const Icon(
-                Icons.auto_awesome,
-                color: Colors.white,
-                size: 18,
-              ),
+              icon: const Icon(Icons.auto_awesome,
+                        color: Colors.white, size: 18),
+              
               label: const Text(
                 'Continue to AI Analysis',
                 style: TextStyle(
@@ -529,16 +587,99 @@ class _BottomCTA extends StatelessWidget {
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6366F1),
+                backgroundColor: AppColors.primary,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
             ),
           ),
+          ),
         ],
       ),
+      ),
+    ),
     );
   }
+}
+
+// ── Pill-style tab bar ────────────────────────────────────────────────────────
+class _PillTabBar extends StatelessWidget {
+  final TabController controller;
+  final List<({IconData icon, String label})> tabs;
+
+  const _PillTabBar({required this.controller, required this.tabs});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        return Container(
+          height: 52,
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainer,
+            borderRadius: BorderRadius.circular(26),
+          ),
+          child: Row(
+            children: List.generate(tabs.length, (i) {
+              final selected = controller.index == i;
+              final tab = tabs[i];
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => controller.animateTo(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? AppColors.primary
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(21),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(tab.icon,
+                            size: 15,
+                            color: selected
+                                ? Colors.white
+                                : AppColors.textSecondary),
+                        const SizedBox(width: 6),
+                        Text(
+                          tab.label,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: selected
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                            color: selected
+                                ? Colors.white
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+String _fmtInt(int n) {
+  final s = n.toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+    buf.write(s[i]);
+  }
+  return buf.toString();
 }

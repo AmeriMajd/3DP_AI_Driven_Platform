@@ -5,6 +5,13 @@ import '../../core/router/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../services/storage_service.dart';
 
+// Routes that keep the navbar but hide the shared AppBar.
+const _noAppBarRoutes = [
+  AppRoutes.fileDetail,
+  AppRoutes.recommendForm,
+  AppRoutes.recommendResult,
+];
+
 // ── Provider pour le fullName ─────────────────────────────────────────────────
 final userFullNameProvider = FutureProvider<String?>((ref) async {
   return await StorageService.getFullName();
@@ -33,16 +40,22 @@ class MainShell extends ConsumerWidget {
     }
   }
 
+  bool _showAppBar(BuildContext context) {
+    final location = GoRouterState.of(context).uri.toString();
+    return !_noAppBarRoutes.any((r) => location.startsWith(r));
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = _currentIndex(context);
     final fullNameAsync = ref.watch(userFullNameProvider);
+    final showAppBar = _showAppBar(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F7),
 
       // ── AppBar partagée ───────────────────────────────────────────────
-      appBar: AppBar(
+      appBar: showAppBar ? AppBar(
         backgroundColor: AppColors.backgroundLight,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -79,7 +92,7 @@ class MainShell extends ConsumerWidget {
             ),
           ),
         ],
-      ),
+      ) : null,
 
       body: child,
 

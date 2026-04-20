@@ -16,6 +16,32 @@ class AppTheme {
         error: AppColors.error,
       ),
       scaffoldBackgroundColor: AppColors.backgroundLight,
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.borderLight, width: 1),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x18000000),
+              blurRadius: 18,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        textStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          color: AppColors.textPrimary,
+          height: 1.45,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+        constraints: const BoxConstraints(maxWidth: 230),
+        preferBelow: false,
+        waitDuration: const Duration(milliseconds: 400),
+        showDuration: const Duration(seconds: 4),
+        triggerMode: TooltipTriggerMode.tap,
+      ),
       cardTheme: CardThemeData(
   color: AppColors.cardLight,
   elevation: 0,
