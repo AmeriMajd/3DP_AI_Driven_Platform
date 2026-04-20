@@ -1,3 +1,4 @@
+import io
 import uuid
 import logging
 from pathlib import Path
@@ -6,10 +7,18 @@ from fastapi import BackgroundTasks
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
 
+import numpy as np
+from scipy.spatial.transform import Rotation
+
 from app.core.database import SessionLocal
 from app.models.stl_file import STLFile
 import app.models.user  # Ensure FK target table metadata is registered.
-from app.services.geometry_service import convert_to_glb, extract_ui_features
+from app.services.geometry_service import (
+    convert_to_glb,
+    extract_features_from_mesh,
+    load_mesh,
+)
+from app.services import orientation_service
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +27,12 @@ GLB_DIR = Path("/app/uploads/glb")
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 ALLOWED_EXTENSIONS = {".stl", ".3mf"}
 VALID_STATUSES = {"uploaded", "analyzing", "ready", "error"}
+
+
+def _to_uuid(value: "uuid.UUID | str") -> uuid.UUID:
+    """Coerce a string UUID to a uuid.UUID object.
+    PostgreSQL's driver does this automatically; SQLite requires it explicitly."""
+    return uuid.UUID(value) if isinstance(value, str) else value
 
 
 def _get_extension(filename: str) -> str:
@@ -87,6 +102,10 @@ async def save_stl_file(file: UploadFile, user_id: uuid.UUID, db: Session, backg
     # 4. Generate stable UUID for both the DB row and the on-disk filename
     file_id = uuid.uuid4()
     stored_filename = f"{file_id}{ext}"
+    # Coerce string user_id to UUID object — PostgreSQL's driver does this
+    # automatically; SQLite and unit tests require an explicit conversion.
+    if isinstance(user_id, str):
+        user_id = uuid.UUID(user_id)
 
     # 5. Ensure upload directory exists and write file
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -126,6 +145,7 @@ async def save_stl_file(file: UploadFile, user_id: uuid.UUID, db: Session, backg
 
 def list_stl_files(user_id: uuid.UUID, db: Session) -> list[STLFile]:
     """Return all files for the current user, most recent first."""
+    user_id = _to_uuid(user_id)
     records = (
         db.query(STLFile)
         .filter(STLFile.user_id == user_id)
@@ -141,6 +161,8 @@ def get_stl_file(stl_id: uuid.UUID, user_id: uuid.UUID, db: Session) -> STLFile:
     404 whether the file doesn't exist OR belongs to another user —
     never expose that another user's file exists.
     """
+    stl_id = _to_uuid(stl_id)
+    user_id = _to_uuid(user_id)
     record = (
         db.query(STLFile)
         .filter(STLFile.id == stl_id, STLFile.user_id == user_id)
@@ -232,6 +254,63 @@ def get_glb_path(stl_id: uuid.UUID, user_id: uuid.UUID, db: Session) -> Path:
     return Path(regenerated_glb)
 
 
+def get_rotated_glb_bytes(
+    stl_id: uuid.UUID, user_id: uuid.UUID, rank: int, db: Session
+) -> bytes:
+    """
+    Load the original STL mesh, apply the stored rotation for the given rank
+    (1 / 2 / 3), and return the rotated mesh as raw GLB bytes.
+
+    This avoids any Euler-angle convention or coordinate-system ambiguity:
+    the rotation is baked directly into the mesh vertices before export.
+    """
+    record = get_stl_file(stl_id, user_id, db)
+
+    orientation_by_rank = {
+        1: record.best_orientation_1,
+        2: record.best_orientation_2,
+        3: record.best_orientation_3,
+    }
+    orientation = orientation_by_rank.get(rank)
+    if orientation is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Orientation rank {rank} not available for this file.",
+        )
+
+    rx_deg = float(orientation["rx_deg"])
+    ry_deg = float(orientation["ry_deg"])
+    rz_deg = float(orientation["rz_deg"])
+
+    # Reconstruct the rotation matrix from the stored extrinsic XYZ angles.
+    R = Rotation.from_euler("xyz", [rx_deg, ry_deg, rz_deg], degrees=True).as_matrix()
+    transform = np.eye(4)
+    transform[:3, :3] = R
+
+    # Load the original mesh and apply the rotation in-place.
+    source_path = UPLOAD_DIR / record.stored_filename
+    if not source_path.exists():
+        raise HTTPException(status_code=404, detail="Source STL file not found on disk.")
+
+    mesh = load_mesh(source_path)
+    mesh.apply_transform(transform)
+    
+    # Ground the model on the build plate: translate so min Z = 0
+    min_z = float(mesh.bounds[0][2])
+    if min_z != 0.0:
+        translation = np.eye(4)
+        translation[2, 3] = -min_z  # Translate Z by -min_z to ground at z=0
+        mesh.apply_transform(translation)
+
+    # Export to GLB bytes (no disk I/O needed).
+    glb_bytes = mesh.export(file_type="glb")
+    if isinstance(glb_bytes, str):
+        # Some trimesh versions return a string path instead of bytes — shouldn't
+        # happen with file_type kwarg but guard against it.
+        raise HTTPException(status_code=500, detail="GLB export failed.")
+    return bytes(glb_bytes)
+
+
 def queue_reprocess(
     stl_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -254,6 +333,22 @@ def queue_reprocess(
     record.has_overhangs = None
     record.has_thin_walls = None
     record.glb_filename = None
+    # Sprint 2B fields
+    record.overhang_ratio = None
+    record.max_overhang_angle = None
+    record.min_wall_thickness_mm = None
+    record.avg_wall_thickness_mm = None
+    record.complexity_index = None
+    record.aspect_ratio = None
+    record.is_watertight = None
+    record.shell_count = None
+    record.com_offset_ratio = None
+    record.flat_base_area_mm2 = None
+    record.face_normal_histogram = None
+    record.best_orientation_1 = None
+    record.best_orientation_2 = None
+    record.best_orientation_3 = None
+    record.best_orientation_score = None
 
     try:
         db.commit()
@@ -270,14 +365,38 @@ def queue_reprocess(
     return _with_glb_url(record)
 
 
+def get_orientations(stl_id: uuid.UUID, user_id: uuid.UUID, db: Session) -> list:
+    """
+    Return the top 3 pre-computed orientations for an owned file.
+    - 404 if file not found or not owned by current user.
+    - 400 if geometry analysis hasn't completed yet.
+    """
+    record = get_stl_file(stl_id, user_id, db)  # raises 404 if not owned
+
+    if record.status != "ready":
+        raise HTTPException(
+            status_code=400,
+            detail="Geometry analysis still in progress. Please try again shortly.",
+        )
+
+    orientations = [
+        record.best_orientation_1,
+        record.best_orientation_2,
+        record.best_orientation_3,
+    ]
+    # Filter out any None slots (e.g. if mesh had fewer than 3 candidates)
+    return [o for o in orientations if o is not None]
+
+
 def run_analysis_pipeline(stl_id: uuid.UUID, file_path: str) -> None:
     """
-    Background pipeline:
-    - mark analyzing
-    - extract geometry
-    - convert STL/3MF to GLB
-    - mark ready
-    On any failure, mark error.
+    Background pipeline (runs after upload):
+      1. Load mesh once from disk.
+      2. Extract all geometry features → write to DB.
+      3. Run orientation optimization → write best_orientation_1/2/3 + score to DB.
+      4. Convert to GLB for 3D preview (reuses the already-loaded mesh).
+      5. Set status = "ready".
+    On any failure, set status = "error".
     """
     db = SessionLocal()
     try:
@@ -288,8 +407,11 @@ def run_analysis_pipeline(stl_id: uuid.UUID, file_path: str) -> None:
         record.status = "analyzing"
         db.commit()
 
-        features = extract_ui_features(file_path)
-        glb_path = convert_to_glb(input_path=file_path, uuid=str(stl_id))
+        # ── Step 1: load mesh once ────────────────────────────────────────────
+        mesh = load_mesh(Path(file_path))
+
+        # ── Step 2: geometry extraction ───────────────────────────────────────
+        features = extract_features_from_mesh(mesh)
 
         record.volume_cm3 = _safe_float(features.get("volume_cm3"))
         record.surface_area_cm2 = _safe_float(features.get("surface_area_cm2"))
@@ -299,10 +421,40 @@ def run_analysis_pipeline(stl_id: uuid.UUID, file_path: str) -> None:
         record.triangle_count = _safe_int(features.get("triangle_count"))
         record.has_overhangs = _safe_bool(features.get("has_overhangs"))
         record.has_thin_walls = _safe_bool(features.get("has_thin_walls"))
-        record.glb_filename = Path(glb_path).name
-        record.status = "ready"
+        record.overhang_ratio = _safe_float(features.get("overhang_ratio"))
+        record.max_overhang_angle = _safe_float(features.get("max_overhang_angle"))
+        record.min_wall_thickness_mm = _safe_float(features.get("min_wall_thickness_mm"))
+        record.avg_wall_thickness_mm = _safe_float(features.get("avg_wall_thickness_mm"))
+        record.complexity_index = _safe_float(features.get("complexity_index"))
+        record.aspect_ratio = _safe_float(features.get("aspect_ratio"))
+        record.is_watertight = _safe_bool(features.get("is_watertight"))
+        record.shell_count = _safe_int(features.get("shell_count"))
+        record.com_offset_ratio = _safe_float(features.get("com_offset_ratio"))
+        record.flat_base_area_mm2 = _safe_float(features.get("flat_base_area_mm2"))
+        record.face_normal_histogram = features.get("face_normal_histogram")
 
+        # ── Step 3: orientation optimization ─────────────────────────────────
+        orientations = orientation_service.find_best_orientations(mesh)
+        if len(orientations) >= 1:
+            record.best_orientation_1 = orientations[0]
+            record.best_orientation_score = _safe_float(orientations[0].get("score"))
+        if len(orientations) >= 2:
+            record.best_orientation_2 = orientations[1]
+        if len(orientations) >= 3:
+            record.best_orientation_3 = orientations[2]
+
+        # ── Step 4: GLB conversion (reuses loaded mesh) ───────────────────────
+        glb_path = convert_to_glb(
+            input_path=file_path,
+            uuid=str(stl_id),
+            preloaded_mesh=mesh,
+        )
+        record.glb_filename = Path(glb_path).name
+
+        # ── Step 5: mark ready ────────────────────────────────────────────────
+        record.status = "ready"
         db.commit()
+
     except Exception:
         db.rollback()
         error_record = db.query(STLFile).filter(STLFile.id == stl_id).first()

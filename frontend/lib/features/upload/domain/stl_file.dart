@@ -4,6 +4,7 @@ class STLFile {
   final int fileSizeBytes;
   final String status; // 'uploaded' | 'analyzing' | 'ready' | 'error'
   final DateTime createdAt;
+  final DateTime updatedAt;
   final String? glbUrl; // URL vers l'endpoint GET /stl/{id}/glb
   // geometry — nullable jusqu'à status = ready
   final double? volumeCm3;
@@ -15,12 +16,27 @@ class STLFile {
   final String? hasOverhangs; // 'yes' | 'no' | 'unknown'
   final String? hasThinWalls; // 'yes' | 'no' | 'unknown'
 
+
+   // Advanced geometry features (Sprint 2B) ──
+  final double? overhangRatio;       // 0.0–1.0
+  final double? maxOverhangAngle;    // degrees
+  final double? minWallThicknessMm;
+  final double? avgWallThicknessMm;
+  final double? complexityIndex;     // surface_area / volume
+  final double? aspectRatio;         // max(bbox) / min(bbox)
+  final bool? isWatertight;
+  final int? shellCount;
+  final double? comOffsetRatio;
+  final double? flatBaseAreaMm2;
+  final List<double>? faceNormalHistogram; // 18-bin histogram — ML input feature
+
   STLFile({
     required this.id,
     required this.originalFilename,
     required this.fileSizeBytes,
     required this.status,
     required this.createdAt,
+    required this.updatedAt,
     this.glbUrl,
     this.volumeCm3,
     this.surfaceAreaCm2,
@@ -30,6 +46,17 @@ class STLFile {
     this.triangleCount,
     this.hasOverhangs,
     this.hasThinWalls,
+    this.overhangRatio,
+    this.maxOverhangAngle,
+    this.minWallThicknessMm,
+    this.avgWallThicknessMm,
+    this.complexityIndex,
+    this.aspectRatio,
+    this.isWatertight,
+    this.shellCount,
+    this.comOffsetRatio,
+    this.flatBaseAreaMm2,
+    this.faceNormalHistogram,
   });
 
   static String? _normalizeFlag(dynamic value) {
@@ -49,6 +76,7 @@ class STLFile {
     fileSizeBytes: (json['file_size_bytes'] as num).toInt(),
     status: (json['status'] ?? '').toString(),
     createdAt: DateTime.parse(json['created_at']),
+    updatedAt: DateTime.parse(json['updated_at']),
     glbUrl: json['glb_url']?.toString(),
     volumeCm3: json['volume_cm3']?.toDouble(),
     surfaceAreaCm2: json['surface_area_cm2']?.toDouble(),
@@ -58,6 +86,20 @@ class STLFile {
     triangleCount: (json['triangle_count'] as num?)?.toInt(),
     hasOverhangs: _normalizeFlag(json['has_overhangs']),
     hasThinWalls: _normalizeFlag(json['has_thin_walls']),
+    // advanced
+    overhangRatio: json['overhang_ratio']?.toDouble(),
+    maxOverhangAngle: json['max_overhang_angle']?.toDouble(),
+    minWallThicknessMm: json['min_wall_thickness_mm']?.toDouble(),
+    avgWallThicknessMm: json['avg_wall_thickness_mm']?.toDouble(),
+    complexityIndex: json['complexity_index']?.toDouble(),
+    aspectRatio: json['aspect_ratio']?.toDouble(),
+    isWatertight: json['is_watertight'] as bool?,
+    shellCount: (json['shell_count'] as num?)?.toInt(),
+    comOffsetRatio: json['com_offset_ratio']?.toDouble(),
+    flatBaseAreaMm2: json['flat_base_area_mm2']?.toDouble(),
+    faceNormalHistogram: (json['face_normal_histogram'] as List<dynamic>?)
+        ?.map((e) => (e as num).toDouble())
+        .toList(),
   );
 
   String get formattedSize {
@@ -72,4 +114,5 @@ class STLFile {
   bool get isReady => status == 'ready';
   bool get isAnalyzing => status == 'analyzing';
   bool get isError => status == 'error';
+
 }

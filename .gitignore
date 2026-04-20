@@ -5,6 +5,7 @@ __pycache__/
 *.pyc
 *.pyo
 .venv/
+.pytest_cache/
 venv/
 3dp_env/
 
@@ -13,3 +14,7 @@ Thumbs.db
 
 .DS_Store
 .vscode/
+
+docs/
+# ML model binaries — download separately
+backend/models_ml/*.joblib

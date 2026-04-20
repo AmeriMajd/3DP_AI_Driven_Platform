@@ -14,6 +14,16 @@ import 'auth_repository.dart';
 class AuthRepositoryImpl implements AuthRepository {
   final Dio _dio = DioClient.instance;
 
+  @override
+  Future<bool> checkSystemStatus() async {
+    try {
+      final response = await _dio.get('/auth/admin/status');
+      return response.data['initialized'] as bool;
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
   //  POST /auth/admin/signup
   ///
   /// Crée le premier compte administrateur.

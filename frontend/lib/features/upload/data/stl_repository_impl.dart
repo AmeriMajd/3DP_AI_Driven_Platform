@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../../../shared/services/dio_client.dart';
 import '../domain/stl_file.dart';
+import '../domain/orientation_result.dart';
 import 'stl_repository.dart';
 
 class StlRepositoryImpl implements StlRepository {
@@ -72,6 +73,20 @@ class StlRepositoryImpl implements StlRepository {
   Future<void> deleteFile({required String id}) async {
     try {
       await _dio.delete('/stl/$id');
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  /// GET /stl/{id}/orientation
+  @override
+  Future<List<OrientationResult>> getOrientations({required String id}) async {
+    try {
+      final response = await _dio.get('/stl/$id/orientation');
+      final data = response.data as List<dynamic>;
+      return data
+          .map((o) => OrientationResult.fromJson(o as Map<String, dynamic>))
+          .toList();
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }

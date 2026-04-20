@@ -1,4 +1,6 @@
 abstract class AuthRepository {
+  Future<bool> checkSystemStatus();
+
   Future<void> adminSignup({
     required String fullName,
     required String email,

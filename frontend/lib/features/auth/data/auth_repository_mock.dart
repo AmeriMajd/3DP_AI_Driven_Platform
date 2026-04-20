@@ -7,6 +7,13 @@ import 'auth_repository.dart';
 /// - [generateInvite] → succès avec faux token
 /// - [register] → erreur simulée pour tester l'état d'erreur
 class AuthRepositoryMock implements AuthRepository {
+  
+  @override
+  Future<bool> checkSystemStatus() async {
+    await Future.delayed(const Duration(seconds: 1));
+    return true; // simule un système déjà initialisé
+  }
+
   @override
   Future<void> adminSignup({
     required String fullName,

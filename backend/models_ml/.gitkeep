@@ -1,0 +1,6 @@
+# Place the following trained model files here:
+stage1_classifier.joblib
+stage2a_material.joblib
+stage2b_regressor.joblib
+label_encoders.joblib
+feature_names.joblib

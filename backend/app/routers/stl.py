@@ -1,10 +1,11 @@
+from typing import List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, UploadFile, File, status
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, Query, UploadFile, File, status
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.schemas.stl import STLFileResponse, STLListResponse, STLStatusUpdate
+from app.schemas.stl import STLFileResponse, STLListResponse, STLStatusUpdate, OrientationResult
 from app.services import stl_service
 from fastapi import BackgroundTasks
 
@@ -124,15 +125,53 @@ def delete_file(
 
 
 @router.get(
-    "/{stl_id}/glb",
+    "/{stl_id}/orientation",
+    response_model=List[OrientationResult],
     status_code=status.HTTP_200_OK,
-    summary="Download converted GLB for a file (owner only)",
+    summary="Get the top 3 pre-computed print orientations for a file (owner only)",
 )
-def download_glb(
+def get_orientation(
     stl_id: UUID,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    return stl_service.get_orientations(
+        stl_id=stl_id,
+        user_id=current_user["user_id"],
+        db=db,
+    )
+
+
+@router.get(
+    "/{stl_id}/glb",
+    status_code=status.HTTP_200_OK,
+    summary="Download GLB for a file (owner only). Optional rank=1|2|3 returns a pre-rotated GLB.",
+)
+def download_glb(
+    stl_id: UUID,
+    rank: Optional[int] = Query(
+        None,
+        ge=1,
+        le=3,
+        description="Orientation rank (1–3). When supplied, the GLB is returned "
+                    "with the rotation for that orientation pre-applied.",
+    ),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if rank is not None:
+        glb_bytes = stl_service.get_rotated_glb_bytes(
+            stl_id=stl_id,
+            user_id=current_user["user_id"],
+            rank=rank,
+            db=db,
+        )
+        return Response(
+            content=glb_bytes,
+            media_type="model/gltf-binary",
+            headers={"Content-Disposition": f'attachment; filename="{stl_id}_rank{rank}.glb"'},
+        )
+
     glb_path = stl_service.get_glb_path(
         stl_id=stl_id,
         user_id=current_user["user_id"],

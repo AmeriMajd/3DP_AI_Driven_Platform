@@ -10,14 +10,28 @@ import 'package:frontend/shared/services/dio_client.dart';
 
 class Model3DViewer extends StatefulWidget {
   final STLFile file;
-  const Model3DViewer({required this.file, super.key});
+
+  /// When non-null, fetches a pre-rotated GLB from the backend
+  /// (GET /stl/{id}/glb?rank={selectedRank}) so the model appears in the
+  /// optimal print orientation without any client-side angle conversion.
+  /// Rank is 1-indexed (1 = best, 2 = second best, 3 = third best).
+  final int? selectedRank;
+
+  /// Hauteur fixe optionnelle. Si null, prend toute la hauteur disponible.
+  final double? height;
+
+  const Model3DViewer({
+    required this.file,
+    this.selectedRank,
+    this.height,
+    super.key,
+  });
 
   @override
   State<Model3DViewer> createState() => _Model3DViewerState();
 }
 
 class _Model3DViewerState extends State<Model3DViewer> {
-  bool _viewerError = false;
   late Future<String?> _glbDataUrlFuture;
 
   @override
@@ -29,45 +43,40 @@ class _Model3DViewerState extends State<Model3DViewer> {
   @override
   void didUpdateWidget(Model3DViewer oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Reload when the file changes, its status changes, or the selected
+    // orientation rank changes (each rank serves a differently rotated GLB).
     if (oldWidget.file.id != widget.file.id ||
-        oldWidget.file.status != widget.file.status) {
-      _viewerError = false;
-      _glbDataUrlFuture = _loadGlbAsDataUrl();
+        oldWidget.file.status != widget.file.status ||
+        oldWidget.selectedRank != widget.selectedRank) {
+      setState(() {
+        _glbDataUrlFuture = _loadGlbAsDataUrl();
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 280,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+    if (widget.height != null) {
+      return SizedBox(
+        height: widget.height,
+        width: double.infinity,
         child: _buildViewer(),
-      ),
-    );
+      );
+    }
+    return SizedBox.expand(child: _buildViewer());
   }
 
   Widget _buildViewer() {
-    // State 3 : erreur viewer
-    if (_viewerError) return _buildError();
+    if (!widget.file.isReady) return _buildPlaceholder();
 
-    // State 1 : pas encore prêt
-    if (!widget.file.isReady) {
-      return _buildPlaceholder();
-    }
-
-    // State 2 : prêt → charger le GLB via Dio pour garder l'auth Bearer.
     return FutureBuilder<String?>(
       future: _glbDataUrlFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return _buildPlaceholder();
         }
-
         final src = snapshot.data;
-        if (src == null || src.isEmpty) {
-          return _buildError();
-        }
+        if (src == null || src.isEmpty) return _buildError();
 
         return ModelViewer(
           src: src,
@@ -75,34 +84,40 @@ class _Model3DViewerState extends State<Model3DViewer> {
           ar: false,
           autoRotate: true,
           cameraControls: true,
-          backgroundColor: const Color(0xFF1E1E2E),
+          backgroundColor: const Color(0xFF1A1A2E),
         );
       },
     );
-    // Note : model_viewer_plus ne lève pas d'exception synchrone —
-    // les erreurs de chargement (CORS, 404) sont gérées en interne.
-    // Pour capturer les erreurs web, écouter les messages JS si nécessaire.
   }
 
   Future<String?> _loadGlbAsDataUrl() async {
-    if (!widget.file.isReady) {
-      return null;
+    if (!widget.file.isReady) return null;
+
+    // Cas 1 : glbUrl est une URL directe (mock ou CDN public) — l'utiliser tel quel.
+    final glbUrl = widget.file.glbUrl;
+    if (glbUrl != null && glbUrl.startsWith('http')) {
+      return glbUrl;
     }
+
+    // Build endpoint. When a rank is selected, append ?rank= so the backend
+    // returns a GLB with the rotation baked into the mesh vertices — this
+    // avoids all Euler-angle convention and Y-up/Z-up coordinate mismatches.
+    final base = (glbUrl != null && glbUrl.isNotEmpty)
+        ? glbUrl
+        : '/stl/${widget.file.id}/glb';
+    final endpoint = widget.selectedRank != null
+        ? '$base?rank=${widget.selectedRank}'
+        : base;
 
     try {
       final response = await DioClient.instance.get<List<int>>(
-        '/stl/${widget.file.id}/glb',
+        endpoint,
         options: Options(responseType: ResponseType.bytes),
       );
-
       final raw = response.data;
-      if (raw == null || raw.isEmpty) {
-        return null;
-      }
-
+      if (raw == null || raw.isEmpty) return null;
       final bytes = raw is Uint8List ? raw : Uint8List.fromList(raw);
-      final base64Data = base64Encode(bytes);
-      return 'data:model/gltf-binary;base64,$base64Data';
+      return 'data:model/gltf-binary;base64,${base64Encode(bytes)}';
     } catch (_) {
       return null;
     }
@@ -110,18 +125,16 @@ class _Model3DViewerState extends State<Model3DViewer> {
 
   Widget _buildPlaceholder() {
     return Container(
-      color: const Color(0xFF1E1E2E),
+      color: const Color(0xFF1A1A2E),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const _RotatingCubeIcon(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Text(
             'Preparing 3D preview...',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
-              fontSize: 13,
-            ),
+                color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
           ),
         ],
       ),
@@ -130,16 +143,15 @@ class _Model3DViewerState extends State<Model3DViewer> {
 
   Widget _buildError() {
     return Container(
-      color: const Color(0xFF1E1E2E),
+      color: const Color(0xFF1A1A2E),
       child: const Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.broken_image_outlined, color: Colors.red, size: 48),
-          SizedBox(height: 8),
-          Text(
-            'Preview unavailable',
-            style: TextStyle(color: Colors.white54, fontSize: 13),
-          ),
+          Icon(Icons.broken_image_outlined,
+              color: Colors.redAccent, size: 44),
+          SizedBox(height: 10),
+          Text('Preview unavailable',
+              style: TextStyle(color: Colors.white54, fontSize: 13)),
         ],
       ),
     );
@@ -147,7 +159,6 @@ class _Model3DViewerState extends State<Model3DViewer> {
 }
 
 // ── Rotating Cube Icon ────────────────────────────────────────────────────────
-
 class _RotatingCubeIcon extends StatefulWidget {
   const _RotatingCubeIcon();
 
@@ -186,15 +197,13 @@ class _RotatingCubeIconState extends State<_RotatingCubeIcon>
         width: 64,
         height: 64,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.07),
+          color: Colors.white.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.5),
+          border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12), width: 1.5),
         ),
-        child: const Icon(
-          Icons.view_in_ar_rounded,
-          color: Colors.white60,
-          size: 32,
-        ),
+        child: const Icon(Icons.view_in_ar_rounded,
+            color: Colors.white54, size: 32),
       ),
     );
   }
