@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.core.database import get_db
 from app.core.config import settings
 from app.core.security import hash_password
@@ -15,24 +16,26 @@ from app.schemas.auth import LoginSchema, LoginResponse, UserProfile
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+
+@router.get("/admin/status")
+def check_admin_status(db: Session = Depends(get_db)):
+    count = db.query(func.count()).select_from(User).filter(User.role == "admin").scalar()
+    return {"initialized": count > 0}
+
+
 @router.post("/admin/signup", response_model=UserResponse, status_code=201)
 def admin_signup(data: AdminSignupSchema, db: Session = Depends(get_db)):
-    """
-    Creates the very first admin account.
-    Protected by ADMIN_SIGNUP_KEY — only people who know this secret
-    can create admin accounts.
-
-    Flow:
-    1. Check admin_secret_key matches .env value → else 403
-    2. Check email not already used → else 400
-    3. Hash password with bcrypt
-    4. Insert user with role='admin' (hardcoded — not from request)
-    5. Return 201 with user object (no password)
-    """
     if data.admin_secret_key != settings.ADMIN_SIGNUP_KEY:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid admin secret key"
+        )
+
+    admin_count = db.query(func.count()).select_from(User).filter(User.role == "admin").scalar()
+    if admin_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin already exists"
         )
 
     existing = db.query(User).filter(User.email == data.email).first()

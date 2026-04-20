@@ -33,6 +33,17 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _checkSession() async {
     try {
+      final initialized = await _authRepo.checkSystemStatus();
+      if (!initialized) {
+        _go(AppRoutes.adminSignup);
+        return;
+      }
+    } catch (e) {
+      _go(AppRoutes.login);
+      return;
+    }
+
+    try {
       final accessToken = await StorageService.getToken();
       final refreshToken = await StorageService.getRefreshToken();
 
@@ -49,7 +60,10 @@ class _SplashScreenState extends State<SplashScreen> {
         _go(AppRoutes.login);
         return;
       }
-      if (!expired) {}
+      if (!expired) {
+        _go(AppRoutes.upload);
+        return;
+      }
 
       if (refreshToken == null || refreshToken.isEmpty) {
         await StorageService.clearAll();
