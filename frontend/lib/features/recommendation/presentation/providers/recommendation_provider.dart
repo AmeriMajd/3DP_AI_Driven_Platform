@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/features/recommendation/data/recommendation_repository_mock.dart';
 import '../../data/recommendation_repository.dart';
 import '../../data/recommendation_repository_impl.dart';
 import '../../domain/recommend_request.dart';
@@ -74,6 +75,12 @@ class RecommendationNotifier extends StateNotifier<RecommendationState> {
     } catch (_) {
       // Rating failure is non-critical — swallow silently
     }
+  }
+
+  Future<void> updateParameters(
+      String id, Map<String, dynamic> params) async {
+    final updated = await _repo.updateParameters(id, params);
+    state = state.copyWith(result: updated);
   }
 
   void reset() {

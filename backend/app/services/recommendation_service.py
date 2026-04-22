@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.recommendation import Recommendation
 from app.models.stl_file import STLFile
-from app.schemas.recommendation import RecommendRequest
+from app.schemas.recommendation import RecommendRequest, ParameterUpdateRequest
 from app.services import ml_inference
 
 logger = logging.getLogger(__name__)
@@ -233,6 +233,25 @@ def create_recommendation(
     db.commit()
     db.refresh(rec)
     logger.info("Recommendation %s created for file %s", rec.id, request.file_id)
+    return rec
+
+
+def update_parameters(
+    recommendation_id: UUID,
+    body: ParameterUpdateRequest,
+    user_id: UUID,
+    db: Session,
+) -> Recommendation:
+    rec = db.query(Recommendation).filter(
+        Recommendation.id == recommendation_id,
+        Recommendation.user_id == user_id,
+    ).first()
+    if rec is None:
+        raise HTTPException(status_code=404, detail="Recommendation not found")
+    for field, value in body.model_dump(exclude_none=True).items():
+        setattr(rec, field, value)
+    db.commit()
+    db.refresh(rec)
     return rec
 
 

@@ -39,6 +39,22 @@ class RecommendationRepositoryImpl implements RecommendationRepository {
     }
   }
 
+  /// PATCH /recommend/{id}/parameters
+  @override
+  Future<RecommendationResult> updateParameters(
+      String id, Map<String, dynamic> params) async {
+    try {
+      final response = await _dio.patch(
+        '/recommend/$id/parameters',
+        data: params,
+      );
+      return RecommendationResult.fromJson(
+          response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
   /// GET /recommend/history
   @override
   Future<List<RecommendationResult>> getHistory() async {

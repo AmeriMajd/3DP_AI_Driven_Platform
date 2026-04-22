@@ -29,12 +29,97 @@ class _RecommendationResultScreenState
   final _clarificationCtrl = TextEditingController();
   bool _isResubmitting = false;
 
-  RecommendationResult? get _r => widget.result;
+  bool _isEditing = false;
+  RecommendationResult? _localResult;
+  String? _editTech;
+  String? _editMaterial;
+  double? _editLayerHeight;
+  int? _editInfill;
+  int? _editPrintSpeed;
+  int? _editWallCount;
+  int? _editCoolingFan;
+  int? _editSupportDensity;
+  bool _isSaving = false;
+
+  RecommendationResult? get _r => _localResult ?? widget.result;
 
   @override
   void dispose() {
     _clarificationCtrl.dispose();
     super.dispose();
+  }
+
+  void _enterEditMode() {
+    final r = _r;
+    if (r == null) return;
+    setState(() {
+      _isEditing = true;
+      _editTech = r.technology;
+      _editMaterial = r.material;
+      _editLayerHeight = r.layerHeight;
+      _editInfill = r.infillDensity;
+      _editPrintSpeed = r.printSpeed;
+      _editWallCount = r.wallCount;
+      _editCoolingFan = r.coolingFan;
+      _editSupportDensity = r.supportDensity;
+    });
+  }
+
+  void _cancelEdit() {
+    setState(() {
+      _isEditing = false;
+      _editTech = null;
+      _editMaterial = null;
+      _editLayerHeight = null;
+      _editInfill = null;
+      _editPrintSpeed = null;
+      _editWallCount = null;
+      _editCoolingFan = null;
+      _editSupportDensity = null;
+    });
+  }
+
+  Future<void> _saveEdits() async {
+    final r = _r;
+    if (r == null) return;
+
+    final changed = <String, dynamic>{};
+    if (_editTech != null && _editTech != r.technology) changed['technology'] = _editTech;
+    if (_editMaterial != null && _editMaterial != r.material) changed['material'] = _editMaterial;
+    if (_editLayerHeight != null && _editLayerHeight != r.layerHeight) changed['layer_height'] = _editLayerHeight;
+    if (_editInfill != null && _editInfill != r.infillDensity) changed['infill_density'] = _editInfill;
+    if (_editPrintSpeed != null && _editPrintSpeed != r.printSpeed) changed['print_speed'] = _editPrintSpeed;
+    if (_editWallCount != null && _editWallCount != r.wallCount) changed['wall_count'] = _editWallCount;
+    if (_editCoolingFan != null && _editCoolingFan != r.coolingFan) changed['cooling_fan'] = _editCoolingFan;
+    if (_editSupportDensity != null && _editSupportDensity != r.supportDensity) changed['support_density'] = _editSupportDensity;
+
+    if (changed.isEmpty) {
+      setState(() => _isEditing = false);
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(recommendationProvider.notifier).updateParameters(r.id, changed);
+      if (mounted) {
+        setState(() {
+          _localResult = ref.read(recommendationProvider).result;
+          _isEditing = false;
+          _isSaving = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save: ${e.toString().replaceFirst('Exception: ', '')}'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _resubmitWithClarification() async {
@@ -161,6 +246,7 @@ class _RecommendationResultScreenState
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildTechMaterialCard(RecommendationResult r, String tier) {
+    if (_isEditing) return _buildTechMaterialCardEdit(r, tier);
     final tierColor = _tierColor(tier);
     final matColor = _materialColor(r.material);
     final overallConf =
@@ -286,6 +372,218 @@ class _RecommendationResultScreenState
     );
   }
 
+  Widget _buildTechMaterialCardEdit(RecommendationResult r, String tier) {
+    final tierColor = _tierColor(tier);
+    final overallConf =
+        ((r.technologyConfidence ?? 0) + (r.materialConfidence ?? 0)) / 2;
+    final confidencePct = (overallConf * 100).round();
+    final aiMaterial = widget.result?.material;
+
+    const fdmMaterials = ['PLA', 'PETG', 'ABS', 'TPU'];
+    const slaMaterials = ['Resin-Std', 'Resin-Eng'];
+    final materials = _editTech == 'SLA' ? slaMaterials : fdmMaterials;
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Technology pill row ─────────────────────────────────────────
+          const Text(
+            'Technology',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: AppColors.inputFill,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: ['FDM', 'SLA'].map((tech) {
+                final active = _editTech == tech;
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      final newMats =
+                          tech == 'SLA' ? slaMaterials : fdmMaterials;
+                      setState(() {
+                        _editTech = tech;
+                        _editMaterial = newMats.first;
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      decoration: BoxDecoration(
+                        color:
+                            active ? AppColors.primary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(9),
+                        boxShadow: active
+                            ? [
+                                BoxShadow(
+                                  color: AppColors.primary
+                                      .withValues(alpha: 0.25),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        tech,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: active
+                              ? Colors.white
+                              : AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Material chips ──────────────────────────────────────────────
+          Row(
+            children: [
+              const Text(
+                'Material',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              if (aiMaterial != null) ...[
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'AI: $aiMaterial',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: materials.map((mat) {
+              final selected = _editMaterial == mat;
+              return GestureDetector(
+                onTap: () => setState(() => _editMaterial = mat),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 130),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color:
+                        selected ? AppColors.primary : AppColors.inputFill,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: selected
+                          ? AppColors.primary
+                          : const Color(0xFFE5E5EA),
+                    ),
+                  ),
+                  child: Text(
+                    mat,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? Colors.white : AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Confidence banner (read-only) ───────────────────────────────
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: tierColor.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: tierColor.withValues(alpha: 0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(_tierIcon(tier), color: tierColor, size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _tierLabel(tier),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: tierColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: overallConf.clamp(0.0, 1.0),
+                          minHeight: 6,
+                          backgroundColor:
+                              tierColor.withValues(alpha: 0.15),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(tierColor),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '$confidencePct%',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: tierColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // Tab Switcher (medium tier)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -373,6 +671,7 @@ class _RecommendationResultScreenState
   }
 
   Widget _buildParametersCard(RecommendationResult r, bool showAlt) {
+    if (_isEditing) return _buildParametersCardEdit(r);
     final p = _activeParams(r, showAlt);
     final isSLA = p['isSLA'] as bool;
 
@@ -435,6 +734,302 @@ class _RecommendationResultScreenState
             value: p['supportDensity'] == 0
                 ? 'No supports needed'
                 : (p['supportDensity'] != null ? '${p['supportDensity']}%' : '—'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildParametersCardEdit(RecommendationResult r) {
+    final isSLA = _editTech == 'SLA';
+    final lhVal = (_editLayerHeight ?? r.layerHeight ?? 0.20)
+        .clamp(r.layerHeightMin ?? 0.05, r.layerHeightMax ?? 0.35);
+    final infillVal = (_editInfill ?? r.infillDensity ?? 20).toDouble();
+    final speedVal = (_editPrintSpeed ?? r.printSpeed ??
+            (isSLA ? 30 : 60))
+        .toDouble();
+    final wallVal = _editWallCount ?? r.wallCount ?? 2;
+    final fanVal = (_editCoolingFan ?? r.coolingFan ?? 80).toDouble();
+    final supportVal = (_editSupportDensity ?? r.supportDensity ?? 15).toDouble();
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Print Parameters',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Layer Height
+          _editParamSlider(
+            icon: Icons.layers_rounded,
+            iconColor: AppColors.primary,
+            label: 'Layer Height',
+            displayValue:
+                '${lhVal.toStringAsFixed(2)} mm',
+            value: lhVal,
+            min: r.layerHeightMin ?? 0.05,
+            max: r.layerHeightMax ?? 0.35,
+            divisions: 30,
+            onChanged: (v) => setState(
+                () => _editLayerHeight = double.parse(v.toStringAsFixed(2))),
+          ),
+          _divider(),
+
+          // Infill Density
+          if (isSLA)
+            _paramItem(
+              icon: Icons.grid_4x4_rounded,
+              iconColor: const Color(0xFF8B5CF6),
+              label: 'Infill Density',
+              value: 'N/A — solid resin print',
+              isNA: true,
+            )
+          else
+            _editParamSlider(
+              icon: Icons.grid_4x4_rounded,
+              iconColor: const Color(0xFF8B5CF6),
+              label: 'Infill Density',
+              displayValue: '${infillVal.round()}%',
+              value: infillVal,
+              min: 0,
+              max: 100,
+              divisions: 20,
+              onChanged: (v) => setState(() => _editInfill = v.round()),
+            ),
+          _divider(),
+
+          // Print Speed
+          _editParamSlider(
+            icon: Icons.speed_rounded,
+            iconColor: const Color(0xFF0EA5E9),
+            label: 'Print Speed',
+            displayValue: '${speedVal.round()} mm/s',
+            value: speedVal.clamp(isSLA ? 10.0 : 20.0, isSLA ? 80.0 : 150.0),
+            min: isSLA ? 10 : 20,
+            max: isSLA ? 80 : 150,
+            divisions: isSLA ? 14 : 26,
+            onChanged: (v) => setState(() => _editPrintSpeed = v.round()),
+          ),
+          _divider(),
+
+          // Wall Line Count (stepper)
+          if (isSLA)
+            _paramItem(
+              icon: Icons.border_all_rounded,
+              iconColor: const Color(0xFF22C55E),
+              label: 'Wall Line Count',
+              value: 'N/A — solid resin print',
+              isNA: true,
+            )
+          else
+            _editParamStepper(
+              icon: Icons.border_all_rounded,
+              iconColor: const Color(0xFF22C55E),
+              label: 'Wall Line Count',
+              value: wallVal,
+              min: 1,
+              max: 10,
+              onChanged: (v) => setState(() => _editWallCount = v),
+            ),
+          _divider(),
+
+          // Cooling Fan
+          if (isSLA)
+            _paramItem(
+              icon: Icons.air_rounded,
+              iconColor: const Color(0xFF64748B),
+              label: 'Cooling Fan',
+              value: 'N/A — solid resin print',
+              isNA: true,
+            )
+          else
+            _editParamSlider(
+              icon: Icons.air_rounded,
+              iconColor: const Color(0xFF64748B),
+              label: 'Cooling Fan',
+              displayValue: '${fanVal.round()}%',
+              value: fanVal,
+              min: 0,
+              max: 100,
+              divisions: 20,
+              onChanged: (v) => setState(() => _editCoolingFan = v.round()),
+            ),
+          _divider(),
+
+          // Support Density
+          _editParamSlider(
+            icon: Icons.support_agent_rounded,
+            iconColor: const Color(0xFFF59E0B),
+            label: 'Support Density',
+            displayValue: supportVal.round() == 0
+                ? 'No supports'
+                : '${supportVal.round()}%',
+            value: supportVal,
+            min: 0,
+            max: 100,
+            divisions: 20,
+            onChanged: (v) => setState(() => _editSupportDensity = v.round()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _editParamSlider({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String displayValue,
+    required double value,
+    required double min,
+    required double max,
+    required int divisions,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, color: iconColor, size: 16),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      displayValue,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                SliderTheme(
+                  data: SliderThemeData(
+                    trackHeight: 4,
+                    thumbShape:
+                        const RoundSliderThumbShape(enabledThumbRadius: 8),
+                    overlayShape:
+                        const RoundSliderOverlayShape(overlayRadius: 16),
+                    activeTrackColor: AppColors.primary,
+                    inactiveTrackColor:
+                        AppColors.primary.withValues(alpha: 0.15),
+                    thumbColor: AppColors.primary,
+                    overlayColor: AppColors.primary.withValues(alpha: 0.12),
+                  ),
+                  child: Slider(
+                    value: value,
+                    min: min,
+                    max: max,
+                    divisions: divisions,
+                    onChanged: onChanged,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _editParamStepper({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required int value,
+    required int min,
+    required int max,
+    required ValueChanged<int> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, color: iconColor, size: 16),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline_rounded),
+                color: value <= min
+                    ? AppColors.textSecondary
+                    : AppColors.primary,
+                onPressed: value <= min ? null : () => onChanged(value - 1),
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+              SizedBox(
+                width: 32,
+                child: Text(
+                  '$value',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline_rounded),
+                color: value >= max
+                    ? AppColors.textSecondary
+                    : AppColors.primary,
+                onPressed: value >= max ? null : () => onChanged(value + 1),
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+            ],
           ),
         ],
       ),
@@ -588,7 +1183,7 @@ class _RecommendationResultScreenState
                         isNA ? FontStyle.italic : FontStyle.normal,
                   ),
                 ),
-                if (subWidget case final w?) w,
+                ?subWidget,
               ],
             ),
           ),
@@ -1074,6 +1669,7 @@ class _RecommendationResultScreenState
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildContinueButton(BuildContext context) {
+    if (_isEditing) return _buildEditBottomBar(context);
     return SizedBox(
       width: double.infinity,
       height: 54,
@@ -1096,6 +1692,60 @@ class _RecommendationResultScreenState
     );
   }
 
+  Widget _buildEditBottomBar(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _isSaving ? null : _cancelEdit,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+              side: const BorderSide(color: AppColors.primary),
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: FilledButton(
+            onPressed: _isSaving ? null : _saveEdits,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            ),
+            child: _isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Text(
+                    'Save Changes ✓',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
       backgroundColor: Colors.white,
@@ -1114,6 +1764,18 @@ class _RecommendationResultScreenState
           fontWeight: FontWeight.w700,
         ),
       ),
+      actions: [
+        if (!_isEditing)
+          IconButton(
+            icon: const Icon(Icons.edit_rounded, color: AppColors.primary),
+            onPressed: _r != null ? _enterEditMode : null,
+          )
+        else
+          IconButton(
+            icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+            onPressed: _isSaving ? null : _cancelEdit,
+          ),
+      ],
     );
   }
 
