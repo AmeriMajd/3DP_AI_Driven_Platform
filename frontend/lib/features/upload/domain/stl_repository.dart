@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import '../domain/stl_file.dart';
-import '../domain/orientation_result.dart';
+import 'stl_file.dart';
+import 'orientation_result.dart';
 
 abstract class StlRepository {
   /// POST /stl/upload — upload un fichier STL ou 3MF

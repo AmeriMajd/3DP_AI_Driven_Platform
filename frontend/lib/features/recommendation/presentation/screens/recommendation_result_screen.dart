@@ -9,7 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../domain/alternative_recommendation.dart';
 import '../../domain/recommend_request.dart';
 import '../../domain/recommendation_result.dart';
-import '../providers/recommendation_provider.dart';
+import '../providers/recommendation_providers.dart';
 import '../widgets/star_rating_widget.dart';
 
 class RecommendationResultScreen extends ConsumerStatefulWidget {
@@ -100,10 +100,10 @@ class _RecommendationResultScreenState
 
     setState(() => _isSaving = true);
     try {
-      await ref.read(recommendationProvider.notifier).updateParameters(r.id, changed);
+      await ref.read(recommendationViewModelProvider.notifier).updateParameters(r.id, changed);
       if (mounted) {
         setState(() {
-          _localResult = ref.read(recommendationProvider).result;
+          _localResult = ref.read(recommendationViewModelProvider).result;
           _isEditing = false;
           _isSaving = false;
         });
@@ -127,7 +127,7 @@ class _RecommendationResultScreenState
     if (r == null) return;
     setState(() => _isResubmitting = true);
     try {
-      await ref.read(recommendationProvider.notifier).submit(
+      await ref.read(recommendationViewModelProvider.notifier).submit(
             RecommendRequest(
               fileId: r.stlFileId,
               orientationRank: r.orientationRank,
@@ -140,7 +140,7 @@ class _RecommendationResultScreenState
             ),
           );
       if (mounted) {
-        final newResult = ref.read(recommendationProvider).result;
+        final newResult = ref.read(recommendationViewModelProvider).result;
         if (newResult != null) {
           context.pushReplacement(AppRoutes.recommendResult, extra: newResult);
         }
@@ -1657,7 +1657,7 @@ class _RecommendationResultScreenState
         currentRating: r.userRating,
         onRate: (rating) async {
           await ref
-              .read(recommendationProvider.notifier)
+              .read(recommendationViewModelProvider.notifier)
               .rate(r.id, rating);
         },
       ),

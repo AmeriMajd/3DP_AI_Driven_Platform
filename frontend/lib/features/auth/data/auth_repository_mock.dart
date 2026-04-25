@@ -1,4 +1,4 @@
-import 'auth_repository.dart';
+import '../domain/auth_repository.dart';
 
 /// Mock utilisé pour tester l'UI sans backend.
 ///

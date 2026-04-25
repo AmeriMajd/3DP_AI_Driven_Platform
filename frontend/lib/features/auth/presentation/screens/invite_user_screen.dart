@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/utils/validators.dart';
 import '../../../../../core/constants/app_strings.dart';
-import '../providers/auth_provider.dart';
-import '../providers/auth_state.dart';
+import '../providers/auth_providers.dart';
+import '../../domain/auth_state.dart';
 import '../widgets/auth_card.dart';
 import '../widgets/auth_primary_button.dart';
 import '../widgets/auth_text_field.dart';
@@ -96,7 +96,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    ref.read(authProvider.notifier).generateInvite(
+    ref.read(authViewModelProvider.notifier).generateInvite(
           email: _emailController.text.trim(),
           role: _selectedRole,
         );
@@ -116,9 +116,9 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
   
   @override
   Widget build(BuildContext context){
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authViewModelProvider);
 
-    ref.listen<AuthState>(authProvider, (_, next) {
+    ref.listen<AuthState>(authViewModelProvider, (_, next) {
       if (next.status == AuthStatus.success){
         final now = DateTime.now();
         final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -140,7 +140,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
           _generatedLink =  next.successMessage ?? '';
           
         });
-        ref.read(authProvider.notifier).reset();
+        ref.read(authViewModelProvider.notifier).reset();
       }
 
       if (next.status == AuthStatus.error) {
@@ -151,7 +151,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        ref.read(authProvider.notifier).reset();
+        ref.read(authViewModelProvider.notifier).reset();
       }
     });   
 

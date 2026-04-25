@@ -1,22 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/services/storage_service.dart';
-import '../../data/auth_repository.dart';
-import '../../data/auth_repository_impl.dart';
-import '../../data/auth_repository_mock.dart';
-import 'auth_state.dart';
+import '../../domain/auth_repository.dart';
+import '../../domain/auth_state.dart';
 
-final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepositoryImpl();
-});
-
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(ref.read(authRepositoryProvider));
-});
-
-class AuthNotifier extends StateNotifier<AuthState> {
+class AuthViewModel extends StateNotifier<AuthState> {
   final AuthRepository _repo;
 
-  AuthNotifier(this._repo) : super(const AuthState());
+  AuthViewModel(this._repo) : super(const AuthState());
 
   Future<void> adminSignup({
     required String fullName,
@@ -51,7 +41,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final link = await _repo.generateInvite(email: email, role: role);
       state = state.copyWith(
         status: AuthStatus.success,
-        successMessage: link, // ← le vrai lien du backend
+        successMessage: link,
       );
     } catch (e) {
       state = state.copyWith(
@@ -61,7 +51,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Met à jour l'état avec les données pré-remplies (email, role, expires_at).
   Future<Map<String, dynamic>?> validateInvite({required String token}) async {
     try {
       final data = await _repo.validateInvite(token: token);
@@ -160,9 +149,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(status: AuthStatus.loading);
     try {
       await _repo.logout();
-      state = const AuthState(); // reset complet
+      state = const AuthState();
     } catch (e) {
-      // logout local même si backend échoue
       await StorageService.clearAll();
       state = const AuthState();
     }

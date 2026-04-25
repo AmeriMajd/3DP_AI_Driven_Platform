@@ -1,5 +1,5 @@
-import '../domain/recommend_request.dart';
-import '../domain/recommendation_result.dart';
+import 'recommend_request.dart';
+import 'recommendation_result.dart';
 
 abstract class RecommendationRepository {
   Future<RecommendationResult> createRecommendation(RecommendRequest request);

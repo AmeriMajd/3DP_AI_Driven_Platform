@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import '../../../shared/services/dio_client.dart';
 import '../../../shared/services/storage_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'auth_repository.dart';
+import '../domain/auth_repository.dart';
 
 /// Implémentation réelle de [AuthRepository].
 ///

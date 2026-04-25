@@ -1,7 +1,7 @@
 import '../domain/alternative_recommendation.dart';
 import '../domain/recommend_request.dart';
 import '../domain/recommendation_result.dart';
-import 'recommendation_repository.dart';
+import '../domain/recommendation_repository.dart';
 
 /// Offline mock — mirrors the backend stub prediction rules.
 /// To use: change recommendationRepositoryProvider to return this class.

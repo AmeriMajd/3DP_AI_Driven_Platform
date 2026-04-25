@@ -33,5 +33,4 @@ abstract class AuthRepository {
   Future<void> refreshToken();
 
   Future<void> logout();
-
 }

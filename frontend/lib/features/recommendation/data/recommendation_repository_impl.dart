@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import '../../../shared/services/dio_client.dart';
 import '../domain/recommend_request.dart';
 import '../domain/recommendation_result.dart';
-import 'recommendation_repository.dart';
+import '../domain/recommendation_repository.dart';
 
 class RecommendationRepositoryImpl implements RecommendationRepository {
   final Dio _dio = DioClient.instance;

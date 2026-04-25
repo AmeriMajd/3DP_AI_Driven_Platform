@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/utils/validators.dart';
 import '../../../../../core/router/app_routes.dart';
-import '../providers/auth_provider.dart';
-import '../providers/auth_state.dart';
+import '../providers/auth_providers.dart';
+import '../../domain/auth_state.dart';
 import '../widgets/auth_primary_button.dart';
 import '../widgets/login_text_field.dart';
 
@@ -34,22 +34,22 @@ class _ForgotPasswordScreenState
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    ref.read(authProvider.notifier).forgotPassword(
+    ref.read(authViewModelProvider.notifier).forgotPassword(
           email: _emailController.text.trim(),
         );
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authViewModelProvider);
 
-    ref.listen<AuthState>(authProvider, (_, next) {
+    ref.listen<AuthState>(authViewModelProvider, (_, next) {
       if (next.status == AuthStatus.success) {
         setState(() {
           _emailSent = true;
           _sentToEmail = _emailController.text.trim();
         });
-        ref.read(authProvider.notifier).reset();
+        ref.read(authViewModelProvider.notifier).reset();
       }
       if (next.status == AuthStatus.error) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -59,7 +59,7 @@ class _ForgotPasswordScreenState
             behavior: SnackBarBehavior.floating,
           ),
         );
-        ref.read(authProvider.notifier).reset();
+        ref.read(authViewModelProvider.notifier).reset();
       }
     });
 
