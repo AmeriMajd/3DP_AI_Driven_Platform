@@ -6,8 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../domain/stl_file.dart';
 import '../../domain/orientation_result.dart';
-import '../providers/upload_provider.dart';
-import '../providers/orientation_provider.dart';
+import '../providers/upload_providers.dart';
 import '../widgets/model_3d_viewer.dart';
 import '../widgets/geometry_details_card.dart';
 import '../widgets/model_status_banner.dart';
@@ -34,15 +33,15 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final files = ref.read(uploadProvider).files;
+      final files = ref.read(uploadViewModelProvider).files;
       final file = _findFile(files);
       if (file == null) return;
 
       if (!file.isReady && !file.isError) {
         // Fichier encore en cours de traitement — lancer le polling.
         // orientationsProvider se rechargera automatiquement quand
-        // uploadProvider mettra status à 'ready'.
-        ref.read(uploadProvider.notifier).startPolling(widget.fileId);
+        // uploadViewModelProvider mettra status à 'ready'.
+        ref.read(uploadViewModelProvider.notifier).startPolling(widget.fileId);
       }
       // Si déjà ready : orientationsProvider(fileId) se déclenche
       // automatiquement au premier watch dans le build.
@@ -52,7 +51,7 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
   @override
   void dispose() {
     _tabController.dispose();
-    ref.read(uploadProvider.notifier).stopPolling();
+    ref.read(uploadViewModelProvider.notifier).stopPolling();
     super.dispose();
   }
 
@@ -102,14 +101,14 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
       ),
     );
     if (confirm == true && context.mounted) {
-      await ref.read(uploadProvider.notifier).deleteFile(id: file.id);
+      await ref.read(uploadViewModelProvider.notifier).deleteFile(id: file.id);
       if (context.mounted) context.pop();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final files = ref.watch(uploadProvider).files;
+    final files = ref.watch(uploadViewModelProvider).files;
     final STLFile? file = _findFile(files);
 
     if (file == null) {
@@ -233,7 +232,7 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
           _GeometryTab(
             file: file,
             onRetry: () =>
-                ref.read(uploadProvider.notifier).reprocessFile(id: file.id),
+                ref.read(uploadViewModelProvider.notifier).reprocessFile(id: file.id),
           ),
 
           // ── Tab 3: Orientation ─────────────────────────────────────────

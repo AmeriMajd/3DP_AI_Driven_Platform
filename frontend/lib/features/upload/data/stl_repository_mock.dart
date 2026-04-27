@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import '../domain/stl_file.dart';
 import '../domain/orientation_result.dart';
-import 'stl_repository.dart';
+import '../domain/stl_repository.dart';
 
 class StlRepositoryMock implements StlRepository {
   final Map<String, int> _pollCount = {};

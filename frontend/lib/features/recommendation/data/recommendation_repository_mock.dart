@@ -1,7 +1,7 @@
 import '../domain/alternative_recommendation.dart';
 import '../domain/recommend_request.dart';
 import '../domain/recommendation_result.dart';
-import 'recommendation_repository.dart';
+import '../domain/recommendation_repository.dart';
 
 /// Offline mock — mirrors the backend stub prediction rules.
 /// To use: change recommendationRepositoryProvider to return this class.
@@ -147,4 +147,34 @@ class RecommendationRepositoryMock implements RecommendationRepository {
     await Future.delayed(const Duration(milliseconds: 500));
     return List.unmodifiable(_history);
   }
+  @override
+  Future<RecommendationResult> updateParameters(String id, Map<String, dynamic> params) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final idx = _history.indexWhere((r) => r.id == id);
+    if (idx == -1) throw Exception('Recommendation not found');
+
+    var updated = _history[idx];
+    if (params.containsKey('layerHeight')) {
+      updated = updated.copyWith(layerHeight: params['layerHeight']);
+    }
+    if (params.containsKey('infillDensity')) {
+      updated = updated.copyWith(infillDensity: params['infillDensity']);
+    }
+    if (params.containsKey('printSpeed')) {
+      updated = updated.copyWith(printSpeed: params['printSpeed']);
+    }
+    if (params.containsKey('wallCount')) {
+      updated = updated.copyWith(wallCount: params['wallCount']);
+    }
+    if (params.containsKey('coolingFan')) {
+      updated = updated.copyWith(coolingFan: params['coolingFan']);
+    }
+    if (params.containsKey('supportDensity')) {
+      updated = updated.copyWith(supportDensity: params['supportDensity']);
+    }
+
+    _history[idx] = updated;
+    return updated;
+  }
+
 }

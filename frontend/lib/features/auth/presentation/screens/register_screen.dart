@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/utils/validators.dart';
-import '../providers/auth_provider.dart';
-import '../providers/auth_state.dart';
+import '../providers/auth_providers.dart';
+import '../../domain/auth_state.dart';
 import '../widgets/auth_card.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_primary_button.dart';
@@ -59,7 +59,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   /// Valide le token au chargement et pré-remplit les données
   Future<void> _validateToken() async {
     final data = await ref
-        .read(authProvider.notifier)
+        .read(authViewModelProvider.notifier)
         .validateInvite(token: widget.token);
 
     if (data != null  && data['email'] != null) {
@@ -82,7 +82,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    ref.read(authProvider.notifier).register(
+    ref.read(authViewModelProvider.notifier).register(
           token: widget.token,
           fullName: _fullNameController.text.trim(),
           password: _passwordController.text,
@@ -108,9 +108,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authViewModelProvider);
 
-    ref.listen<AuthState>(authProvider, (_, next) {
+    ref.listen<AuthState>(authViewModelProvider, (_, next) {
       if (next.status == AuthStatus.success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -119,7 +119,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        ref.read(authProvider.notifier).reset();
+        ref.read(authViewModelProvider.notifier).reset();
         context.go(AppRoutes.login);
         // TOdo naviguer vers dashboard après router
       }
@@ -131,7 +131,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        ref.read(authProvider.notifier).reset();
+        ref.read(authViewModelProvider.notifier).reset();
       }
     });
 

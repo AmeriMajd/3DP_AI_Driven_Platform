@@ -32,6 +32,7 @@ abstract class AuthRepository {
 
   Future<void> refreshToken();
 
-  Future<void> logout();
+  Future<bool> tryRefreshSession();
 
+  Future<void> logout();
 }

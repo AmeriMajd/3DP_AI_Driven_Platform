@@ -1,4 +1,4 @@
-import '../../domain/stl_file.dart';
+import 'stl_file.dart';
 
 enum UploadStatus { initial, uploading, success, error }
 

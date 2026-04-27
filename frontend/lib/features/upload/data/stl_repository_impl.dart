@@ -4,7 +4,7 @@ import 'package:dio/dio.dart';
 import '../../../shared/services/dio_client.dart';
 import '../domain/stl_file.dart';
 import '../domain/orientation_result.dart';
-import 'stl_repository.dart';
+import '../domain/stl_repository.dart';
 
 class StlRepositoryImpl implements StlRepository {
   final Dio _dio = DioClient.instance;
