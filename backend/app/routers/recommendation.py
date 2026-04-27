@@ -44,12 +44,16 @@ def create_recommendation(
     summary="List all past recommendations for the current user",
 )
 def get_history(
+    technology: str | None = None,
+    material: str | None = None,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     items = recommendation_service.get_history(
         user_id=current_user["user_id"],
         db=db,
+        technology=technology,
+        material=material,
     )
     return RecommendationHistoryResponse(
         total=len(items),
@@ -67,16 +71,14 @@ def get_recommendation(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # Reuse the rate endpoint's ownership check
     from app.models.recommendation import Recommendation
     from fastapi import HTTPException
 
-    rec = db.query(Recommendation).filter(
-        Recommendation.id == recommendation_id,
-        Recommendation.user_id == current_user["user_id"],
-    ).first()
+    rec = db.query(Recommendation).filter(Recommendation.id == recommendation_id).first()
     if rec is None:
         raise HTTPException(status_code=404, detail="Recommendation not found")
+    if str(rec.user_id) != str(current_user["user_id"]):
+        raise HTTPException(status_code=403, detail="Access forbidden")
     return RecommendationResponse.from_orm_with_alternative(rec)
 
 

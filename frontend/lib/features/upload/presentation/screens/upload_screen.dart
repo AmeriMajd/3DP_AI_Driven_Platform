@@ -183,8 +183,28 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Search Bar ─────────────────────────────────────────
-                  _buildSearchBar(),
+                  // ── Search Bar + History ───────────────────────────────
+                  Row(
+                    children: [
+                      Expanded(child: _buildSearchBar()),
+                      const SizedBox(width: 8),
+                      Container(
+                        height: 44,
+                        width: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFEFF4),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          tooltip: 'My recommendations',
+                          icon: const Icon(Icons.history_rounded,
+                              color: AppColors.primary, size: 22),
+                          onPressed: () =>
+                              context.push(AppRoutes.recommendHistory),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 16),
 
                   // ── Subtitle ───────────────────────────────────────────

@@ -6,7 +6,114 @@ import '../domain/recommendation_repository.dart';
 /// Offline mock — mirrors the backend stub prediction rules.
 /// To use: change recommendationRepositoryProvider to return this class.
 class RecommendationRepositoryMock implements RecommendationRepository {
-  final List<RecommendationResult> _history = [];
+  final List<RecommendationResult> _history = [
+    RecommendationResult(
+      id: 'mock-hist-bracket',
+      stlFileId: 'mock-file-bracket',
+      intendedUse: 'decorative',
+      surfaceFinish: 'fine',
+      needsFlexibility: false,
+      strengthRequired: 'low',
+      budgetPriority: 'quality',
+      outdoorUse: false,
+      technology: 'FDM',
+      material: 'PLA',
+      technologyConfidence: 0.91,
+      materialConfidence: 0.88,
+      confidenceTier: 'high',
+      layerHeight: 0.11,
+      infillDensity: 20,
+      printSpeed: 45,
+      wallCount: 2,
+      coolingFan: 100,
+      supportDensity: 10,
+      costScore: 82,
+      qualityScore: 91,
+      speedScore: 74,
+      needsClarification: false,
+      userRating: 5,
+      createdAt: DateTime(2026, 4, 28, 10, 24),
+    ),
+    RecommendationResult(
+      id: 'mock-hist-dental',
+      stlFileId: 'mock-file-dental',
+      intendedUse: 'prototype',
+      surfaceFinish: 'fine',
+      needsFlexibility: false,
+      strengthRequired: 'high',
+      budgetPriority: 'quality',
+      outdoorUse: false,
+      technology: 'SLA',
+      material: 'Resin-Std',
+      technologyConfidence: 0.62,
+      materialConfidence: 0.58,
+      confidenceTier: 'medium',
+      layerHeight: 0.05,
+      infillDensity: 100,
+      printSpeed: 30,
+      wallCount: 0,
+      coolingFan: 0,
+      supportDensity: 10,
+      costScore: 45,
+      qualityScore: 92,
+      speedScore: 40,
+      needsClarification: false,
+      createdAt: DateTime(2026, 4, 27, 15, 12),
+    ),
+    RecommendationResult(
+      id: 'mock-hist-proto',
+      stlFileId: 'mock-file-proto',
+      intendedUse: 'functional',
+      surfaceFinish: 'standard',
+      needsFlexibility: false,
+      strengthRequired: 'medium',
+      budgetPriority: 'cost',
+      outdoorUse: false,
+      technology: 'FDM',
+      material: 'PETG',
+      technologyConfidence: 0.87,
+      materialConfidence: 0.83,
+      confidenceTier: 'high',
+      layerHeight: 0.20,
+      infillDensity: 40,
+      printSpeed: 50,
+      wallCount: 3,
+      coolingFan: 80,
+      supportDensity: 15,
+      costScore: 65,
+      qualityScore: 78,
+      speedScore: 72,
+      needsClarification: false,
+      userRating: 3,
+      createdAt: DateTime(2026, 4, 24, 9, 0),
+    ),
+    RecommendationResult(
+      id: 'mock-hist-bracket2',
+      stlFileId: 'mock-file-bracket2',
+      intendedUse: 'functional',
+      surfaceFinish: 'rough',
+      needsFlexibility: true,
+      strengthRequired: 'high',
+      budgetPriority: 'speed',
+      outdoorUse: true,
+      technology: 'FDM',
+      material: 'ABS',
+      technologyConfidence: 0.45,
+      materialConfidence: 0.40,
+      confidenceTier: 'low',
+      layerHeight: 0.30,
+      infillDensity: 60,
+      printSpeed: 60,
+      wallCount: 4,
+      coolingFan: 30,
+      supportDensity: 20,
+      costScore: 55,
+      qualityScore: 60,
+      speedScore: 80,
+      needsClarification: false,
+      createdAt: DateTime(2026, 4, 21, 14, 30),
+    ),
+  ];
 
   @override
   Future<RecommendationResult> createRecommendation(
@@ -143,9 +250,19 @@ class RecommendationRepositoryMock implements RecommendationRepository {
   }
 
   @override
-  Future<List<RecommendationResult>> getHistory() async {
+  Future<List<RecommendationResult>> getHistory({
+    String? technology,
+    String? material,
+  }) async {
     await Future.delayed(const Duration(milliseconds: 500));
-    return List.unmodifiable(_history);
+    var result = List<RecommendationResult>.from(_history);
+    if (technology != null) {
+      result = result.where((r) => r.technology == technology).toList();
+    }
+    if (material != null) {
+      result = result.where((r) => r.material == material).toList();
+    }
+    return result;
   }
   @override
   Future<RecommendationResult> updateParameters(String id, Map<String, dynamic> params) async {

@@ -10,6 +10,7 @@ import '../../features/upload/presentation/screens/upload_screen.dart';
 import '../../features/upload/presentation/screens/FileDetailScreen.dart';
 import '../../features/recommendation/presentation/screens/recommendation_form_screen.dart';
 import '../../features/recommendation/presentation/screens/recommendation_result_screen.dart';
+import '../../features/recommendation/presentation/screens/recommendation_history_screen.dart';
 import '../../features/recommendation/domain/recommendation_result.dart';
 import '../../shared/widgets/placeholder_screen.dart';
 import '../../shared/widgets/main_shell.dart';
@@ -127,6 +128,11 @@ final appRouter = GoRouter(
             final result = state.extra as RecommendationResult?;
             return RecommendationResultScreen(result: result);
           },
+        ),
+        GoRoute(
+          path: AppRoutes.recommendHistory,
+          name: AppRoutes.recommendHistory,
+          builder: (context, state) => const RecommendationHistoryScreen(),
         ),
       ],
     ),
