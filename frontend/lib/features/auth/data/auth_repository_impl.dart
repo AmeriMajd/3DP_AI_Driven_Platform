@@ -252,6 +252,7 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
   Future<bool> tryRefreshSession() async {
     try {
       final refreshToken = await StorageService.getRefreshToken();

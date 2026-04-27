@@ -1,27 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:jwt_decoder/jwt_decoder.dart';
 
 import '../../../../core/router/app_routes.dart';
-import '../../../../shared/services/storage_service.dart';
-import '../../data/auth_repository_impl.dart';
+import '../../domain/auth_state.dart';
+import '../providers/auth_providers.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
-  final _authRepo = AuthRepositoryImpl();
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   bool _navigated = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkSession();
+      ref.read(authViewModelProvider.notifier).checkSession();
     });
   }
 
@@ -31,61 +30,21 @@ class _SplashScreenState extends State<SplashScreen> {
     context.go(route);
   }
 
-  Future<void> _checkSession() async {
-    try {
-      final initialized = await _authRepo.checkSystemStatus();
-      if (!initialized) {
-        _go(AppRoutes.adminSignup);
-        return;
-      }
-    } catch (e) {
-      _go(AppRoutes.login);
-      return;
-    }
-
-    try {
-      final accessToken = await StorageService.getToken();
-      final refreshToken = await StorageService.getRefreshToken();
-
-      if (accessToken == null || accessToken.isEmpty) {
-        _go(AppRoutes.login);
-        return;
-      }
-
-      bool expired;
-      try {
-        expired = JwtDecoder.isExpired(accessToken);
-      } catch (e) {
-        await StorageService.clearAll();
-        _go(AppRoutes.login);
-        return;
-      }
-      if (!expired) {
-        _go(AppRoutes.upload);
-        return;
-      }
-
-      if (refreshToken == null || refreshToken.isEmpty) {
-        await StorageService.clearAll();
-        _go(AppRoutes.login);
-        return;
-      }
-      final refreshed = await _authRepo.tryRefreshSession();
-
-      if (refreshed) {
-        _go(AppRoutes.upload);
-      } else {
-        await StorageService.clearAll();
-        _go(AppRoutes.login);
-      }
-    } catch (e) {
-      await StorageService.clearAll();
-      _go(AppRoutes.login);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    ref.listen<AuthState>(authViewModelProvider, (_, next) {
+      switch (next.sessionStatus) {
+        case SessionStatus.notInitialized:
+          _go(AppRoutes.adminSignup);
+        case SessionStatus.unauthenticated:
+          _go(AppRoutes.login);
+        case SessionStatus.authenticated:
+          _go(AppRoutes.upload);
+        case SessionStatus.unknown:
+          break;
+      }
+    });
+
     return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }

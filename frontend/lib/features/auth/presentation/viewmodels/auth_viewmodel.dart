@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
 import '../../../../shared/services/storage_service.dart';
 import '../../domain/auth_repository.dart';
 import '../../domain/auth_state.dart';
@@ -153,6 +154,89 @@ class AuthViewModel extends StateNotifier<AuthState> {
     } catch (e) {
       await StorageService.clearAll();
       state = const AuthState();
+    }
+  }
+
+  Future<void> checkSession() async {
+    state = state.copyWith(status: AuthStatus.loading);
+
+    try {
+      final initialized = await _repo.checkSystemStatus();
+      if (!initialized) {
+        state = state.copyWith(
+          status: AuthStatus.initial,
+          sessionStatus: SessionStatus.notInitialized,
+        );
+        return;
+      }
+    } catch (_) {
+      state = state.copyWith(
+        status: AuthStatus.initial,
+        sessionStatus: SessionStatus.unauthenticated,
+      );
+      return;
+    }
+
+    try {
+      final accessToken = await StorageService.getToken();
+
+      if (accessToken == null || accessToken.isEmpty) {
+        state = state.copyWith(
+          status: AuthStatus.initial,
+          sessionStatus: SessionStatus.unauthenticated,
+        );
+        return;
+      }
+
+      bool expired;
+      try {
+        expired = JwtDecoder.isExpired(accessToken);
+      } catch (_) {
+        await StorageService.clearAll();
+        state = state.copyWith(
+          status: AuthStatus.initial,
+          sessionStatus: SessionStatus.unauthenticated,
+        );
+        return;
+      }
+
+      if (!expired) {
+        state = state.copyWith(
+          status: AuthStatus.initial,
+          sessionStatus: SessionStatus.authenticated,
+        );
+        return;
+      }
+
+      final refreshToken = await StorageService.getRefreshToken();
+      if (refreshToken == null || refreshToken.isEmpty) {
+        await StorageService.clearAll();
+        state = state.copyWith(
+          status: AuthStatus.initial,
+          sessionStatus: SessionStatus.unauthenticated,
+        );
+        return;
+      }
+
+      final refreshed = await _repo.tryRefreshSession();
+      if (refreshed) {
+        state = state.copyWith(
+          status: AuthStatus.initial,
+          sessionStatus: SessionStatus.authenticated,
+        );
+      } else {
+        await StorageService.clearAll();
+        state = state.copyWith(
+          status: AuthStatus.initial,
+          sessionStatus: SessionStatus.unauthenticated,
+        );
+      }
+    } catch (_) {
+      await StorageService.clearAll();
+      state = state.copyWith(
+        status: AuthStatus.initial,
+        sessionStatus: SessionStatus.unauthenticated,
+      );
     }
   }
 
