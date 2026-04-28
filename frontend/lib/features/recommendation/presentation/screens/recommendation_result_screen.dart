@@ -11,6 +11,7 @@ import '../../domain/recommend_request.dart';
 import '../../domain/recommendation_result.dart';
 import '../providers/recommendation_providers.dart';
 import '../widgets/star_rating_widget.dart';
+import '../../../jobs/presentation/widgets/submit_job_dialog.dart';
 
 class RecommendationResultScreen extends ConsumerStatefulWidget {
   final RecommendationResult? result;
@@ -247,8 +248,8 @@ class _RecommendationResultScreenState
       ),
       const SizedBox(height: 8),
 
-      // ── Accept & Continue ────────────────────────────────────────────────
-      _buildContinueButton(context),
+      // ── Actions ─────────────────────────────────────────────────────────
+      _buildActionButtons(context),
     ];
   }
 
@@ -1679,27 +1680,53 @@ class _RecommendationResultScreenState
   // Common scaffold pieces
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildContinueButton(BuildContext context) {
+  Widget _buildActionButtons(BuildContext context) {
     if (_isEditing) return _buildEditBottomBar(context);
-    return SizedBox(
-      width: double.infinity,
-      height: 54,
-      child: FilledButton(
-        onPressed: () => context.go(AppRoutes.upload),
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14)),
-        ),
-        child: const Text(
-          'Accept & Continue',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
+    final r = _r;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 54,
+          child: FilledButton.icon(
+            onPressed: r == null
+                ? null
+                : () => SubmitJobDialog.show(
+                      context,
+                      stlFileId: r.stlFileId,
+                      recommendationId: r.id,
+                      stlFileName: null,
+                    ),
+            icon: const Icon(Icons.print_rounded, size: 20),
+            label: const Text(
+              'Submit to Print',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 54,
+          child: OutlinedButton(
+            onPressed: () => context.go(AppRoutes.upload),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            ),
+            child: const Text(
+              'Save Draft',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
