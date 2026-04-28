@@ -4,9 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../upload/presentation/providers/upload_provider.dart';
+import '../../../upload/presentation/providers/upload_providers.dart';
 import '../../domain/recommend_request.dart';
-import '../providers/recommendation_provider.dart';
+import '../providers/recommendation_providers.dart';
+import '../../domain/recommendation_state.dart';
 
 class RecommendationFormScreen extends ConsumerStatefulWidget {
   final String fileId;
@@ -36,12 +37,12 @@ class _RecommendationFormScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(recommendationProvider.notifier).reset();
+      ref.read(recommendationViewModelProvider.notifier).reset();
     });
   }
 
   void _submit() {
-    ref.read(recommendationProvider.notifier).submit(
+    ref.read(recommendationViewModelProvider.notifier).submit(
           RecommendRequest(
             fileId: widget.fileId,
             orientationRank: widget.orientationRank,
@@ -193,17 +194,17 @@ class _RecommendationFormScreenState
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(recommendationProvider);
+    final state = ref.watch(recommendationViewModelProvider);
     final isLoading = state.status == RecommendationStatus.loading;
 
-    ref.listen(recommendationProvider, (_, next) {
+    ref.listen(recommendationViewModelProvider, (_, next) {
       if (next.status == RecommendationStatus.success && next.result != null) {
         context.pushReplacement(AppRoutes.recommendResult, extra: next.result);
       }
     });
 
     final file = ref
-        .watch(uploadProvider)
+        .watch(uploadViewModelProvider)
         .files
         .where((f) => f.id == widget.fileId)
         .firstOrNull;

@@ -34,6 +34,17 @@ class RatingRequest(BaseModel):
     rating: int = Field(ge=1, le=5)
 
 
+class ParameterUpdateRequest(BaseModel):
+    technology: Optional[str] = None
+    material: Optional[str] = None
+    layer_height: Optional[float] = None
+    infill_density: Optional[int] = Field(None, ge=0, le=100)
+    print_speed: Optional[int] = Field(None, ge=5, le=300)
+    wall_count: Optional[int] = Field(None, ge=1, le=10)
+    cooling_fan: Optional[int] = Field(None, ge=0, le=100)
+    support_density: Optional[int] = Field(None, ge=0, le=100)
+
+
 class RecommendationResponse(BaseModel):
     id: UUID
     stl_file_id: UUID

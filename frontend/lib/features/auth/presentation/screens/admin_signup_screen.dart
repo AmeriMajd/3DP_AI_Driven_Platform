@@ -4,8 +4,8 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/utils/validators.dart';
 import '../../../../../core/constants/app_strings.dart';
 import '../../../../../shared/widgets/responsive_wrapper.dart';
-import '../providers/auth_provider.dart';
-import '../providers/auth_state.dart';
+import '../providers/auth_providers.dart';
+import '../../domain/auth_state.dart';
 import '../widgets/auth_card.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_primary_button.dart';
@@ -38,7 +38,7 @@ class _AdminSignupScreenState extends ConsumerState<AdminSignupScreen> {
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    ref.read(authProvider.notifier).adminSignup(
+    ref.read(authViewModelProvider.notifier).adminSignup(
       fullName: _fullNameController.text.trim(),
       email: _emailController.text.trim(),
       password: _passwordController.text,
@@ -47,9 +47,9 @@ class _AdminSignupScreenState extends ConsumerState<AdminSignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authViewModelProvider);
 
-    ref.listen<AuthState>(authProvider, (_, next) {
+    ref.listen<AuthState>(authViewModelProvider, (_, next) {
       if (next.status == AuthStatus.success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -58,7 +58,7 @@ class _AdminSignupScreenState extends ConsumerState<AdminSignupScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        ref.read(authProvider.notifier).reset();
+        ref.read(authViewModelProvider.notifier).reset();
         context.go(AppRoutes.login); // ← navigation
         /// TOdo naviguer vers dashboard
       }
@@ -70,7 +70,7 @@ class _AdminSignupScreenState extends ConsumerState<AdminSignupScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        ref.read(authProvider.notifier).reset();
+        ref.read(authViewModelProvider.notifier).reset();
       }
     });
 
