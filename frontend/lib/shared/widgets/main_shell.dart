@@ -10,6 +10,7 @@ const _noAppBarRoutes = [
   AppRoutes.fileDetail,
   AppRoutes.recommendForm,
   AppRoutes.recommendResult,
+  AppRoutes.recommendHistory,
 ];
 
 // ── Provider pour le fullName ─────────────────────────────────────────────────

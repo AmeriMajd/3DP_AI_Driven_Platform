@@ -57,9 +57,18 @@ class RecommendationRepositoryImpl implements RecommendationRepository {
 
   /// GET /recommend/history
   @override
-  Future<List<RecommendationResult>> getHistory() async {
+  Future<List<RecommendationResult>> getHistory({
+    String? technology,
+    String? material,
+  }) async {
     try {
-      final response = await _dio.get('/recommend/history');
+      final queryParams = <String, dynamic>{};
+      if (technology != null) queryParams['technology'] = technology;
+      if (material != null) queryParams['material'] = material;
+      final response = await _dio.get(
+        '/recommend/history',
+        queryParameters: queryParams.isEmpty ? null : queryParams,
+      );
       final data = response.data as Map<String, dynamic>;
       final items = data['items'] as List<dynamic>;
       return items

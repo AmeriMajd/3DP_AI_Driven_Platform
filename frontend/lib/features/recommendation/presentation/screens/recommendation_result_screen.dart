@@ -236,6 +236,17 @@ class _RecommendationResultScreenState
       _buildRatingCard(r),
       const SizedBox(height: 16),
 
+      // ── See all recommendations ──────────────────────────────────────────
+      Center(
+        child: TextButton.icon(
+          icon: const Icon(Icons.history_rounded, size: 16),
+          label: const Text('See all my recommendations'),
+          style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+          onPressed: () => context.push(AppRoutes.recommendHistory),
+        ),
+      ),
+      const SizedBox(height: 8),
+
       // ── Accept & Continue ────────────────────────────────────────────────
       _buildContinueButton(context),
     ];

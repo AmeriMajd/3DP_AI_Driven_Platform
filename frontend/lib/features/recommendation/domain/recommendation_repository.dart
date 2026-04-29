@@ -5,5 +5,8 @@ abstract class RecommendationRepository {
   Future<RecommendationResult> createRecommendation(RecommendRequest request);
   Future<RecommendationResult> rateRecommendation(String id, int rating);
   Future<RecommendationResult> updateParameters(String id, Map<String, dynamic> params);
-  Future<List<RecommendationResult>> getHistory();
+  Future<List<RecommendationResult>> getHistory({
+    String? technology,
+    String? material,
+  });
 }
