@@ -11,6 +11,9 @@ import '../../features/upload/presentation/screens/FileDetailScreen.dart';
 import '../../features/recommendation/presentation/screens/recommendation_form_screen.dart';
 import '../../features/recommendation/presentation/screens/recommendation_result_screen.dart';
 import '../../features/recommendation/domain/recommendation_result.dart';
+import '../../features/printers/presentation/screens/printer_detail_screen.dart';
+import '../../features/printers/presentation/screens/printer_form_screen.dart';
+import '../../features/printers/presentation/screens/printer_list_screen.dart';
 import '../../shared/widgets/placeholder_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
@@ -87,7 +90,26 @@ final appRouter = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.fleet,
-          builder: (_, _) => const PlaceholderScreen(title: 'Printers'),
+          builder: (_, _) => const PrinterListScreen(),
+          routes: [
+            GoRoute(path: 'new', builder: (_, __) => const PrinterFormScreen()),
+            GoRoute(
+              path: ':id',
+              builder: (context, state) {
+                final id = state.pathParameters['id'] ?? '';
+                return PrinterDetailScreen(printerId: id);
+              },
+              routes: [
+                GoRoute(
+                  path: 'edit',
+                  builder: (context, state) {
+                    final id = state.pathParameters['id'] ?? '';
+                    return PrinterFormScreen(printerId: id);
+                  },
+                ),
+              ],
+            ),
+          ],
         ),
         GoRoute(
           path: AppRoutes.schedule,
@@ -112,7 +134,8 @@ final appRouter = GoRouter(
           builder: (context, state) {
             final fileId = state.uri.queryParameters['fileId'] ?? '';
             final indexParam = int.tryParse(
-                state.uri.queryParameters['orientation'] ?? '');
+              state.uri.queryParameters['orientation'] ?? '',
+            );
             final rank = indexParam != null ? indexParam + 1 : null;
             return RecommendationFormScreen(
               fileId: fileId,

@@ -16,7 +16,10 @@ class AppRoutes {
 
   static const String upload = '/upload';
   static const String fileDetail = '/upload/file';
-  static const String fleet = '/fleet';
+  static const String fleet = '/printers';
+  static const String printerNew = '/printers/new';
+  static const String printerDetail = '/printers/:id';
+  static const String printerEdit = '/printers/:id/edit';
   static const String schedule = '/schedule';
   static const String monitoring = '/monitoring';
   static const String splash = '/splash';
