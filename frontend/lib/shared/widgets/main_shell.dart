@@ -11,6 +11,8 @@ const _noAppBarRoutes = [
   AppRoutes.recommendForm,
   AppRoutes.recommendResult,
   AppRoutes.recommendHistory,
+  AppRoutes.jobQueue,   // JobQueueScreen has its own inline header
+  '/jobs/',             // JobDetailScreen has its own nav bar
 ];
 
 // ── Provider pour le fullName ─────────────────────────────────────────────────
@@ -26,7 +28,7 @@ class MainShell extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.toString();
     if (location.startsWith(AppRoutes.upload)) return 0;
     if (location.startsWith(AppRoutes.fleet)) return 1;
-    if (location.startsWith(AppRoutes.schedule)) return 2;
+    if (location.startsWith(AppRoutes.jobQueue)) return 2;
     if (location.startsWith(AppRoutes.monitoring)) return 3;
     return 0;
   }
@@ -35,7 +37,7 @@ class MainShell extends ConsumerWidget {
     switch (index) {
       case 0: return 'Upload Model';
       case 1: return 'Fleet';
-      case 2: return 'Schedule';
+      case 2: return 'My Jobs';
       case 3: return 'Monitoring';
       default: return '3DP Platform';
     }
@@ -126,11 +128,11 @@ class MainShell extends ConsumerWidget {
                   onTap: () => context.go(AppRoutes.fleet),
                 ),
                 _NavItem(
-                  icon: Icons.calendar_today_outlined,
-                  activeIcon: Icons.calendar_today_rounded,
-                  label: 'Schedule',
+                  icon: Icons.assignment_outlined,
+                  activeIcon: Icons.assignment_rounded,
+                  label: 'Jobs',
                   isActive: currentIndex == 2,
-                  onTap: () => context.go(AppRoutes.schedule),
+                  onTap: () => context.go(AppRoutes.jobQueue),
                 ),
                 _NavItem(
                   icon: Icons.monitor_heart_outlined,

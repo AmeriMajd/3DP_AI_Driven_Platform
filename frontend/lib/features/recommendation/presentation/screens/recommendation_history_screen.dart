@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -71,24 +72,32 @@ class RecommendationHistoryScreen extends ConsumerWidget {
                 onRetry: () =>
                     ref.invalidate(recommendationHistoryProvider),
               ),
-              data: (items) => items.isEmpty
-                  ? _EmptyState(onUpload: () => context.go(AppRoutes.upload))
-                  : RefreshIndicator(
-                      color: AppColors.primary,
-                      onRefresh: () async =>
-                          ref.invalidate(recommendationHistoryProvider),
-                      child: ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                        itemCount: items.length,
-                        itemBuilder: (context, i) => _HistoryItemCard(
-                          item: items[i],
-                          onTap: () => context.push(
-                            AppRoutes.recommendResult,
-                            extra: items[i],
-                          ),
-                        ),
-                      ),
+              data: (items) {
+                if (items.isEmpty) {
+                  return _EmptyState(
+                      onUpload: () => context.go(AppRoutes.upload));
+                }
+                final list = ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: items.length,
+                  itemBuilder: (context, i) => _HistoryItemCard(
+                    item: items[i],
+                    onTap: () => context.push(
+                      AppRoutes.recommendResult,
+                      extra: items[i],
                     ),
+                  ),
+                );
+                // RefreshIndicator intercepts pointer events on web.
+                if (kIsWeb) return list;
+                return RefreshIndicator(
+                  color: AppColors.primary,
+                  onRefresh: () async =>
+                      ref.invalidate(recommendationHistoryProvider),
+                  child: list,
+                );
+              },
             ),
           ),
         ],
@@ -96,6 +105,7 @@ class RecommendationHistoryScreen extends ConsumerWidget {
     );
   }
 }
+
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Filter chip row

@@ -12,6 +12,9 @@ import '../../features/recommendation/presentation/screens/recommendation_form_s
 import '../../features/recommendation/presentation/screens/recommendation_result_screen.dart';
 import '../../features/recommendation/presentation/screens/recommendation_history_screen.dart';
 import '../../features/recommendation/domain/recommendation_result.dart';
+import '../../features/jobs/presentation/screens/job_queue_screen.dart';
+import '../../features/jobs/presentation/screens/job_detail_screen.dart';
+import '../../features/jobs/domain/job.dart';
 import '../../shared/widgets/placeholder_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
@@ -91,8 +94,16 @@ final appRouter = GoRouter(
           builder: (_, _) => const PlaceholderScreen(title: 'Printers'),
         ),
         GoRoute(
-          path: AppRoutes.schedule,
-          builder: (_, _) => const PlaceholderScreen(title: 'schedule'),
+          path: AppRoutes.jobQueue,
+          builder: (_, _) => const JobQueueScreen(),
+        ),
+        GoRoute(
+          path: '/jobs/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id'] ?? '';
+            final job = state.extra as Job?;
+            return JobDetailScreen(jobId: id, initialJob: job);
+          },
         ),
         GoRoute(
           path: AppRoutes.monitoring,
