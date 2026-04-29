@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +12,7 @@ import '../../domain/recommend_request.dart';
 import '../../domain/recommendation_result.dart';
 import '../providers/recommendation_providers.dart';
 import '../widgets/star_rating_widget.dart';
+import '../../../jobs/presentation/widgets/submit_job_dialog.dart';
 
 class RecommendationResultScreen extends ConsumerStatefulWidget {
   final RecommendationResult? result;
@@ -40,6 +42,7 @@ class _RecommendationResultScreenState
   int? _editCoolingFan;
   int? _editSupportDensity;
   bool _isSaving = false;
+  bool _isExporting = false;
 
   RecommendationResult? get _r => _localResult ?? widget.result;
 
@@ -160,6 +163,115 @@ class _RecommendationResultScreenState
     }
   }
 
+  Future<void> _exportProfile(String slicer) async {
+    final r = _r;
+    if (r == null) return;
+    setState(() => _isExporting = true);
+    try {
+      final bytes = await ref
+          .read(recommendationRepositoryProvider)
+          .exportProfile(r.id, slicer);
+
+      final tech = (r.technology ?? 'FDM').toUpperCase();
+      final mat = r.material ?? 'Unknown';
+      final ext = slicer == 'cura' ? 'inst.cfg' : 'ini';
+      final filename = '3DP_AI_${tech}_$mat.$ext';
+
+      await FileSaver.instance.saveFile(
+        name: filename,
+        bytes: bytes,
+        mimeType: MimeType.other,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$filename saved'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF34C759),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: ${e.toString().replaceFirst('Exception: ', '')}'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  void _showExportSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E5EA),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Export to Slicer',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1C1C1E),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Download print parameters as a slicer config file.',
+              style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            _SlicerOption(
+              icon: Icons.settings_outlined,
+              label: 'Cura 5+',
+              subtitle: '.inst.cfg — import via Preferences › Profiles',
+              onTap: () {
+                Navigator.pop(context);
+                _exportProfile('cura');
+              },
+            ),
+            const SizedBox(height: 12),
+            _SlicerOption(
+              icon: Icons.tune_rounded,
+              label: 'PrusaSlicer 2+',
+              subtitle: '.ini — import via File › Import › Import Config',
+              onTap: () {
+                Navigator.pop(context);
+                _exportProfile('prusaslicer');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // Build
   // ═══════════════════════════════════════════════════════════════════════════
@@ -236,8 +348,19 @@ class _RecommendationResultScreenState
       _buildRatingCard(r),
       const SizedBox(height: 16),
 
-      // ── Accept & Continue ────────────────────────────────────────────────
-      _buildContinueButton(context),
+      // ── See all recommendations ──────────────────────────────────────────
+      Center(
+        child: TextButton.icon(
+          icon: const Icon(Icons.history_rounded, size: 16),
+          label: const Text('See all my recommendations'),
+          style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+          onPressed: () => context.push(AppRoutes.recommendHistory),
+        ),
+      ),
+      const SizedBox(height: 8),
+
+      // ── Actions ─────────────────────────────────────────────────────────
+      _buildActionButtons(context),
     ];
   }
 
@@ -1668,27 +1791,38 @@ class _RecommendationResultScreenState
   // Common scaffold pieces
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildContinueButton(BuildContext context) {
+  Widget _buildActionButtons(BuildContext context) {
     if (_isEditing) return _buildEditBottomBar(context);
-    return SizedBox(
-      width: double.infinity,
-      height: 54,
-      child: FilledButton(
-        onPressed: () => context.go(AppRoutes.upload),
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14)),
-        ),
-        child: const Text(
-          'Accept & Continue',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
+    final r = _r;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 54,
+          child: FilledButton.icon(
+            onPressed: r == null
+                ? null
+                : () => SubmitJobDialog.show(
+                      context,
+                      stlFileId: r.stlFileId,
+                      recommendationId: r.id,
+                      stlFileName: null,
+                    ),
+            icon: const Icon(Icons.print_rounded, size: 20),
+            label: const Text(
+              'Submit to Print',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: 10),
+        _buildExportButton(),
+      ],
     );
   }
 
@@ -1909,11 +2043,101 @@ class _RecommendationResultScreenState
     }
     return 'FDM provides a cost-effective solution with good mechanical strength, suitable for most functional parts.';
   }
+
+  Widget _buildExportButton() {
+    return OutlinedButton.icon(
+      onPressed: _isExporting ? null : _showExportSheet,
+      icon: _isExporting
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.download_rounded, size: 18),
+      label: Text(_isExporting ? 'Exporting…' : 'Export to Slicer'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.primary,
+        side: const BorderSide(color: AppColors.primary),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        minimumSize: const Size(double.infinity, 48),
+      ),
+    );
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Shared private widgets
 // ══════════════════════════════════════════════════════════════════════════════
+
+class _SlicerOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _SlicerOption({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFE5E5EA)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: AppColors.primary, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1C1C1E),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF8E8E93),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                color: Color(0xFFAEAEB2), size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _Card extends StatelessWidget {
   final Widget child;

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import '../../../shared/services/dio_client.dart';
 import '../domain/recommend_request.dart';
@@ -50,6 +52,21 @@ class RecommendationRepositoryImpl implements RecommendationRepository {
       );
       return RecommendationResult.fromJson(
           response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  /// GET /recommend/{id}/export?slicer=cura|prusaslicer
+  @override
+  Future<Uint8List> exportProfile(String id, String slicer) async {
+    try {
+      final response = await _dio.get(
+        '/recommend/$id/export',
+        queryParameters: {'slicer': slicer},
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return Uint8List.fromList(response.data as List<int>);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }

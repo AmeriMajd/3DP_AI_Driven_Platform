@@ -23,4 +23,9 @@ class AppRoutes {
 
   static const String recommendForm = '/recommend-form';
   static const String recommendResult = '/recommend-result';
+  static const String recommendHistory = '/recommend-history';
+
+  // ── Jobs ──
+  static const String jobQueue = '/jobs';
+  static const String jobDetail = '/jobs/:id';
 }
