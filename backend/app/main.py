@@ -10,6 +10,7 @@ import app.models.refresh_token
 import app.models.password_reset_token
 from app.models.stl_file import STLFile
 import app.models.recommendation
+import app.models.printer  
 
 # ── Import routers ─────────────────────────────────────────────────────────────
 from app.routers import auth, admin, invitations
@@ -18,6 +19,7 @@ from app.routers import password_reset
 from app.routers import logout
 from app.routers.stl import router as stl_router
 from app.routers.recommendation import router as recommendation_router
+from app.routers.printers import router as printers_router
 from app.services import stl_service
 
 # ── Create all tables ──────────────────────────────────────────────────────────
@@ -127,6 +129,7 @@ app.include_router(password_reset.router)
 app.include_router(logout.router)
 app.include_router(stl_router)
 app.include_router(recommendation_router)
+app.include_router(printers_router)
 
 
 @app.on_event("startup")

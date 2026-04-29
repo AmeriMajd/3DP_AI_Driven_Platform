@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     ADMIN_SIGNUP_KEY: str
+    PRINTER_ENCRYPTION_KEY: str
 
     SMTP_HOST: str = "sandbox.smtp.mailtrap.io"
     SMTP_PORT: int = 2525
