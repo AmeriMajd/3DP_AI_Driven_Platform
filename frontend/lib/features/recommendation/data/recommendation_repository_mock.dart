@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../domain/alternative_recommendation.dart';
 import '../domain/recommend_request.dart';
 import '../domain/recommendation_result.dart';
@@ -250,20 +252,19 @@ class RecommendationRepositoryMock implements RecommendationRepository {
   }
 
   @override
-  Future<List<RecommendationResult>> getHistory({
-    String? technology,
-    String? material,
-  }) async {
+  Future<List<RecommendationResult>> getHistory() async {
     await Future.delayed(const Duration(milliseconds: 500));
-    var result = List<RecommendationResult>.from(_history);
-    if (technology != null) {
-      result = result.where((r) => r.technology == technology).toList();
-    }
-    if (material != null) {
-      result = result.where((r) => r.material == material).toList();
-    }
-    return result;
+    return List<RecommendationResult>.from(_history);
   }
+  @override
+  Future<Uint8List> exportProfile(String id, String slicer) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final content = slicer == 'cura'
+        ? '[general]\nversion = 4\nname = Mock_Profile\ndefinition = fdmprinter\n\n[metadata]\ntype = quality\nquality_type = normal\nglobal_quality = True\n\n[values]\nlayer_height = 0.200\ninfill_sparse_density = 20\nspeed_print = 50\nwall_line_count = 3\ncool_fan_enabled = True\nsupport_enable = False\n'
+        : '# Mock PrusaSlicer profile\nlayer_height = 0.200\nfirst_layer_height = 0.300\nfill_density = 20%\nperimeters = 3\nperimeter_speed = 50\ninfill_speed = 60\ncooling = 1\nfan_always_on = 1\nsupport_material = 0\n';
+    return Uint8List.fromList(content.codeUnits);
+  }
+
   @override
   Future<RecommendationResult> updateParameters(String id, Map<String, dynamic> params) async {
     await Future.delayed(const Duration(milliseconds: 300));

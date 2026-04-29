@@ -8,14 +8,15 @@ final historyTechnologyFilterProvider = StateProvider<String?>((ref) => null);
 /// Active material filter — null means "All".
 final historyMaterialFilterProvider = StateProvider<String?>((ref) => null);
 
-/// Fetches the current user's recommendation history, re-running automatically
-/// whenever either filter changes.
+/// Fetches all history once, then filters client-side when filter chips change.
 final recommendationHistoryProvider =
-    FutureProvider<List<RecommendationResult>>((ref) {
+    FutureProvider<List<RecommendationResult>>((ref) async {
   final technology = ref.watch(historyTechnologyFilterProvider);
   final material = ref.watch(historyMaterialFilterProvider);
-  return ref.watch(recommendationRepositoryProvider).getHistory(
-        technology: technology,
-        material: material,
-      );
+  final all = await ref.watch(recommendationRepositoryProvider).getHistory();
+  return all.where((r) {
+    if (technology != null && r.technology != technology) return false;
+    if (material != null && r.material != material) return false;
+    return true;
+  }).toList();
 });

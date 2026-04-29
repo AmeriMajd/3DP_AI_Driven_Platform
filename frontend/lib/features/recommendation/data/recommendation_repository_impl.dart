@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import '../../../shared/services/dio_client.dart';
 import '../domain/recommend_request.dart';
@@ -55,20 +57,26 @@ class RecommendationRepositoryImpl implements RecommendationRepository {
     }
   }
 
+  /// GET /recommend/{id}/export?slicer=cura|prusaslicer
+  @override
+  Future<Uint8List> exportProfile(String id, String slicer) async {
+    try {
+      final response = await _dio.get(
+        '/recommend/$id/export',
+        queryParameters: {'slicer': slicer},
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return Uint8List.fromList(response.data as List<int>);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
   /// GET /recommend/history
   @override
-  Future<List<RecommendationResult>> getHistory({
-    String? technology,
-    String? material,
-  }) async {
+  Future<List<RecommendationResult>> getHistory() async {
     try {
-      final queryParams = <String, dynamic>{};
-      if (technology != null) queryParams['technology'] = technology;
-      if (material != null) queryParams['material'] = material;
-      final response = await _dio.get(
-        '/recommend/history',
-        queryParameters: queryParams.isEmpty ? null : queryParams,
-      );
+      final response = await _dio.get('/recommend/history');
       final data = response.data as Map<String, dynamic>;
       final items = data['items'] as List<dynamic>;
       return items
