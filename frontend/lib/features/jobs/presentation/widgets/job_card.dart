@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../features/printers/providers/printer_providers.dart';
 import '../../domain/job.dart';
 import '../providers/job_providers.dart';
 import 'job_status_badge.dart';
@@ -96,12 +97,7 @@ class JobCard extends ConsumerWidget {
                   // Info pills row
                   Row(
                     children: [
-                      _InfoPill(
-                        icon: Icons.print_outlined,
-                        label: job.printerId != null ? 'Assigned' : 'Auto-assign',
-                        color: const Color(0xFF6D6D72),
-                        bg: const Color(0xFFF2F2F7),
-                      ),
+                      _PrinterPill(printerId: job.printerId),
                       const SizedBox(width: 6),
                       if (isPrinting && job.estimatedDurationS != null)
                         _InfoPill(
@@ -184,6 +180,35 @@ class JobCard extends ConsumerWidget {
         ? DateTime.now().difference(job.startedAt!).inSeconds
         : 0;
     return (job.estimatedDurationS! - elapsed).clamp(0, job.estimatedDurationS!);
+  }
+}
+
+class _PrinterPill extends ConsumerWidget {
+  final String? printerId;
+  const _PrinterPill({this.printerId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (printerId == null) {
+      return const _InfoPill(
+        icon: Icons.auto_awesome_rounded,
+        label: 'Auto-assign',
+        color: Color(0xFF6D6D72),
+        bg: Color(0xFFF2F2F7),
+      );
+    }
+    final printerAsync = ref.watch(printerDetailProvider(printerId!));
+    final label = printerAsync.when(
+      data: (p) => p.name,
+      loading: () => '…',
+      error: (_, _) => 'Printer',
+    );
+    return _InfoPill(
+      icon: Icons.precision_manufacturing_outlined,
+      label: label,
+      color: const Color(0xFF4B6BFB),
+      bg: const Color(0x1A4B6BFB),
+    );
   }
 }
 

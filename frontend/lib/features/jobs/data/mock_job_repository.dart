@@ -61,6 +61,7 @@ class MockJobRepository implements JobRepository {
     String? recommendationId,
     String? stlFileName,
     int priority = 3,
+    String? printerId,
   }) async {
     await Future.delayed(const Duration(milliseconds: 600));
     final job = Job(
@@ -69,9 +70,11 @@ class MockJobRepository implements JobRepository {
       stlFileId: stlFileId,
       stlFileName: stlFileName,
       recommendationId: recommendationId,
+      printerId: printerId,
       status: Job.queued,
       priority: priority,
       progressPct: 0,
+      estimatedDurationS: 7200,
       estimatedCost: 3.50,
       submittedAt: DateTime.now(),
     );

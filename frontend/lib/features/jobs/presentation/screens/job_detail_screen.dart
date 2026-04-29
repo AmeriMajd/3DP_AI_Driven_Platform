@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../features/printers/providers/printer_providers.dart';
 import '../../domain/job.dart';
 import '../providers/job_providers.dart';
 import '../widgets/job_status_badge.dart';
@@ -301,7 +302,7 @@ class _HeroCard extends StatelessWidget {
   }
 }
 
-class _DetailsCard extends StatelessWidget {
+class _DetailsCard extends ConsumerWidget {
   final Job job;
   final String Function(int) formatDuration;
   const _DetailsCard({required this.job, required this.formatDuration});
@@ -309,10 +310,18 @@ class _DetailsCard extends StatelessWidget {
   static const _priorityLabels = ['', 'Low', 'Low', 'Normal', 'High', 'Urgent'];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final priorityLabel = job.priority >= 1 && job.priority <= 5
         ? _priorityLabels[job.priority]
         : 'Normal';
+
+    final printerLabel = job.printerId == null
+        ? 'Auto-assign'
+        : ref.watch(printerDetailProvider(job.printerId!)).when(
+              data: (p) => p.name,
+              loading: () => '…',
+              error: (_, _) => 'Printer',
+            );
 
     final rows = [
       _DetailRow(
@@ -328,7 +337,7 @@ class _DetailsCard extends StatelessWidget {
         iconBg: const Color(0x1F4B6BFB),
         iconColor: const Color(0xFF4B6BFB),
         label: 'Printer',
-        value: job.printerId != null ? 'Assigned' : 'Auto-assign',
+        value: printerLabel,
       ),
       if (job.estimatedDurationS != null)
         _DetailRow(

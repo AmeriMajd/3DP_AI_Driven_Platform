@@ -6,6 +6,7 @@ abstract class JobRepository {
     String? recommendationId,
     String? stlFileName,
     int priority = 3,
+    String? printerId,
   });
 
   Future<List<Job>> getMyJobs();

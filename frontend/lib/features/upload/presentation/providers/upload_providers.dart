@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/stl_repository_impl.dart';
+import '../../domain/stl_file.dart';
 import '../../domain/stl_repository.dart';
 import '../../domain/upload_state.dart';
 import '../../domain/orientation_result.dart';
@@ -13,6 +14,11 @@ final uploadViewModelProvider =
     StateNotifierProvider<UploadViewModel, UploadState>((ref) {
   return UploadViewModel(ref.read(stlRepositoryProvider));
 });
+
+/// FutureProvider.family — fetches a single STL file's metadata by ID.
+final stlFileProvider = FutureProvider.family<STLFile, String>(
+  (ref, fileId) => ref.read(stlRepositoryProvider).getFile(id: fileId),
+);
 
 /// FutureProvider.family — charge les orientations pour un fileId donné.
 ///

@@ -13,6 +13,7 @@ import '../../domain/recommendation_result.dart';
 import '../providers/recommendation_providers.dart';
 import '../widgets/star_rating_widget.dart';
 import '../../../jobs/presentation/widgets/submit_job_dialog.dart';
+import '../../../upload/presentation/providers/upload_providers.dart';
 
 class RecommendationResultScreen extends ConsumerStatefulWidget {
   final RecommendationResult? result;
@@ -1794,6 +1795,9 @@ class _RecommendationResultScreenState
   Widget _buildActionButtons(BuildContext context) {
     if (_isEditing) return _buildEditBottomBar(context);
     final r = _r;
+    final stlFileName = r == null
+        ? null
+        : ref.watch(stlFileProvider(r.stlFileId)).valueOrNull?.originalFilename;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1806,7 +1810,8 @@ class _RecommendationResultScreenState
                       context,
                       stlFileId: r.stlFileId,
                       recommendationId: r.id,
-                      stlFileName: null,
+                      stlFileName: stlFileName,
+                      technology: r.technology,
                     ),
             icon: const Icon(Icons.print_rounded, size: 20),
             label: const Text(
@@ -1821,7 +1826,29 @@ class _RecommendationResultScreenState
           ),
         ),
         const SizedBox(height: 10),
-        _buildExportButton(),
+        SizedBox(
+          height: 54,
+          child: OutlinedButton.icon(
+            onPressed: _isExporting ? null : _showExportSheet,
+            icon: _isExporting
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download_rounded, size: 18),
+            label: Text(
+              _isExporting ? 'Exporting…' : 'Export to Slicer',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -2042,28 +2069,6 @@ class _RecommendationResultScreenState
       return 'SLA offers superior surface finish but higher cost per part. Best for high-detail or decorative models.';
     }
     return 'FDM provides a cost-effective solution with good mechanical strength, suitable for most functional parts.';
-  }
-
-  Widget _buildExportButton() {
-    return OutlinedButton.icon(
-      onPressed: _isExporting ? null : _showExportSheet,
-      icon: _isExporting
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.download_rounded, size: 18),
-      label: Text(_isExporting ? 'Exporting…' : 'Export to Slicer'),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.primary,
-        side: const BorderSide(color: AppColors.primary),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        minimumSize: const Size(double.infinity, 48),
-      ),
-    );
   }
 }
 

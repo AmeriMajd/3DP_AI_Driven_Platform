@@ -4,7 +4,7 @@ import '../domain/printer.dart';
 import '../domain/printer_repository.dart';
 import '../domain/printer_status.dart';
 
-class MockPrinterRepository implements PrinterRepository {
+class PrinterRepositoryMock implements PrinterRepository {
   final List<Printer> _printers = [
     Printer(
       id: 'mock-001',

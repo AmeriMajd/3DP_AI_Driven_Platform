@@ -11,7 +11,16 @@ import '../providers/recommendation_history_provider.dart';
 // ── Filter constants ──────────────────────────────────────────────────────────
 
 const _techFilters = ['FDM', 'SLA'];
-const _materialFilters = ['PLA', 'PETG', 'ABS', 'TPU', 'Resin-Std'];
+
+// label (displayed) → value (stored in DB / returned by API)
+const _materialFilterMap = {
+  'PLA': 'PLA',
+  'PETG': 'PETG',
+  'ABS': 'ABS',
+  'TPU': 'TPU',
+  'Resin-Std': 'Resin-Standard',
+  'Resin-Eng': 'Resin-Engineering',
+};
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Screen
@@ -164,18 +173,19 @@ class _FilterChipRow extends ConsumerWidget {
             const SizedBox(width: 8),
 
             // Material chips
-            for (final m in _materialFilters) ...[
+            for (final entry in _materialFilterMap.entries) ...[
               _Chip(
-                label: m,
-                selected: activeMat == m,
+                label: entry.key,
+                selected: activeMat == entry.value,
                 onTap: () {
-                  final next = activeMat == m ? null : m;
+                  final next = activeMat == entry.value ? null : entry.value;
                   ref
                       .read(historyMaterialFilterProvider.notifier)
                       .state = next;
                 },
               ),
-              if (m != _materialFilters.last) const SizedBox(width: 8),
+              if (entry.key != _materialFilterMap.keys.last)
+                const SizedBox(width: 8),
             ],
           ],
         ),

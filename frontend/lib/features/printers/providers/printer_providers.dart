@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../data/printer_repository_impl.dart';
 import '../domain/printer.dart';
 import '../domain/printer_filter.dart';
