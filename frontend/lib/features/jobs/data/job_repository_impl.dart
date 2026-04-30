@@ -1,36 +1,131 @@
+import 'package:dio/dio.dart';
+import '../../../shared/services/dio_client.dart';
 import '../domain/job.dart';
 import 'job_repository.dart';
 
-// TODO: implement with real Dio client once jobs API is ready.
-// POST /jobs  body: { stl_file_id, recommendation_id, stl_file_name,
-//                     priority, printer_id (null = auto-assign) }
-// Response must include: id, status, estimated_duration_s, estimated_cost, ...
 class JobRepositoryImpl implements JobRepository {
+  final Dio _dio = DioClient.instance;
+
   @override
   Future<Job> submitJob({
     required String stlFileId,
     String? recommendationId,
     String? stlFileName,
     int priority = 3,
-    String? printerId, // null = auto-assign
-  }) => throw UnimplementedError('Jobs API not yet implemented');
+    String? printerId,
+  }) async {
+    try {
+      final response = await _dio.post('/jobs', data: {
+        'stl_file_id': stlFileId,
+        'recommendation_id': ?recommendationId,
+        'stl_file_name': ?stlFileName,
+        'priority': priority,
+        'printer_id': ?printerId,
+      });
+      return Job.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
 
   @override
-  Future<List<Job>> getMyJobs() => throw UnimplementedError();
+  Future<List<Job>> getMyJobs() async {
+    try {
+      final response = await _dio.get('/jobs');
+      final data = response.data as List<dynamic>;
+      return data.map((e) => Job.fromJson(e as Map<String, dynamic>)).toList();
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
 
   @override
-  Future<Job> getJobById(String id) => throw UnimplementedError();
+  Future<Job> getJobById(String id) async {
+    try {
+      final response = await _dio.get('/jobs/$id');
+      return Job.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
 
   @override
-  Future<Job> cancelJob(String id) => throw UnimplementedError();
+  Future<Job> cancelJob(String id) async {
+    try {
+      final response = await _dio.patch('/jobs/$id/cancel');
+      return Job.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
 
   @override
-  Future<List<Job>> getAllJobs({String? status, String? printerId}) =>
-      throw UnimplementedError();
+  Future<List<Job>> getAllJobs({String? status, String? printerId}) async {
+    try {
+      final query = <String, dynamic>{};
+      if (status != null) query['status'] = status;
+      if (printerId != null) query['printer_id'] = printerId;
+      final response = await _dio.get(
+        '/jobs/admin',
+        queryParameters: query.isEmpty ? null : query,
+      );
+      final data = response.data as List<dynamic>;
+      return data.map((e) => Job.fromJson(e as Map<String, dynamic>)).toList();
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
 
   @override
-  Future<Job> suspendJob(String id) => throw UnimplementedError();
+  Future<Job> suspendJob(String id) async {
+    try {
+      final response = await _dio.patch('/jobs/$id/suspend');
+      return Job.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
 
   @override
-  Future<Job> resumeJob(String id) => throw UnimplementedError();
+  Future<Job> resumeJob(String id) async {
+    try {
+      final response = await _dio.patch('/jobs/$id/resume');
+      return Job.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  String _handleError(DioException e) {
+    if (e.response?.data != null) {
+      final detail = e.response?.data['detail'];
+      if (detail is String) return detail;
+      if (detail is List && detail.isNotEmpty) {
+        return detail.first['msg'] ?? 'Validation error';
+      }
+    }
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+        return 'Connection timeout — check your network';
+      case DioExceptionType.connectionError:
+        return 'Cannot reach server — is the backend running?';
+      case DioExceptionType.receiveTimeout:
+        return 'Server took too long to respond';
+      default:
+        switch (e.response?.statusCode) {
+          case 401:
+            return 'Not authenticated';
+          case 403:
+            return 'Admin access required';
+          case 404:
+            return 'Job not found';
+          case 422:
+            return 'Malformed request — please try again';
+          case 500:
+            return 'Server error — please try again later';
+          default:
+            return 'An unexpected error occurred';
+        }
+    }
+  }
 }

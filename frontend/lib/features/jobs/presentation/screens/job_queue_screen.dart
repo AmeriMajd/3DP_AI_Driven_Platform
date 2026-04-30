@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../domain/job.dart';
 import '../providers/job_providers.dart';
 import '../widgets/job_card.dart';
+import '../../../../core/router/app_routes.dart';
+import '../../../../features/printers/providers/printer_providers.dart';
 
 class JobQueueScreen extends ConsumerStatefulWidget {
   const JobQueueScreen({super.key});
@@ -22,6 +24,7 @@ class _JobQueueScreenState extends ConsumerState<JobQueueScreen> {
   @override
   Widget build(BuildContext context) {
     final jobsAsync = ref.watch(myJobsProvider);
+    final isAdmin = ref.watch(isAdminProvider).valueOrNull ?? false;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F7),
@@ -48,6 +51,7 @@ class _JobQueueScreenState extends ConsumerState<JobQueueScreen> {
                     activeFilter: _statusFilter,
                     displayedCount: displayed.length,
                     onFilterChanged: _toggleFilter,
+                    isAdmin: isAdmin,
                   ),
                   if (displayed.isEmpty)
                     const SliverFillRemaining(child: _EmptyState())
@@ -81,12 +85,14 @@ class _Header extends StatelessWidget {
   final String? activeFilter;
   final int displayedCount;
   final void Function(String) onFilterChanged;
+  final bool isAdmin;
 
   const _Header({
     required this.jobs,
     required this.activeFilter,
     required this.displayedCount,
     required this.onFilterChanged,
+    required this.isAdmin,
   });
 
   @override
@@ -117,6 +123,15 @@ class _Header extends StatelessWidget {
                         color: Colors.black),
                   ),
                 ),
+                if (isAdmin)
+                  IconButton(
+                    icon: const Icon(Icons.admin_panel_settings_outlined,
+                        color: Color(0xFF4B6BFB), size: 22),
+                    onPressed: () => context.push(AppRoutes.jobAdmin),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Admin view',
+                  ),
                 Consumer(
                   builder: (context, ref, _) => IconButton(
                     icon: const Icon(Icons.refresh_rounded,
