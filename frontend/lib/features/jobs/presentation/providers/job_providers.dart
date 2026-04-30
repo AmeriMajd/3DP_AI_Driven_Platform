@@ -7,7 +7,7 @@ import '../../domain/job.dart';
 final jobRepositoryProvider = Provider<JobRepository>((ref) {
   // flutter run --dart-define=USE_MOCK_JOBS=false  →  switches to real API (Sem 3)
   const useMock =
-      String.fromEnvironment('USE_MOCK_JOBS', defaultValue: 'true') != 'false';
+      String.fromEnvironment('USE_MOCK_JOBS', defaultValue: 'false') != 'false';
   return useMock ? MockJobRepository() : JobRepositoryImpl();
 });
 

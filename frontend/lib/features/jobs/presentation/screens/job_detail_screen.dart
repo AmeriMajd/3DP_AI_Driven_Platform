@@ -18,6 +18,8 @@ class JobDetailScreen extends ConsumerStatefulWidget {
 class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   bool _cancelLoading = false;
   bool _showConfirm = false;
+  bool _suspendLoading = false;
+  bool _resumeLoading = false;
 
   String _formatDuration(int seconds) {
     final h = seconds ~/ 3600;
@@ -55,6 +57,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     final isPrinting = job.status == Job.printing;
     final isCompleted = job.status == Job.completed;
     final isCanceled = job.status == Job.canceled || job.status == Job.failed;
+    final isAdmin = ref.watch(isAdminProvider).value ?? false;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F7),
@@ -109,6 +112,23 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                                   color: Color(0xFFFF3B30)),
                             ),
                           ),
+                        // Admin: suspend / resume
+                        if (isAdmin &&
+                            (job.status == Job.queued ||
+                                job.status == Job.scheduled)) ...[
+                          const SizedBox(height: 10),
+                          _SuspendButton(
+                            loading: _suspendLoading,
+                            onTap: () => _suspendJob(job),
+                          ),
+                        ],
+                        if (isAdmin && job.status == Job.paused) ...[
+                          const SizedBox(height: 10),
+                          _ResumeButton(
+                            loading: _resumeLoading,
+                            onTap: () => _resumeJob(job),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -143,6 +163,40 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
       }
     } finally {
       if (mounted) setState(() => _cancelLoading = false);
+    }
+  }
+
+  Future<void> _suspendJob(Job job) async {
+    setState(() => _suspendLoading = true);
+    try {
+      await ref.read(jobRepositoryProvider).suspendJob(job.id);
+      ref.invalidate(myJobsProvider);
+      ref.invalidate(jobDetailProvider(job.id));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e'), behavior: SnackBarBehavior.floating),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _suspendLoading = false);
+    }
+  }
+
+  Future<void> _resumeJob(Job job) async {
+    setState(() => _resumeLoading = true);
+    try {
+      await ref.read(jobRepositoryProvider).resumeJob(job.id);
+      ref.invalidate(myJobsProvider);
+      ref.invalidate(jobDetailProvider(job.id));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e'), behavior: SnackBarBehavior.floating),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _resumeLoading = false);
     }
   }
 }
@@ -567,6 +621,76 @@ class _CancelButton extends StatelessWidget {
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFFFF3B30))),
+        ),
+      ),
+    );
+  }
+}
+
+class _SuspendButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final bool loading;
+  const _SuspendButton({required this.onTap, required this.loading});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: loading ? null : onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        decoration: BoxDecoration(
+          color: const Color(0x14FF9500),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0x26FF9500)),
+        ),
+        child: Center(
+          child: loading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Color(0xFFFF9500)))
+              : const Text('Suspend Job',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFFF9500))),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResumeButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final bool loading;
+  const _ResumeButton({required this.onTap, required this.loading});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: loading ? null : onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        decoration: BoxDecoration(
+          color: const Color(0x1434C759),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0x2634C759)),
+        ),
+        child: Center(
+          child: loading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Color(0xFF34C759)))
+              : const Text('Resume Job',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF34C759))),
         ),
       ),
     );
