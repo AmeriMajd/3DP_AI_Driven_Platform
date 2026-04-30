@@ -14,6 +14,7 @@ import '../../features/recommendation/presentation/screens/recommendation_histor
 import '../../features/recommendation/domain/recommendation_result.dart';
 import '../../features/jobs/presentation/screens/job_queue_screen.dart';
 import '../../features/jobs/presentation/screens/job_detail_screen.dart';
+import '../../features/jobs/presentation/screens/job_admin_screen.dart';
 import '../../features/jobs/domain/job.dart';
 import '../../features/printers/presentation/screens/printer_detail_screen.dart';
 import '../../features/printers/presentation/screens/printer_form_screen.dart';
@@ -96,7 +97,7 @@ final appRouter = GoRouter(
           path: AppRoutes.fleet,
           builder: (_, _) => const PrinterListScreen(),
           routes: [
-            GoRoute(path: 'new', builder: (_, __) => const PrinterFormScreen()),
+            GoRoute(path: 'new', builder: (_, _) => const PrinterFormScreen()),
             GoRoute(
               path: ':id',
               builder: (context, state) {
@@ -118,6 +119,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: AppRoutes.jobQueue,
           builder: (_, _) => const JobQueueScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.jobAdmin,
+          builder: (_, _) => const JobAdminScreen(),
         ),
         GoRoute(
           path: '/jobs/:id',
