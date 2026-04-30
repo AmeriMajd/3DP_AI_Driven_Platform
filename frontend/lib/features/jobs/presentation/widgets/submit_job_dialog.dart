@@ -2,18 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../printers/domain/printer.dart';
+import '../../../printers/domain/printer_filter.dart';
+import '../../../printers/providers/printer_providers.dart';
 import '../providers/job_providers.dart';
 
 class SubmitJobDialog extends ConsumerStatefulWidget {
   final String stlFileId;
   final String? recommendationId;
   final String? stlFileName;
+  final String? technology; // 'FDM' | 'SLA' | null → show all
 
   const SubmitJobDialog({
     super.key,
     required this.stlFileId,
     this.recommendationId,
     this.stlFileName,
+    this.technology,
   });
 
   static Future<void> show(
@@ -21,6 +26,7 @@ class SubmitJobDialog extends ConsumerStatefulWidget {
     required String stlFileId,
     String? recommendationId,
     String? stlFileName,
+    String? technology,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -30,6 +36,7 @@ class SubmitJobDialog extends ConsumerStatefulWidget {
         stlFileId: stlFileId,
         recommendationId: recommendationId,
         stlFileName: stlFileName,
+        technology: technology,
       ),
     );
   }
@@ -41,6 +48,7 @@ class SubmitJobDialog extends ConsumerStatefulWidget {
 class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
   int _priority = 3;
   bool _loading = false;
+  String? _selectedPrinterId; // null = auto-assign
 
   static const _priorityLabels = ['', 'Low', 'Low', 'Normal', 'High', 'Urgent'];
   static const _priorityColors = [
@@ -198,6 +206,16 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
           ),
           const SizedBox(height: 16),
 
+          // Printer assignment
+          const Text(
+            'Printer',
+            style: TextStyle(
+                fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black),
+          ),
+          const SizedBox(height: 10),
+          _buildPrinterSelector(),
+          const SizedBox(height: 16),
+
           // Summary card
           Container(
             decoration: BoxDecoration(
@@ -207,7 +225,21 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
             padding: const EdgeInsets.all(14),
             child: Column(
               children: [
-                _SummaryRow(label: 'Printer', value: 'Auto-assign'),
+                _SummaryRow(
+                  label: 'Printer',
+                  value: _selectedPrinterId == null
+                      ? 'Auto-assign'
+                      : ref
+                              .watch(printersListProvider(
+                                  const PrinterFilter()))
+                              .value
+                              ?.firstWhere(
+                                (p) => p.id == _selectedPrinterId,
+                                orElse: () => throw StateError(''),
+                              )
+                              .name ??
+                          _selectedPrinterId!,
+                ),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 9),
                   child: Divider(height: 0.5, color: Color(0x1A3C3C43)),
@@ -272,6 +304,54 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
     );
   }
 
+  PrinterTechnology? get _printerTechnology {
+    final t = widget.technology?.toUpperCase();
+    if (t == 'FDM') return PrinterTechnology.fdm;
+    if (t == 'SLA') return PrinterTechnology.sla;
+    return null;
+  }
+
+  Widget _buildPrinterSelector() {
+    final printersAsync = ref.watch(
+      printersListProvider(PrinterFilter(
+        status: PrinterStatusValue.idle,
+        technology: _printerTechnology,
+      )),
+    );
+
+    return printersAsync.when(
+      loading: () => const SizedBox(
+        height: 40,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (printers) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _PrinterChip(
+              label: 'Auto-assign',
+              icon: Icons.auto_awesome_rounded,
+              selected: _selectedPrinterId == null,
+              onTap: () => setState(() => _selectedPrinterId = null),
+            ),
+            ...printers.map((p) => Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: _PrinterChip(
+                    label: p.name,
+                    icon: p.technology == PrinterTechnology.sla
+                        ? Icons.opacity_rounded
+                        : Icons.precision_manufacturing_rounded,
+                    selected: _selectedPrinterId == p.id,
+                    onTap: () => setState(() => _selectedPrinterId = p.id),
+                  ),
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     setState(() => _loading = true);
     try {
@@ -280,6 +360,7 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
             recommendationId: widget.recommendationId,
             stlFileName: widget.stlFileName,
             priority: _priority,
+            printerId: _selectedPrinterId,
           );
       if (mounted) {
         Navigator.of(context).pop();
@@ -320,14 +401,62 @@ class _SummaryRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label,
-            style:
-                const TextStyle(fontSize: 13, color: Color(0xFF8E8E93))),
+            style: const TextStyle(fontSize: 13, color: Color(0xFF8E8E93))),
         Text(value,
             style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: Colors.black)),
       ],
+    );
+  }
+}
+
+class _PrinterChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PrinterChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const primary = Color(0xFF4B6BFB);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? primary.withValues(alpha: 0.10) : const Color(0xFFF2F2F7),
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(
+            color: selected ? primary : const Color(0x1A3C3C43),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: selected ? primary : const Color(0xFF8E8E93)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: selected ? primary : const Color(0xFF8E8E93),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
