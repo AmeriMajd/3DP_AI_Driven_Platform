@@ -255,6 +255,17 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
           ),
           const SizedBox(height: 22),
 
+          // Guard: recommendation required
+          if (widget.recommendationId == null)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 14),
+              child: Text(
+                'Run AI analysis first to enable job submission.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Color(0xFFFF9500)),
+              ),
+            ),
+
           // Buttons
           Row(
             children: [
@@ -276,7 +287,7 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
               Expanded(
                 flex: 2,
                 child: FilledButton(
-                  onPressed: _loading ? null : _submit,
+                  onPressed: (_loading || widget.recommendationId == null) ? null : _submit,
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF4B6BFB),
                     padding: const EdgeInsets.symmetric(vertical: 14),
