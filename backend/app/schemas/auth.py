@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, field_validator
 from datetime import datetime
 from uuid import UUID
+from typing import Optional
 
 # ─────────────────────────────────────────────
 # Pydantic schemas are NOT the database models.
@@ -108,3 +109,42 @@ class LoginResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     user: UserProfile
+
+
+# ── PROFILE ──────────────────────────────────
+
+class UserStats(BaseModel):
+    files_uploaded: int
+    recommendations_count: int
+    jobs_submitted: int
+
+class UserMeResponse(BaseModel):
+    id: UUID
+    email: str
+    full_name: str
+    role: str
+    created_at: datetime
+    last_login: Optional[datetime] = None
+    stats: UserStats
+
+class UpdateProfileSchema(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+    @field_validator("full_name")
+    @classmethod
+    def name_min_length(cls, v):
+        if v is not None and len(v.strip()) < 2:
+            raise ValueError("full_name must be at least 2 characters")
+        return v.strip() if v else v
+
+class ChangePasswordSchema(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_min_length(cls, v):
+        if len(v) < 8:
+            raise ValueError("new_password must be at least 8 characters")
+        return v

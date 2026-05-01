@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/router/app_router.dart';
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../services/storage_service.dart';
@@ -13,6 +14,7 @@ const _noAppBarRoutes = [
   AppRoutes.recommendHistory,
   AppRoutes.jobQueue,   // JobQueueScreen has its own inline header
   '/jobs/',             // JobDetailScreen has its own nav bar
+  AppRoutes.profile,    // ProfileScreen has its own AppBar
 ];
 
 // ── Provider pour le fullName ─────────────────────────────────────────────────
@@ -100,7 +102,7 @@ class MainShell extends ConsumerWidget {
                   child: fullNameAsync.when(
                     data: (name) => _AvatarMenu(fullName: name ?? 'User'),
                     loading: () => const _AvatarMenu(fullName: 'User'),
-                    error: (_, __) => const _AvatarMenu(fullName: 'User'),
+                    error: (e, _) => const _AvatarMenu(fullName: 'User'),
                   ),
                 ),
               ],
@@ -180,15 +182,14 @@ class _AvatarMenu extends ConsumerWidget {
       color: Colors.white,
       onSelected: (value) async {
         if (value == 'account') {
-          // TODO → AccountScreen
+          appRouter.push(AppRoutes.profile);
         }
         if (value == 'settings') {
           // TODO → SettingsScreen
         }
         if (value == 'logout') {
-          // TODO — appeler authProvider.logout() puis rediriger
-          // await ref.read(authProvider.notifier).logout();
-          context.go(AppRoutes.login);
+          await StorageService.clearAll();
+          appRouter.go(AppRoutes.login);
         }
       },
       itemBuilder: (_) => [
