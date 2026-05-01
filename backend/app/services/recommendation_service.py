@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.recommendation import Recommendation
 from app.models.stl_file import STLFile
-from app.schemas.recommendation import RecommendRequest
+from app.schemas.recommendation import RecommendRequest, ParameterUpdateRequest
 from app.services import ml_inference
 
 logger = logging.getLogger(__name__)
@@ -236,6 +236,25 @@ def create_recommendation(
     return rec
 
 
+def update_parameters(
+    recommendation_id: UUID,
+    body: ParameterUpdateRequest,
+    user_id: UUID,
+    db: Session,
+) -> Recommendation:
+    rec = db.query(Recommendation).filter(
+        Recommendation.id == recommendation_id,
+        Recommendation.user_id == user_id,
+    ).first()
+    if rec is None:
+        raise HTTPException(status_code=404, detail="Recommendation not found")
+    for field, value in body.model_dump(exclude_none=True).items():
+        setattr(rec, field, value)
+    db.commit()
+    db.refresh(rec)
+    return rec
+
+
 def rate_recommendation(
     recommendation_id: UUID,
     rating: int,
@@ -257,10 +276,17 @@ def rate_recommendation(
     return rec
 
 
-def get_history(user_id: UUID, db: Session) -> list[Recommendation]:
-    return (
-        db.query(Recommendation)
-        .filter(Recommendation.user_id == user_id)
-        .order_by(Recommendation.created_at.desc())
-        .all()
-    )
+def get_history(
+    user_id: UUID,
+    db: Session,
+    technology: str | None = None,
+    material: str | None = None,
+) -> list[Recommendation]:
+    if isinstance(user_id, str):
+        user_id = uuid.UUID(user_id)
+    q = db.query(Recommendation).filter(Recommendation.user_id == user_id)
+    if technology is not None:
+        q = q.filter(Recommendation.technology == technology)
+    if material is not None:
+        q = q.filter(Recommendation.material == material)
+    return q.order_by(Recommendation.created_at.desc()).all()

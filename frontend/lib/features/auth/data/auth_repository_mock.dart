@@ -1,4 +1,4 @@
-import 'auth_repository.dart';
+import '../domain/auth_repository.dart';
 
 /// Mock utilisé pour tester l'UI sans backend.
 ///
@@ -95,6 +95,12 @@ class AuthRepositoryMock implements AuthRepository {
   @override
   Future<void> refreshToken() async {
     await Future.delayed(const Duration(seconds: 1));
+  }
+
+  @override
+  Future<bool> tryRefreshSession() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    return true; // simule un refresh réussi
   }
 
   @override

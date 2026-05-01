@@ -1,8 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import '../../../shared/services/dio_client.dart';
 import '../domain/recommend_request.dart';
 import '../domain/recommendation_result.dart';
-import 'recommendation_repository.dart';
+import '../domain/recommendation_repository.dart';
 
 class RecommendationRepositoryImpl implements RecommendationRepository {
   final Dio _dio = DioClient.instance;
@@ -34,6 +36,37 @@ class RecommendationRepositoryImpl implements RecommendationRepository {
       );
       return RecommendationResult.fromJson(
           response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  /// PATCH /recommend/{id}/parameters
+  @override
+  Future<RecommendationResult> updateParameters(
+      String id, Map<String, dynamic> params) async {
+    try {
+      final response = await _dio.patch(
+        '/recommend/$id/parameters',
+        data: params,
+      );
+      return RecommendationResult.fromJson(
+          response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  /// GET /recommend/{id}/export?slicer=cura|prusaslicer
+  @override
+  Future<Uint8List> exportProfile(String id, String slicer) async {
+    try {
+      final response = await _dio.get(
+        '/recommend/$id/export',
+        queryParameters: {'slicer': slicer},
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return Uint8List.fromList(response.data as List<int>);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }

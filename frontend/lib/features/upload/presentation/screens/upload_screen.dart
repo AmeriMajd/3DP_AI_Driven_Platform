@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/router/app_routes.dart';
-import '../providers/upload_provider.dart';
-import '../providers/upload_state.dart';
+import '../providers/upload_providers.dart';
+import '../../domain/upload_state.dart';
 import '../../domain/stl_file.dart';
 import 'package:go_router/go_router.dart';
 
@@ -28,7 +28,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(uploadProvider.notifier).loadFiles();
+      ref.read(uploadViewModelProvider.notifier).loadFiles();
     });
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.toLowerCase());
@@ -62,18 +62,18 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
     }
     // Sur web _selectedFilePath reste null → _uploadFile() passe '' à la place
     ref
-        .read(uploadProvider.notifier)
+        .read(uploadViewModelProvider.notifier)
         .selectFile(filename: file.name, fileSize: file.size);
   }
 
   // ── Uploader le fichier sélectionné ─────────────────────────────────────
   Future<void> _uploadFile() async {
-    final state = ref.read(uploadProvider);
+    final state = ref.read(uploadViewModelProvider);
     if (state.selectedFileName == null) return;
 
     final filePath = _selectedFilePath ?? '';
     await ref
-        .read(uploadProvider.notifier)
+        .read(uploadViewModelProvider.notifier)
         .uploadFile(
           filePath: filePath,
           filename: state.selectedFileName!,
@@ -126,7 +126,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
         timeAgo: _timeAgo,
         onDelete: (id) {
           Navigator.pop(ctx); // ← fermer le sheet
-          ref.read(uploadProvider.notifier).deleteFile(id: id);
+          ref.read(uploadViewModelProvider.notifier).deleteFile(id: id);
         },
         onTap: (id) {
           Navigator.pop(ctx);
@@ -138,10 +138,10 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(uploadProvider);
+    final state = ref.watch(uploadViewModelProvider);
 
     // ── Snackbars ──────────────────────────────────────────────────────────
-    ref.listen<UploadState>(uploadProvider, (_, next) {
+    ref.listen<UploadState>(uploadViewModelProvider, (_, next) {
       if (next.status == UploadStatus.success && next.successMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -154,7 +154,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
             margin: const EdgeInsets.all(16),
           ),
         );
-        ref.read(uploadProvider.notifier).reset();
+        ref.read(uploadViewModelProvider.notifier).reset();
       }
       if (next.status == UploadStatus.error && next.errorMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -168,7 +168,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
             margin: const EdgeInsets.all(16),
           ),
         );
-        ref.read(uploadProvider.notifier).reset();
+        ref.read(uploadViewModelProvider.notifier).reset();
       }
     });
 
@@ -183,8 +183,28 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Search Bar ─────────────────────────────────────────
-                  _buildSearchBar(),
+                  // ── Search Bar + History ───────────────────────────────
+                  Row(
+                    children: [
+                      Expanded(child: _buildSearchBar()),
+                      const SizedBox(width: 8),
+                      Container(
+                        height: 44,
+                        width: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFEFF4),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          tooltip: 'My recommendations',
+                          icon: const Icon(Icons.history_rounded,
+                              color: AppColors.primary, size: 22),
+                          onPressed: () =>
+                              context.push(AppRoutes.recommendHistory),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 16),
 
                   // ── Subtitle ───────────────────────────────────────────
@@ -420,7 +440,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                 ),
               ),
               GestureDetector(
-                onTap: () => ref.read(uploadProvider.notifier).reset(),
+                onTap: () => ref.read(uploadViewModelProvider.notifier).reset(),
                 child: const Icon(
                   Icons.close,
                   size: 18,
@@ -605,7 +625,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
               file: f,
               timeAgo: _timeAgo(f.createdAt),
               onDelete: () =>
-                  ref.read(uploadProvider.notifier).deleteFile(id: f.id),
+                  ref.read(uploadViewModelProvider.notifier).deleteFile(id: f.id),
               onTap: () => context.go('${AppRoutes.upload}/file/${f.id}'),
             ),
           ),

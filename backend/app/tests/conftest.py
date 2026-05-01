@@ -37,6 +37,9 @@ import app.models.invitation
 import app.models.refresh_token
 import app.models.password_reset_token
 import app.models.stl_file
+import app.models.printer
+import app.models.print_job    
+import app.models.recommendation  
 
 from app.main import app
 from app.core.database import get_db, Base

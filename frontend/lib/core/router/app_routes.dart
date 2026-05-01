@@ -16,11 +16,20 @@ class AppRoutes {
 
   static const String upload = '/upload';
   static const String fileDetail = '/upload/file';
-  static const String fleet = '/fleet';
+  static const String fleet = '/printers';
+  static const String printerNew = '/printers/new';
+  static const String printerDetail = '/printers/:id';
+  static const String printerEdit = '/printers/:id/edit';
   static const String schedule = '/schedule';
   static const String monitoring = '/monitoring';
   static const String splash = '/splash';
 
   static const String recommendForm = '/recommend-form';
   static const String recommendResult = '/recommend-result';
+  static const String recommendHistory = '/recommend-history';
+
+  // ── Jobs ──
+  static const String jobQueue = '/jobs';
+  static const String jobDetail = '/jobs/:id';
+  static const String jobAdmin = '/jobs/admin';
 }

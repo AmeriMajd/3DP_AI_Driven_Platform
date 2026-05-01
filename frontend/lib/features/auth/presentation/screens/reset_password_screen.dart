@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/utils/validators.dart';
 import '../../../../../core/router/app_routes.dart';
-import '../providers/auth_provider.dart';
-import '../providers/auth_state.dart';
+import '../providers/auth_providers.dart';
+import '../../domain/auth_state.dart';
 import '../widgets/auth_primary_button.dart';
 import '../widgets/login_text_field.dart';
 
@@ -52,7 +52,7 @@ class _ResetPasswordScreenState
   Future<void> _validateToken() async {
     try {
       final data = await ref
-          .read(authProvider.notifier)
+          .read(authViewModelProvider.notifier)
           .validateResetToken(token: widget.token);
 
       if (!mounted) return;
@@ -83,7 +83,7 @@ class _ResetPasswordScreenState
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    ref.read(authProvider.notifier).resetPassword(
+    ref.read(authViewModelProvider.notifier).resetPassword(
           token: widget.token,
           newPassword: _passwordController.text,
         );
@@ -98,12 +98,12 @@ class _ResetPasswordScreenState
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authViewModelProvider);
 
-    ref.listen<AuthState>(authProvider, (_, next) {
+    ref.listen<AuthState>(authViewModelProvider, (_, next) {
       if (next.status == AuthStatus.success) {
         setState(() => _resetSuccess = true);
-        ref.read(authProvider.notifier).reset();
+        ref.read(authViewModelProvider.notifier).reset();
       }
       if (next.status == AuthStatus.error) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -113,7 +113,7 @@ class _ResetPasswordScreenState
             behavior: SnackBarBehavior.floating,
           ),
         );
-        ref.read(authProvider.notifier).reset();
+        ref.read(authViewModelProvider.notifier).reset();
       }
     });
 

@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/utils/validators.dart';
 import '../../../../../core/router/app_routes.dart';
-import '../providers/auth_provider.dart';
-import '../providers/auth_state.dart';
+import '../providers/auth_providers.dart';
+import '../../domain/auth_state.dart';
 import '../widgets/auth_primary_button.dart';
 import '../widgets/login_text_field.dart';
 
@@ -25,11 +25,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _authSubscription = ref.listenManual<AuthState>(authProvider, (previous, next) {
+    _authSubscription = ref.listenManual<AuthState>(authViewModelProvider, (previous, next) {
       if (!mounted) return;
 
       if (next.status == AuthStatus.success) {
-        ref.read(authProvider.notifier).reset();
+        ref.read(authViewModelProvider.notifier).reset();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) context.go(AppRoutes.upload);
         });
@@ -43,7 +43,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        ref.read(authProvider.notifier).reset();
+        ref.read(authViewModelProvider.notifier).reset();
       }
     });
   }
@@ -58,7 +58,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    ref.read(authProvider.notifier).login(
+    ref.read(authViewModelProvider.notifier).login(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
@@ -66,7 +66,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authViewModelProvider);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,

@@ -10,6 +10,9 @@ const _noAppBarRoutes = [
   AppRoutes.fileDetail,
   AppRoutes.recommendForm,
   AppRoutes.recommendResult,
+  AppRoutes.recommendHistory,
+  AppRoutes.jobQueue,   // JobQueueScreen has its own inline header
+  '/jobs/',             // JobDetailScreen has its own nav bar
 ];
 
 // ── Provider pour le fullName ─────────────────────────────────────────────────
@@ -25,23 +28,31 @@ class MainShell extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.toString();
     if (location.startsWith(AppRoutes.upload)) return 0;
     if (location.startsWith(AppRoutes.fleet)) return 1;
-    if (location.startsWith(AppRoutes.schedule)) return 2;
+    if (location.startsWith(AppRoutes.jobQueue)) return 2;
     if (location.startsWith(AppRoutes.monitoring)) return 3;
     return 0;
   }
 
   String _currentTitle(int index) {
     switch (index) {
-      case 0: return 'Upload Model';
-      case 1: return 'Fleet';
-      case 2: return 'Schedule';
-      case 3: return 'Monitoring';
-      default: return '3DP Platform';
+      case 0:
+        return 'Upload Model';
+      case 1:
+        return 'Fleet';
+      case 2:
+        return 'My Jobs';
+      case 3:
+        return 'Monitoring';
+      default:
+        return '3DP Platform';
     }
   }
 
   bool _showAppBar(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
+    if (location.startsWith('${AppRoutes.fleet}/')) {
+      return false;
+    }
     return !_noAppBarRoutes.any((r) => location.startsWith(r));
   }
 
@@ -55,44 +66,46 @@ class MainShell extends ConsumerWidget {
       backgroundColor: const Color(0xFFF2F2F7),
 
       // ── AppBar partagée ───────────────────────────────────────────────
-      appBar: showAppBar ? AppBar(
-        backgroundColor: AppColors.backgroundLight,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        title: Text(
-          _currentTitle(currentIndex),
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF1C1C1E),
-            letterSpacing: -0.3,
-          ),
-        ),
-        actions: [
-          // 🔔 Notifications
-          IconButton(
-            icon: const Icon(
-              Icons.notifications_outlined,
-              size: 22,
-              color: Color(0xFF1C1C1E),
-            ),
-            onPressed: () {
-              // TODO — NotificationsScreen Sprint 5
-            },
-          ),
+      appBar: showAppBar
+          ? AppBar(
+              backgroundColor: AppColors.backgroundLight,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              centerTitle: true,
+              title: Text(
+                _currentTitle(currentIndex),
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1C1C1E),
+                  letterSpacing: -0.3,
+                ),
+              ),
+              actions: [
+                // 🔔 Notifications
+                IconButton(
+                  icon: const Icon(
+                    Icons.notifications_outlined,
+                    size: 22,
+                    color: Color(0xFF1C1C1E),
+                  ),
+                  onPressed: () {
+                    // TODO — NotificationsScreen Sprint 5
+                  },
+                ),
 
-          // 👤 Avatar avec initiales
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: fullNameAsync.when(
-              data: (name) => _AvatarMenu(fullName: name ?? 'User'),
-              loading: () => const _AvatarMenu(fullName: 'User'),
-              error: (_, __) => const _AvatarMenu(fullName: 'User'),
-            ),
-          ),
-        ],
-      ) : null,
+                // 👤 Avatar avec initiales
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: fullNameAsync.when(
+                    data: (name) => _AvatarMenu(fullName: name ?? 'User'),
+                    loading: () => const _AvatarMenu(fullName: 'User'),
+                    error: (_, __) => const _AvatarMenu(fullName: 'User'),
+                  ),
+                ),
+              ],
+            )
+          : null,
 
       body: child,
 
@@ -100,9 +113,7 @@ class MainShell extends ConsumerWidget {
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          border: Border(
-            top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
-          ),
+          border: Border(top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
         ),
         child: SafeArea(
           child: SizedBox(
@@ -118,18 +129,18 @@ class MainShell extends ConsumerWidget {
                   onTap: () => context.go(AppRoutes.upload),
                 ),
                 _NavItem(
-                  icon: Icons.print_outlined,
-                  activeIcon: Icons.print_rounded,
+                  icon: Icons.precision_manufacturing_outlined,
+                  activeIcon: Icons.precision_manufacturing,
                   label: 'Fleet',
                   isActive: currentIndex == 1,
                   onTap: () => context.go(AppRoutes.fleet),
                 ),
                 _NavItem(
-                  icon: Icons.calendar_today_outlined,
-                  activeIcon: Icons.calendar_today_rounded,
-                  label: 'Schedule',
+                  icon: Icons.assignment_outlined,
+                  activeIcon: Icons.assignment_rounded,
+                  label: 'Jobs',
                   isActive: currentIndex == 2,
-                  onTap: () => context.go(AppRoutes.schedule),
+                  onTap: () => context.go(AppRoutes.jobQueue),
                 ),
                 _NavItem(
                   icon: Icons.monitor_heart_outlined,
@@ -216,46 +227,60 @@ class _AvatarMenu extends ConsumerWidget {
           ),
         ),
 
-        const PopupMenuDivider(height: 1, color:Color(0xFF8E8E93)),
+        const PopupMenuDivider(height: 1, color: Color(0xFF8E8E93)),
 
         // My Account
         const PopupMenuItem(
           value: 'account',
           height: 44,
-          child: Row(children: [
-            Icon(Icons.person_outline_rounded,
-                size: 18, color: Color(0xFF1C1C1E)),
-            SizedBox(width: 10),
-            Text('My Account',
-                style: TextStyle(fontSize: 14, color: Color(0xFF1C1C1E))),
-          ]),
+          child: Row(
+            children: [
+              Icon(
+                Icons.person_outline_rounded,
+                size: 18,
+                color: Color(0xFF1C1C1E),
+              ),
+              SizedBox(width: 10),
+              Text(
+                'My Account',
+                style: TextStyle(fontSize: 14, color: Color(0xFF1C1C1E)),
+              ),
+            ],
+          ),
         ),
 
         // Settings
         const PopupMenuItem(
           value: 'settings',
           height: 44,
-          child: Row(children: [
-            Icon(Icons.settings_outlined,
-                size: 18, color: Color(0xFF1C1C1E)),
-            SizedBox(width: 10),
-            Text('Settings',
-                style: TextStyle(fontSize: 14, color: Color(0xFF1C1C1E))),
-          ]),
+          child: Row(
+            children: [
+              Icon(Icons.settings_outlined, size: 18, color: Color(0xFF1C1C1E)),
+              SizedBox(width: 10),
+              Text(
+                'Settings',
+                style: TextStyle(fontSize: 14, color: Color(0xFF1C1C1E)),
+              ),
+            ],
+          ),
         ),
 
-        const PopupMenuDivider(height: 1, color:Color(0xFF8E8E93)),
+        const PopupMenuDivider(height: 1, color: Color(0xFF8E8E93)),
 
         // Logout
         const PopupMenuItem(
           value: 'logout',
           height: 40,
-          child: Row(children: [
-            Icon(Icons.logout_rounded, size: 18, color: Color(0xFFFF3B30)),
-            SizedBox(width: 10),
-            Text('Logout',
-                style: TextStyle(fontSize: 14, color: Color(0xFFFF3B30))),
-          ]),
+          child: Row(
+            children: [
+              Icon(Icons.logout_rounded, size: 18, color: Color(0xFFFF3B30)),
+              SizedBox(width: 10),
+              Text(
+                'Logout',
+                style: TextStyle(fontSize: 14, color: Color(0xFFFF3B30)),
+              ),
+            ],
+          ),
         ),
       ],
       child: Container(
@@ -319,8 +344,7 @@ class _NavItem extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight:
-                    isActive ? FontWeight.w600 : FontWeight.w400,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                 color: isActive
                     ? const Color(0xFF4B6BFB)
                     : const Color(0xFF8E8E93),
