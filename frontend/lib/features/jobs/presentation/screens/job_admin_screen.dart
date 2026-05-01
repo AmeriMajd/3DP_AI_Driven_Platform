@@ -217,9 +217,11 @@ class _AdminJobCard extends ConsumerStatefulWidget {
 
 class _AdminJobCardState extends ConsumerState<_AdminJobCard> {
   bool _suspendLoading = false;
+  bool _resumeLoading = false;
   bool _cancelLoading = false;
 
-  bool get _canSuspend => widget.job.status == Job.printing;
+  bool get _canSuspend =>
+      widget.job.status == Job.queued || widget.job.status == Job.scheduled;
   bool get _canResume => widget.job.status == Job.paused;
   bool get _canCancel => widget.job.isCancelable;
 
@@ -267,7 +269,7 @@ class _AdminJobCardState extends ConsumerState<_AdminJobCard> {
                     label: 'Resume',
                     icon: Icons.play_circle_outline_rounded,
                     color: const Color(0xFF34C759),
-                    loading: _suspendLoading,
+                    loading: _resumeLoading,
                     onPressed: _resume,
                   ),
                 ],
@@ -304,7 +306,7 @@ class _AdminJobCardState extends ConsumerState<_AdminJobCard> {
   }
 
   Future<void> _resume() async {
-    setState(() => _suspendLoading = true);
+    setState(() => _resumeLoading = true);
     try {
       await ref.read(jobRepositoryProvider).resumeJob(widget.job.id);
       if (mounted) {
@@ -314,7 +316,7 @@ class _AdminJobCardState extends ConsumerState<_AdminJobCard> {
     } catch (_) {
       if (mounted) _showSnack('Failed to resume job', isError: true);
     } finally {
-      if (mounted) setState(() => _suspendLoading = false);
+      if (mounted) setState(() => _resumeLoading = false);
     }
   }
 
