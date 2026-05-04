@@ -1,0 +1,73 @@
+{
+  "dataset": "synthetic_v3",
+  "n_rows": 8000,
+  "n_columns": 34,
+  "generated_at": "2026-05-01T15:37:07.966786",
+  "figures": [
+    {
+      "figure": "class_distribution",
+      "path": "C:\\Users\\ameri\\3DP_AI_Driven_Platform\\ml3dp\\reports\\figures\\02_class_distribution.png",
+      "n_rows": 8000,
+      "tech_counts": {
+        "FDM": 5057,
+        "SLA": 2943
+      },
+      "fdm_counts": {
+        "PLA": 2122,
+        "ABS": 1233,
+        "PETG": 919,
+        "TPU": 783
+      },
+      "sla_counts": {
+        "Resin-Std": 1970,
+        "Resin-Eng": 973
+      }
+    },
+    {
+      "figure": "feature_distributions_by_tech",
+      "path": "C:\\Users\\ameri\\3DP_AI_Driven_Platform\\ml3dp\\reports\\figures\\02_feature_distributions_by_tech.png",
+      "n_features": 16
+    },
+    {
+      "figure": "separability_matrix",
+      "path": "C:\\Users\\ameri\\3DP_AI_Driven_Platform\\ml3dp\\reports\\figures\\02_separability_matrix.png",
+      "n_rows": 8000,
+      "fdm_max_overlap": 0.0,
+      "sla_max_overlap": 0.0
+    },
+    {
+      "figure": "correlation_heatmap",
+      "path": "C:\\Users\\ameri\\3DP_AI_Driven_Platform\\ml3dp\\reports\\figures\\02_correlation_heatmap.png",
+      "n_rows": 8000,
+      "max_abs_offdiag": 0.991503859603605
+    },
+    {
+      "figure": "intent_material_crosstab",
+      "path": "C:\\Users\\ameri\\3DP_AI_Driven_Platform\\ml3dp\\reports\\figures\\02_intent_material_crosstab.png",
+      "n_rows": 8000
+    },
+    {
+      "figure": "geometry_by_material_boxplots",
+      "path": "C:\\Users\\ameri\\3DP_AI_Driven_Platform\\ml3dp\\reports\\figures\\02_geometry_by_material_boxplots.png",
+      "n_rows": 8000
+    },
+    {
+      "figure": "parameter_distributions_by_material",
+      "path": "C:\\Users\\ameri\\3DP_AI_Driven_Platform\\ml3dp\\reports\\figures\\02_parameter_distributions_by_material.png",
+      "n_rows": 8000
+    }
+  ],
+  "tables": [
+    "C:\\Users\\ameri\\3DP_AI_Driven_Platform\\ml3dp\\reports\\tables\\02_class_balance.csv",
+    "C:\\Users\\ameri\\3DP_AI_Driven_Platform\\ml3dp\\reports\\tables\\02_feature_summary.csv",
+    "C:\\Users\\ameri\\3DP_AI_Driven_Platform\\ml3dp\\reports\\tables\\02_separability_matrix.csv"
+  ],
+  "headline_metrics": {
+    "tech_fdm_pct": 0.6321,
+    "tech_sla_pct": 0.3679,
+    "fdm_imbalance_ratio": 2.7101,
+    "sla_imbalance_ratio": 2.0247,
+    "max_fdm_pairwise_overlap": 0.0,
+    "max_sla_pairwise_overlap": 0.0
+  }
+}

@@ -1,0 +1,6 @@
+stage,winner_family,mean_metric,std_metric,passed
+stage1_tech,lightgbm,0.914406163344513,1.2412670766236366e-16,True
+stage2_fdm,random_forest,0.8411940027951518,0.0009201283437134099,False
+stage2_sla,lightgbm,0.8158801696712619,0.0,False
+stage3_fdm,random_forest,4.693422259209839,0.0038598390675663222,True
+stage3_sla,random_forest,4.327285184900878,0.016227179088270993,True

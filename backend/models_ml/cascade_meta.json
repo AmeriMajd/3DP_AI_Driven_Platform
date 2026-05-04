@@ -1,0 +1,206 @@
+{
+  "stage1_features": [
+    "volume_cm3",
+    "surface_area_cm2",
+    "bbox_x_mm",
+    "bbox_y_mm",
+    "bbox_z_mm",
+    "triangle_count",
+    "overhang_ratio",
+    "max_overhang_angle",
+    "min_wall_thickness_mm",
+    "avg_wall_thickness_mm",
+    "complexity_index",
+    "aspect_ratio",
+    "is_watertight",
+    "shell_count",
+    "com_offset_ratio",
+    "flat_base_area_mm2",
+    "intended_use",
+    "surface_finish",
+    "needs_flexibility",
+    "strength_required",
+    "budget_priority",
+    "outdoor_use"
+  ],
+  "stage2_features": [
+    "volume_cm3",
+    "surface_area_cm2",
+    "bbox_x_mm",
+    "bbox_y_mm",
+    "bbox_z_mm",
+    "triangle_count",
+    "overhang_ratio",
+    "max_overhang_angle",
+    "min_wall_thickness_mm",
+    "avg_wall_thickness_mm",
+    "complexity_index",
+    "aspect_ratio",
+    "is_watertight",
+    "shell_count",
+    "com_offset_ratio",
+    "flat_base_area_mm2",
+    "intended_use",
+    "surface_finish",
+    "needs_flexibility",
+    "strength_required",
+    "budget_priority",
+    "outdoor_use"
+  ],
+  "stage3_fdm_features": [
+    "volume_cm3",
+    "surface_area_cm2",
+    "bbox_x_mm",
+    "bbox_y_mm",
+    "bbox_z_mm",
+    "triangle_count",
+    "overhang_ratio",
+    "max_overhang_angle",
+    "min_wall_thickness_mm",
+    "avg_wall_thickness_mm",
+    "complexity_index",
+    "aspect_ratio",
+    "is_watertight",
+    "shell_count",
+    "com_offset_ratio",
+    "flat_base_area_mm2",
+    "intended_use",
+    "surface_finish",
+    "needs_flexibility",
+    "strength_required",
+    "budget_priority",
+    "outdoor_use",
+    "material__PLA",
+    "material__ABS",
+    "material__PETG",
+    "material__TPU"
+  ],
+  "stage3_sla_features": [
+    "volume_cm3",
+    "surface_area_cm2",
+    "bbox_x_mm",
+    "bbox_y_mm",
+    "bbox_z_mm",
+    "triangle_count",
+    "overhang_ratio",
+    "max_overhang_angle",
+    "min_wall_thickness_mm",
+    "avg_wall_thickness_mm",
+    "complexity_index",
+    "aspect_ratio",
+    "is_watertight",
+    "shell_count",
+    "com_offset_ratio",
+    "flat_base_area_mm2",
+    "intended_use",
+    "surface_finish",
+    "needs_flexibility",
+    "strength_required",
+    "budget_priority",
+    "outdoor_use",
+    "material__Resin-Std",
+    "material__Resin-Eng"
+  ],
+  "fdm_materials": [
+    "PLA",
+    "ABS",
+    "PETG",
+    "TPU"
+  ],
+  "sla_materials": [
+    "Resin-Std",
+    "Resin-Eng"
+  ],
+  "fdm_param_names": [
+    "layer_height_mm",
+    "infill_pct",
+    "print_speed_mm_s",
+    "wall_count",
+    "fan_speed_pct",
+    "support_density_pct"
+  ],
+  "sla_param_names": [
+    "layer_height_mm",
+    "exposure_s",
+    "bottom_exposure_s",
+    "lift_distance_mm",
+    "lift_speed_mm_s",
+    "support_density_pct"
+  ],
+  "fdm_param_ranges": {
+    "layer_height_mm": [
+      0.08,
+      0.32
+    ],
+    "infill_pct": [
+      10.0,
+      100.0
+    ],
+    "print_speed_mm_s": [
+      15.0,
+      100.0
+    ],
+    "wall_count": [
+      2.0,
+      6.0
+    ],
+    "fan_speed_pct": [
+      0.0,
+      100.0
+    ],
+    "support_density_pct": [
+      0.0,
+      80.0
+    ]
+  },
+  "sla_param_ranges": {
+    "layer_height_mm": [
+      0.025,
+      0.1
+    ],
+    "exposure_s": [
+      1.0,
+      15.0
+    ],
+    "bottom_exposure_s": [
+      5.0,
+      60.0
+    ],
+    "lift_distance_mm": [
+      3.0,
+      12.0
+    ],
+    "lift_speed_mm_s": [
+      20.0,
+      100.0
+    ],
+    "support_density_pct": [
+      0.0,
+      80.0
+    ]
+  },
+  "intent_encoders": {
+    "intended_use": [
+      "decorative",
+      "functional",
+      "mechanical",
+      "prototype"
+    ],
+    "surface_finish": [
+      "rough",
+      "standard",
+      "smooth",
+      "fine"
+    ],
+    "strength_required": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "budget_priority": [
+      "cost",
+      "balanced",
+      "quality"
+    ]
+  }
+}
