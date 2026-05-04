@@ -1,0 +1,9 @@
+{
+  "02_class_distribution.png": "Distribution des classes pour la technologie (FDM/SLA), les matériaux FDM, et les matériaux SLA.",
+  "02_feature_distributions_by_tech.png": "Distribution de chacune des 16 caractéristiques géométriques, séparée par technologie.",
+  "02_separability_matrix.png": "Matrice de chevauchement par paires de matériaux. Une valeur de 0 indique une séparation parfaite.",
+  "02_correlation_heatmap.png": "Corrélation de Spearman entre les 16 caractéristiques géométriques.",
+  "02_intent_material_crosstab.png": "Répartition des matériaux en fonction des champs d'intention utilisateur, par technologie.",
+  "02_geometry_by_material_boxplots.png": "Distribution des principales caractéristiques géométriques par matériau.",
+  "02_parameter_distributions_by_material.png": "Distribution des paramètres d'impression Stage 3 par matériau."
+}

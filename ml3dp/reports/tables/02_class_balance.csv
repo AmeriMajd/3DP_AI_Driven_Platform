@@ -1,0 +1,9 @@
+level,label,count,fraction
+technology,FDM,5057,0.632125
+technology,SLA,2943,0.367875
+material_fdm,PLA,2122,0.41961637334387974
+material_fdm,ABS,1233,0.24382044690527982
+material_fdm,PETG,919,0.18172829740953134
+material_fdm,TPU,783,0.15483488234130907
+material_sla,Resin-Std,1970,0.6693849813115869
+material_sla,Resin-Eng,973,0.3306150186884132

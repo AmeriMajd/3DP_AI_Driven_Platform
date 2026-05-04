@@ -1,0 +1,6 @@
+stage,winner_family,mean_metric,std_metric,passed
+stage1_tech,random_forest,0.9061146916912142,0.00038791265356940007,True
+stage2_fdm,xgboost,0.8815701348546515,0.0,True
+stage2_sla,random_forest,0.8715252285183832,0.0021805918185417036,True
+stage3_fdm,random_forest,4.728615572909363,0.0068091330911887816,True
+stage3_sla,random_forest,4.320419970955829,0.009459935781737202,True

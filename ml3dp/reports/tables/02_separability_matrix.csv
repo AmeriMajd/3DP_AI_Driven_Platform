@@ -1,0 +1,8 @@
+tech,material_a,material_b,overlap_fraction
+FDM,PLA,ABS,0.0
+FDM,PLA,PETG,0.0
+FDM,PLA,TPU,0.0
+FDM,ABS,PETG,0.0
+FDM,ABS,TPU,0.0
+FDM,PETG,TPU,0.0
+SLA,Resin-Std,Resin-Eng,0.0

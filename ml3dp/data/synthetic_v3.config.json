@@ -1,0 +1,14 @@
+{
+  "n_samples": 8000,
+  "seed": 1337,
+  "material_noise_prob": 0.1,
+  "param_noise_std": 0.1,
+  "feature_noise_std": 0.05,
+  "tech_noise_prob": 0.08,
+  "intent_priors": {},
+  "log_volume_mean": 2.0,
+  "log_volume_std": 0.7,
+  "aspect_mean": 1.6,
+  "aspect_std": 0.6,
+  "description": "synthetic_v3 \u2014 separable rules + tunable noise"
+}

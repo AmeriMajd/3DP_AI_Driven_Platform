@@ -1,0 +1,6 @@
+stage,family,test_metric_primary,test_metric_secondary,passed_threshold,model_path,n_train_samples
+stage1_tech,random_forest,0.9121165919879626,0.9167568359309983,True,C:\Users\ameri\3DP_AI_Driven_Platform\ml3dp\models_ml\stage1_tech_random_forest.joblib,6800
+stage2_fdm,xgboost,0.8976583409721052,0.9078332067050922,True,C:\Users\ameri\3DP_AI_Driven_Platform\ml3dp\models_ml\stage2_fdm_xgboost.joblib,4126
+stage2_sla,random_forest,0.8922310242817718,0.9016948647772806,True,C:\Users\ameri\3DP_AI_Driven_Platform\ml3dp\models_ml\stage2_sla_random_forest.joblib,2673
+stage3_fdm,random_forest,4.651781665857553,2.0943735905526553,True,C:\Users\ameri\3DP_AI_Driven_Platform\ml3dp\models_ml\stage3_fdm_random_forest.joblib,4126
+stage3_sla,random_forest,4.108303753531947,1.7408823545819718,True,C:\Users\ameri\3DP_AI_Driven_Platform\ml3dp\models_ml\stage3_sla_random_forest.joblib,2673

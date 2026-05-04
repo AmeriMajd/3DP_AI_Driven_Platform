@@ -1,0 +1,6 @@
+stage,winner_family,winner_metric,ceiling,gap,failure_mode
+stage1_tech,random_forest,0.9061,0.9133,0.0072,passed
+stage2_fdm,xgboost,0.8816,0.8942,0.0127,passed
+stage2_sla,random_forest,0.8715,0.8877,0.0162,passed
+stage3_fdm,random_forest,4.7286,,,n/a
+stage3_sla,random_forest,4.3204,,,n/a
