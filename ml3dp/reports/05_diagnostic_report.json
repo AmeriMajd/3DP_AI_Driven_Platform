@@ -1,0 +1,42 @@
+[
+  {
+    "stage": "stage1_tech",
+    "winner_family": "random_forest",
+    "winner_metric": 0.9061,
+    "ceiling": 0.9133,
+    "gap": 0.0072,
+    "failure_mode": "passed"
+  },
+  {
+    "stage": "stage2_fdm",
+    "winner_family": "xgboost",
+    "winner_metric": 0.8816,
+    "ceiling": 0.8942,
+    "gap": 0.0127,
+    "failure_mode": "passed"
+  },
+  {
+    "stage": "stage2_sla",
+    "winner_family": "random_forest",
+    "winner_metric": 0.8715,
+    "ceiling": 0.8877,
+    "gap": 0.0162,
+    "failure_mode": "passed"
+  },
+  {
+    "stage": "stage3_fdm",
+    "winner_family": "random_forest",
+    "winner_metric": 4.7286,
+    "ceiling": NaN,
+    "gap": NaN,
+    "failure_mode": "n/a"
+  },
+  {
+    "stage": "stage3_sla",
+    "winner_family": "random_forest",
+    "winner_metric": 4.3204,
+    "ceiling": NaN,
+    "gap": NaN,
+    "failure_mode": "n/a"
+  }
+]
