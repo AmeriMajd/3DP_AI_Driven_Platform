@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../domain/alternative_recommendation.dart';
+import '../domain/estimate_payload.dart';
 import '../domain/recommend_request.dart';
 import '../domain/recommendation_result.dart';
 import '../domain/recommendation_repository.dart';
@@ -33,6 +34,11 @@ class RecommendationRepositoryMock implements RecommendationRepository {
       qualityScore: 91,
       speedScore: 74,
       needsClarification: false,
+      estimatedCost: 14.20,
+      estimatedTimeMinutes: 232,
+      currency: 'TND',
+      pricingVersion: '2026.05.01',
+      estimationConfidence: 'high',
       userRating: 5,
       createdAt: DateTime(2026, 4, 28, 10, 24),
     ),
@@ -60,6 +66,11 @@ class RecommendationRepositoryMock implements RecommendationRepository {
       qualityScore: 92,
       speedScore: 40,
       needsClarification: false,
+      estimatedCost: 38.50,
+      estimatedTimeMinutes: 410,
+      currency: 'TND',
+      pricingVersion: '2026.05.01',
+      estimationConfidence: 'low',
       createdAt: DateTime(2026, 4, 27, 15, 12),
     ),
     RecommendationResult(
@@ -86,6 +97,11 @@ class RecommendationRepositoryMock implements RecommendationRepository {
       qualityScore: 78,
       speedScore: 72,
       needsClarification: false,
+      estimatedCost: 21.60,
+      estimatedTimeMinutes: 318,
+      currency: 'TND',
+      pricingVersion: '2026.05.01',
+      estimationConfidence: 'high',
       userRating: 3,
       createdAt: DateTime(2026, 4, 24, 9, 0),
     ),
@@ -113,6 +129,11 @@ class RecommendationRepositoryMock implements RecommendationRepository {
       qualityScore: 60,
       speedScore: 80,
       needsClarification: false,
+      estimatedCost: 17.85,
+      estimatedTimeMinutes: 195,
+      currency: 'TND',
+      pricingVersion: '2026.05.01',
+      estimationConfidence: 'low',
       createdAt: DateTime(2026, 4, 21, 14, 30),
     ),
   ];
@@ -195,6 +216,11 @@ class RecommendationRepositoryMock implements RecommendationRepository {
           costScore: 45,
           qualityScore: 92,
           speedScore: 40,
+          estimatedCost: 32.40,
+          estimatedTimeMinutes: 380,
+          currency: 'TND',
+          pricingVersion: '2026.05.01',
+          estimationConfidence: 'low',
         );
     }
 
@@ -233,6 +259,11 @@ class RecommendationRepositoryMock implements RecommendationRepository {
       speedScore: speedScore,
       needsClarification: false,
       alternative: alternative,
+      estimatedCost: 18.20,
+      estimatedTimeMinutes: 274,
+      currency: 'TND',
+      pricingVersion: '2026.05.01',
+      estimationConfidence: confidenceTier == 'medium' ? 'low' : 'high',
       createdAt: DateTime.now(),
     );
 
@@ -249,6 +280,28 @@ class RecommendationRepositoryMock implements RecommendationRepository {
     final updated = _history[idx].copyWith(userRating: rating);
     _history[idx] = updated;
     return updated;
+  }
+
+  @override
+  Future<EstimatePayload> fetchEstimate(String recommendationId) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    return EstimatePayload(
+      recommendationId: recommendationId,
+      primary: const EstimateValues(
+        estimatedCost: 18.20,
+        estimatedTimeMinutes: 274,
+        currency: 'TND',
+        pricingVersion: '2026.05.01',
+        estimationConfidence: 'high',
+      ),
+      alternative: const EstimateValues(
+        estimatedCost: 32.40,
+        estimatedTimeMinutes: 380,
+        currency: 'TND',
+        pricingVersion: '2026.05.01',
+        estimationConfidence: 'low',
+      ),
+    );
   }
 
   @override

@@ -21,6 +21,7 @@ from app.routers import logout
 from app.routers.stl import router as stl_router
 from app.routers.recommendation import router as recommendation_router
 from app.routers.printers import router as printers_router
+from app.routers.estimate import router as estimate_router
 from app.services import stl_service
 from app.routers import jobs
 
@@ -93,6 +94,14 @@ def _sync_recommendations_schema() -> None:
         "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS clarification_field VARCHAR",
         "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS alternative_json JSONB",
         "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS user_rating INTEGER",
+        # Cost & time estimation
+        "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS estimated_cost DOUBLE PRECISION",
+        "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS estimated_time_minutes INTEGER",
+        "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS currency VARCHAR(8) DEFAULT 'TND'",
+        "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS pricing_version VARCHAR(32)",
+        "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS estimation_confidence VARCHAR(8)",
+        "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS actual_print_time_minutes INTEGER",
+        "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS actual_material_grams DOUBLE PRECISION",
     ]
     try:
         with engine.begin() as connection:
@@ -133,6 +142,7 @@ app.include_router(logout.router)
 app.include_router(stl_router)
 app.include_router(recommendation_router)
 app.include_router(printers_router)
+app.include_router(estimate_router)
 app.include_router(jobs.router)
 
 @app.on_event("startup")

@@ -28,6 +28,11 @@ class AlternativeRecommendation(BaseModel):
     cost_score: int
     quality_score: int
     speed_score: int
+    estimated_cost: Optional[float] = None
+    estimated_time_minutes: Optional[int] = None
+    currency: Optional[str] = None
+    pricing_version: Optional[str] = None
+    estimation_confidence: Optional[str] = None
 
 
 class RatingRequest(BaseModel):
@@ -92,6 +97,13 @@ class RecommendationResponse(BaseModel):
     overhang_reduction_pct: Optional[float] = None
     orientation_print_height_mm: Optional[float] = None
 
+    # Cost & time estimation
+    estimated_cost: Optional[float] = None
+    estimated_time_minutes: Optional[int] = None
+    currency: Optional[str] = None
+    pricing_version: Optional[str] = None
+    estimation_confidence: Optional[str] = None
+
     user_rating: Optional[int] = None
     created_at: datetime
 
@@ -129,3 +141,23 @@ class RecommendationResponse(BaseModel):
 class RecommendationHistoryResponse(BaseModel):
     total: int
     items: list[RecommendationResponse]
+
+
+# ── /estimate endpoint ──────────────────────────────────────────────────────
+
+class EstimateRequest(BaseModel):
+    recommendation_id: UUID
+
+
+class EstimateValues(BaseModel):
+    estimated_cost: Optional[float] = None
+    estimated_time_minutes: Optional[int] = None
+    currency: Optional[str] = None
+    pricing_version: Optional[str] = None
+    estimation_confidence: Optional[str] = None
+
+
+class EstimateResponse(BaseModel):
+    recommendation_id: UUID
+    primary: EstimateValues
+    alternative: Optional[EstimateValues] = None
