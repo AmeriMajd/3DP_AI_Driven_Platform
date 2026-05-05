@@ -46,6 +46,13 @@ class RecommendationResult {
   final double? overhangReductionPct;
   final double? orientationPrintHeightMm;
 
+  // Cost & time estimation
+  final double? estimatedCost;
+  final int? estimatedTimeMinutes;
+  final String? currency;
+  final String? pricingVersion;
+  final String? estimationConfidence; // "high" | "low"
+
   final int? userRating;
   final DateTime createdAt;
 
@@ -84,6 +91,11 @@ class RecommendationResult {
     this.orientationRz,
     this.overhangReductionPct,
     this.orientationPrintHeightMm,
+    this.estimatedCost,
+    this.estimatedTimeMinutes,
+    this.currency,
+    this.pricingVersion,
+    this.estimationConfidence,
     this.userRating,
     required this.createdAt,
   });
@@ -98,6 +110,12 @@ class RecommendationResult {
     int? coolingFan,
     int? supportDensity,
     int? userRating,
+    AlternativeRecommendation? alternative,
+    double? estimatedCost,
+    int? estimatedTimeMinutes,
+    String? currency,
+    String? pricingVersion,
+    String? estimationConfidence,
   }) {
     return RecommendationResult(
       id: id,
@@ -128,12 +146,17 @@ class RecommendationResult {
       needsClarification: needsClarification,
       clarificationQuestion: clarificationQuestion,
       clarificationField: clarificationField,
-      alternative: alternative,
+      alternative: alternative ?? this.alternative,
       orientationRx: orientationRx,
       orientationRy: orientationRy,
       orientationRz: orientationRz,
       overhangReductionPct: overhangReductionPct,
       orientationPrintHeightMm: orientationPrintHeightMm,
+      estimatedCost: estimatedCost ?? this.estimatedCost,
+      estimatedTimeMinutes: estimatedTimeMinutes ?? this.estimatedTimeMinutes,
+      currency: currency ?? this.currency,
+      pricingVersion: pricingVersion ?? this.pricingVersion,
+      estimationConfidence: estimationConfidence ?? this.estimationConfidence,
       userRating: userRating ?? this.userRating,
       createdAt: createdAt,
     );
@@ -181,6 +204,11 @@ class RecommendationResult {
       orientationRz: (json['orientation_rz'] as num?)?.toDouble(),
       overhangReductionPct: (json['overhang_reduction_pct'] as num?)?.toDouble(),
       orientationPrintHeightMm: (json['orientation_print_height_mm'] as num?)?.toDouble(),
+      estimatedCost: (json['estimated_cost'] as num?)?.toDouble(),
+      estimatedTimeMinutes: (json['estimated_time_minutes'] as num?)?.toInt(),
+      currency: json['currency'] as String?,
+      pricingVersion: json['pricing_version'] as String?,
+      estimationConfidence: json['estimation_confidence'] as String?,
       userRating: json['user_rating'] as int?,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
