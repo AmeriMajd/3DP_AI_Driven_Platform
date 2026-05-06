@@ -11,7 +11,7 @@ venv/
 
 desktop.ini
 Thumbs.db
-
+.claude/
 .DS_Store
 .vscode/
 

@@ -11,6 +11,7 @@ import '../../domain/alternative_recommendation.dart';
 import '../../domain/recommend_request.dart';
 import '../../domain/recommendation_result.dart';
 import '../providers/recommendation_providers.dart';
+import '../widgets/estimate_card.dart';
 import '../widgets/star_rating_widget.dart';
 import '../../../jobs/presentation/widgets/submit_job_dialog.dart';
 import '../../../upload/presentation/providers/upload_providers.dart';
@@ -52,40 +53,33 @@ class _RecommendationResultScreenState
     super.initState();
     final r = widget.result;
     if (r != null && r.estimatedCost == null && r.estimatedTimeMinutes == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _fetchEstimate(r));
-    }
-  }
-
-  Future<void> _fetchEstimate(RecommendationResult r) async {
-    try {
-      final payload = await ref
-          .read(recommendationRepositoryProvider)
-          .fetchEstimate(r.id);
-      if (!mounted) return;
-      final base = _localResult ?? r;
-      setState(() {
-        _localResult = base.copyWith(
-          estimatedCost: payload.primary.estimatedCost,
-          estimatedTimeMinutes: payload.primary.estimatedTimeMinutes,
-          currency: payload.primary.currency,
-          pricingVersion: payload.primary.pricingVersion,
-          estimationConfidence: payload.primary.estimationConfidence,
-          alternative: (base.alternative != null && payload.alternative != null)
-              ? base.alternative!.copyWith(
-                  estimatedCost: payload.alternative!.estimatedCost,
-                  estimatedTimeMinutes:
-                      payload.alternative!.estimatedTimeMinutes,
-                  currency: payload.alternative!.currency,
-                  pricingVersion: payload.alternative!.pricingVersion,
-                  estimationConfidence:
-                      payload.alternative!.estimationConfidence,
-                )
-              : base.alternative,
-        );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(estimateProvider(r.id).future).then((payload) {
+          if (!mounted) return;
+          final base = _localResult ?? r;
+          setState(() {
+            _localResult = base.copyWith(
+              estimatedCost: payload.primary.estimatedCost,
+              estimatedTimeMinutes: payload.primary.estimatedTimeMinutes,
+              currency: payload.primary.currency,
+              pricingVersion: payload.primary.pricingVersion,
+              estimationConfidence: payload.primary.estimationConfidence,
+              alternative: (base.alternative != null &&
+                      payload.alternative != null)
+                  ? base.alternative!.copyWith(
+                      estimatedCost: payload.alternative!.estimatedCost,
+                      estimatedTimeMinutes:
+                          payload.alternative!.estimatedTimeMinutes,
+                      currency: payload.alternative!.currency,
+                      pricingVersion: payload.alternative!.pricingVersion,
+                      estimationConfidence:
+                          payload.alternative!.estimationConfidence,
+                    )
+                  : base.alternative,
+            );
+          });
+        }).catchError((_) {});
       });
-    } catch (_) {
-      // Estimation is best-effort — failures stay silent so the rest of the
-      // result screen renders normally.
     }
   }
 
@@ -365,7 +359,19 @@ class _RecommendationResultScreenState
 
       // ── B2: Cost & Time Estimate ────────────────────────────────────────
       if (_hasEstimate(r, showAlt)) ...[
-        _buildEstimateCard(r, showAlt),
+        EstimateCard(
+          cost: showAlt ? r.alternative?.estimatedCost : r.estimatedCost,
+          minutes: showAlt
+              ? r.alternative?.estimatedTimeMinutes
+              : r.estimatedTimeMinutes,
+          currency: showAlt ? r.alternative?.currency : r.currency,
+          confidence: showAlt
+              ? r.alternative?.estimationConfidence
+              : r.estimationConfidence,
+          isAlt: showAlt,
+          primaryCost: showAlt ? r.estimatedCost : null,
+          primaryMinutes: showAlt ? r.estimatedTimeMinutes : null,
+        ),
         const SizedBox(height: 14),
       ],
 
@@ -1380,177 +1386,6 @@ class _RecommendationResultScreenState
     return r.estimatedCost != null || r.estimatedTimeMinutes != null;
   }
 
-  String _formatCost(double? value, String? currency) {
-    if (value == null) return '—';
-    return '${value.toStringAsFixed(2)} ${currency ?? 'TND'}';
-  }
-
-  /// Duration-aware formatting — precision drops as duration grows because
-  /// estimate accuracy is ±25%; showing exact minutes on a 14-hour print is
-  /// dishonest.
-  String _formatTime(int? minutes) {
-    if (minutes == null) return '—';
-    if (minutes < 60) return '$minutes min';
-    if (minutes < 600) {
-      final h = minutes ~/ 60;
-      final m = ((minutes % 60) / 5).round() * 5;
-      if (m == 60) return '${h + 1}h';
-      if (m == 0) return '${h}h';
-      return '${h}h ${m}min';
-    }
-    if (minutes < 1440) {
-      return '~${(minutes / 60).round()}h';
-    }
-    final days = minutes ~/ 1440;
-    final remH = ((minutes % 1440) / 60).round();
-    if (remH == 0) return '~${days}d';
-    return '~${days}d ${remH}h';
-  }
-
-  String? _formatCostDelta(double altCost, double primaryCost, String? cur) {
-    final d = altCost - primaryCost;
-    if (d.abs() < 0.01) return null;
-    final sign = d > 0 ? '+' : '−';
-    return '$sign${d.abs().toStringAsFixed(2)} ${cur ?? 'TND'} vs primary';
-  }
-
-  String? _formatTimeDelta(int altMin, int primaryMin) {
-    final d = altMin - primaryMin;
-    if (d == 0) return null;
-    final sign = d > 0 ? '+' : '−';
-    return '$sign${_formatTime(d.abs())} vs primary';
-  }
-
-  Widget _buildEstimateCard(RecommendationResult r, bool showAlt) {
-    final alt = r.alternative;
-    final useAlt = showAlt && alt != null;
-
-    final cost = useAlt ? alt.estimatedCost : r.estimatedCost;
-    final minutes = useAlt ? alt.estimatedTimeMinutes : r.estimatedTimeMinutes;
-    final currency = useAlt ? alt.currency : r.currency;
-    final confidence =
-        (useAlt ? alt.estimationConfidence : r.estimationConfidence) ?? 'high';
-    final isLow = confidence == 'low';
-
-    String? costDelta;
-    String? timeDelta;
-    bool? costDeltaPositive;
-    bool? timeDeltaPositive;
-    if (useAlt &&
-        alt.estimatedCost != null &&
-        r.estimatedCost != null) {
-      costDelta = _formatCostDelta(alt.estimatedCost!, r.estimatedCost!, currency);
-      costDeltaPositive = alt.estimatedCost! > r.estimatedCost!;
-    }
-    if (useAlt &&
-        alt.estimatedTimeMinutes != null &&
-        r.estimatedTimeMinutes != null) {
-      timeDelta = _formatTimeDelta(
-          alt.estimatedTimeMinutes!, r.estimatedTimeMinutes!);
-      timeDeltaPositive = alt.estimatedTimeMinutes! > r.estimatedTimeMinutes!;
-    }
-
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 15),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                const Text(
-                  'Estimated Cost & Time',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF6B6B77),
-                    letterSpacing: 0.10,
-                  ),
-                ),
-                if (isLow) ...[
-                  const SizedBox(width: 6),
-                  const Icon(Icons.warning_amber_rounded,
-                      size: 14, color: Color(0xFFA05C00)),
-                ],
-                const Spacer(),
-                if (useAlt)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEAF0FE),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      'ALT',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E45C4),
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: _EstimateValueTile(
-                      icon: Icons.attach_money_rounded,
-                      iconBg: const Color(0xFFE8F5EE),
-                      iconColor: const Color(0xFF0F7A45),
-                      accentColor: const Color(0xFF16A35C),
-                      value: _formatCost(cost, currency),
-                      label: 'TOTAL COST',
-                      deltaText: costDelta,
-                      deltaPositive: costDeltaPositive,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _EstimateValueTile(
-                      icon: Icons.schedule_rounded,
-                      iconBg: const Color(0xFFECF0FD),
-                      iconColor: const Color(0xFF3451D1),
-                      accentColor: const Color(0xFF3451D1),
-                      value: _formatTime(minutes),
-                      label: 'PRINT TIME',
-                      deltaText: timeDelta,
-                      deltaPositive: timeDeltaPositive,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(
-                height: 28, thickness: 1, color: Color(0x0E000000)),
-            Text(
-              isLow
-                  ? 'Rough estimate — accuracy reduced for this part.'
-                  : 'Approximate — ±25% vs slicer output.',
-              style: TextStyle(
-                fontSize: 11.5,
-                color: isLow
-                    ? const Color(0xFFA05C00)
-                    : const Color(0xFFA8A8B3),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // Section C — Performance Scores
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2541,125 +2376,4 @@ class _ArcPainter extends CustomPainter {
   @override
   bool shouldRepaint(_ArcPainter old) =>
       old.progress != progress || old.color != color;
-}
-
-// ── Estimate value tile + delta pill ─────────────────────────────────────────
-
-class _EstimateValueTile extends StatelessWidget {
-  final IconData icon;
-  final Color iconBg;
-  final Color iconColor;
-  final Color accentColor;
-  final String value;
-  final String label;
-  final String? deltaText;
-  final bool? deltaPositive;
-
-  const _EstimateValueTile({
-    required this.icon,
-    required this.iconBg,
-    required this.iconColor,
-    required this.accentColor,
-    required this.value,
-    required this.label,
-    this.deltaText,
-    this.deltaPositive,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF7F8FA),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          padding: const EdgeInsets.fromLTRB(14, 15, 14, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, size: 18, color: iconColor),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF0C0C10),
-                  letterSpacing: -0.4,
-                ),
-              ),
-              if (deltaText != null && deltaPositive != null)
-                _DeltaPill(text: deltaText!, positive: deltaPositive!),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFFA8A8B3),
-                  letterSpacing: 0.08,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Positioned(
-          top: 0,
-          left: 14,
-          right: 14,
-          child: Container(
-            height: 2,
-            decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: 0.5),
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(2),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DeltaPill extends StatelessWidget {
-  final String text;
-  final bool positive; // true = higher than primary → red
-
-  const _DeltaPill({required this.text, required this.positive});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = positive ? const Color(0xFFC1320C) : const Color(0xFF0F7A45);
-    final bg = positive ? const Color(0xFFFEF0EC) : const Color(0xFFE8F5EE);
-    return Container(
-      margin: const EdgeInsets.only(top: 5),
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 10.5,
-          fontWeight: FontWeight.w600,
-          color: color,
-          letterSpacing: 0.05,
-        ),
-      ),
-    );
-  }
 }
