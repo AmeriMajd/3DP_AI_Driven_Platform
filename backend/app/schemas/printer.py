@@ -31,6 +31,7 @@ class PrinterBase(BaseModel):
     build_volume_z: Optional[float] = None
     connector_type: ConnectorType = "mock"
     connection_url: Optional[str] = None
+    username: Optional[str] = None
     materials_supported: Optional[list[str]] = None
 
 
@@ -51,6 +52,7 @@ class PrinterUpdate(BaseModel):
     build_volume_z: Optional[float] = None
     connector_type: Optional[ConnectorType] = None
     connection_url: Optional[str] = None
+    username: Optional[str] = None
     materials_supported: Optional[list[str]] = None
     status: Optional[PrinterStatusValue] = None
     # Plaintext — re-encrypted by the service if provided

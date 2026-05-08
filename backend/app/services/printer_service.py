@@ -1,8 +1,11 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.connectors.base import PrinterStatus as ConnectorStatus
+from app.connectors.factory import get_connector
 from app.core.crypto import decrypt_api_key, encrypt_api_key
 from app.models.printer import Printer
 from app.schemas.printer import PrinterCreate, PrinterUpdate
@@ -73,3 +76,22 @@ def get_decrypted_api_key(printer: Printer) -> str | None:
     if not printer.api_key_encrypted:
         return None
     return decrypt_api_key(printer.api_key_encrypted)
+
+
+async def refresh_printer_status(db: Session, printer: Printer) -> ConnectorStatus:
+    """Call the printer's connector, persist the result, return the DTO."""
+    api_key = get_decrypted_api_key(printer)
+    connector = get_connector(printer, decrypted_api_key=api_key)
+    status_dto = await connector.get_status()
+
+    printer.status = status_dto.state.value
+    printer.last_seen_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(printer)
+    return status_dto
+
+
+async def test_printer_connection(printer: Printer) -> bool:
+    api_key = get_decrypted_api_key(printer)
+    connector = get_connector(printer, decrypted_api_key=api_key)
+    return await connector.test_connection()

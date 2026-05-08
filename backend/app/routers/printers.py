@@ -98,19 +98,20 @@ def delete_printer(
     "/{printer_id}/status",
     response_model=PrinterStatus,
     status_code=status.HTTP_200_OK,
-    summary="Get printer status (stub)",
+    summary="Get live printer status",
 )
-def get_printer_status(printer_id: UUID, db: Session = Depends(get_db)):
+async def get_printer_status(printer_id: UUID, db: Session = Depends(get_db)):
     printer = printer_service.get_printer(db, printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="Printer not found")
+    connector_status = await printer_service.refresh_printer_status(db, printer)
     return PrinterStatus(
         printer_id=printer.id,
-        status=printer.status,
+        status=connector_status.state.value,
         current_job_id=None,
-        progress_pct=None,
-        temperature_nozzle=None,
-        temperature_bed=None,
+        progress_pct=connector_status.progress,
+        temperature_nozzle=connector_status.nozzle_temp_actual,
+        temperature_bed=connector_status.bed_temp_actual,
         last_seen_at=printer.last_seen_at,
     )
 
@@ -119,9 +120,9 @@ def get_printer_status(printer_id: UUID, db: Session = Depends(get_db)):
     "/{printer_id}/test",
     response_model=PrinterTestResult,
     status_code=status.HTTP_200_OK,
-    summary="Test printer connection (stub, admin only)",
+    summary="Test printer connection (admin only)",
 )
-def test_printer_connection(
+async def test_printer_connection(
     printer_id: UUID,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_role("admin")),
@@ -129,8 +130,9 @@ def test_printer_connection(
     printer = printer_service.get_printer(db, printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="Printer not found")
+    ok = await printer_service.test_printer_connection(printer)
     return PrinterTestResult(
         printer_id=printer.id,
-        ok=True,
-        message="Mock OK",
+        ok=ok,
+        message="Connection successful" if ok else "Connection failed",
     )

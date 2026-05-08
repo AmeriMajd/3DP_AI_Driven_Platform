@@ -13,6 +13,7 @@ Materials use the canonical vocabulary from the recommender:
 
 import os
 
+from app.core.crypto import encrypt_api_key
 from app.core.database import SessionLocal
 from app.models.printer import Printer
 
@@ -59,7 +60,8 @@ SEED_PRINTERS = [
         "build_volume_y": 220.0,
         "build_volume_z": 250.0,
         "connector_type": "octoprint",
-        "connection_url": os.environ.get("OCTOPRINT_DEMO_URL"),
+        "connection_url": os.environ.get("OCTOPRINT_DEMO_URL", "http://localhost:5000"),
+        "api_key": os.environ.get("OCTOPRINT_DEV_API_KEY"),
         "status": "offline",
         "materials_supported": ["PLA", "PETG"],
     },
@@ -76,7 +78,10 @@ def seed() -> None:
             if existing is not None:
                 skipped += 1
                 continue
+            api_key_raw = spec.pop("api_key", None)
             printer = Printer(**spec)
+            if api_key_raw:
+                printer.api_key_encrypted = encrypt_api_key(api_key_raw)
             db.add(printer)
             created += 1
         db.commit()

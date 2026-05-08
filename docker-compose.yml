@@ -37,7 +37,17 @@ services:
       - stl_uploads:/app/uploads/stl
       - glb_uploads:/app/uploads/glb
 
+  octoprint:
+    image: octoprint/octoprint:latest
+    container_name: 3dp_octoprint
+    ports:
+      - "5000:80"
+    volumes:
+      - octoprint_data:/octoprint
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   stl_uploads:
   glb_uploads:
+  octoprint_data:

@@ -117,6 +117,24 @@ def _sync_recommendations_schema() -> None:
 _sync_recommendations_schema()
 
 
+def _sync_printers_schema() -> None:
+    statements = [
+        "ALTER TABLE printers ADD COLUMN IF NOT EXISTS username VARCHAR",
+    ]
+    try:
+        with engine.begin() as connection:
+            for statement in statements:
+                try:
+                    connection.execute(text(statement))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
+_sync_printers_schema()
+
+
 app = FastAPI(
     title="3DP Intelligence Platform",
     version="1.0.0",

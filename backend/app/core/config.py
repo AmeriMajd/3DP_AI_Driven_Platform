@@ -10,11 +10,13 @@ class Settings(BaseSettings):
     ADMIN_SIGNUP_KEY: str
     PRINTER_ENCRYPTION_KEY: str
 
+    OCTOPRINT_DEV_API_KEY: str = ""
+
     SMTP_HOST: str = "sandbox.smtp.mailtrap.io"
     SMTP_PORT: int = 2525
     SMTP_USER: str = ""
     SMTP_PASS: str = ""
-    SMTP_FROM: str = "noreply@3dp.com"
+    EMAIL_FROM: str = "noreply@3dp.com"
     APP_BASE_URL: str = "http://localhost:3000"
 
     class Config:
