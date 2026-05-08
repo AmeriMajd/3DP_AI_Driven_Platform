@@ -167,6 +167,7 @@ def start_scheduled_job(db: Session, job_id) -> PrintJob:
             detail=f"Cannot start job in status '{job.status}'",
         )
 
+    # TODO(slicing-sprint): wire submit_job here once slicing service exists
     job.status = "printing"
     job.started_at = datetime.now(timezone.utc)
     db.commit()
