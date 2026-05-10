@@ -37,6 +37,7 @@ class JobCreate(BaseModel):
     recommendation_id: UUID
     priority: int = Field(default=3, ge=1, le=5)
     parameters_override: Optional[dict[str, Any]] = None
+    auto_slice: bool = True
 
 
 # ---------- Read (response model) ----------

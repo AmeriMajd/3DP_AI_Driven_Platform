@@ -60,10 +60,10 @@ class JobRepositoryImpl implements JobRepository {
   @override
   Future<List<Job>> getAllJobs({String? status, String? printerId}) async {
     try {
-      final response = await _dio.get('/jobs', queryParameters: {
-        'status': status,
-        'printer_id': printerId,
-      });
+      final params = <String, dynamic>{};
+      if (status != null) params['status'] = status;
+      if (printerId != null) params['printer_id'] = printerId;
+      final response = await _dio.get('/jobs', queryParameters: params);
       final list = response.data as List<dynamic>;
       return list.map((j) => Job.fromJson(j as Map<String, dynamic>)).toList();
     } on DioException catch (e) {
