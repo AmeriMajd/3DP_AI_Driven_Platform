@@ -92,3 +92,5 @@ class PrintJob(Base):
 
     error_message = Column(String, nullable=True)
     remote_job_id = Column(String, nullable=True)
+    time_left_seconds = Column(Integer, nullable=True)
+    last_polled_at = Column(DateTime(timezone=True), nullable=True)

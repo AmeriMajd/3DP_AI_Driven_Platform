@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     IN_APP_SLICING_ENABLED: bool = True
     SLICING_RUNNING_RECOVERY_SECONDS: int = 1800  # 30 min: orphan running rows reset on api startup
 
+    STATUS_POLL_INTERVAL_SECONDS: int = 30
+    STATUS_POLL_STALE_SECONDS: int = 300  # 5 min: watchdog marks failed if no successful poll
+    STATUS_POLL_COMPLETION_THRESHOLD: float = 0.99
+    STATUS_POLL_ENABLED: bool = True
+
     class Config:
         env_file = ".env"
 

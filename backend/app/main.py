@@ -140,6 +140,8 @@ _sync_printers_schema()
 def _sync_print_jobs_schema() -> None:
     statements = [
         "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS remote_job_id VARCHAR",
+        "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS time_left_seconds INTEGER",
+        "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS last_polled_at TIMESTAMP WITH TIME ZONE",
     ]
     try:
         with engine.begin() as connection:

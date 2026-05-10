@@ -265,6 +265,9 @@ class _HeroCard extends StatelessWidget {
   });
 
   int get _remaining {
+    if (job.timeLeftSeconds != null) {
+      return job.timeLeftSeconds!.clamp(0, 1 << 30);
+    }
     if (job.estimatedDurationS == null) return 0;
     final elapsed = job.startedAt != null
         ? DateTime.now().difference(job.startedAt!).inSeconds

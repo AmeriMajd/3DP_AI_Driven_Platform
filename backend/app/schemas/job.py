@@ -66,5 +66,6 @@ class JobRead(BaseModel):
     ended_at: Optional[datetime] = None
 
     error_message: Optional[str] = None
+    time_left_seconds: Optional[int] = None
 
     model_config = {"from_attributes": True}
