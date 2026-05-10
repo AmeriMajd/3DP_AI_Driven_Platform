@@ -148,15 +148,28 @@ def assign_pending_jobs(db: Session) -> list[PrintJob]:
         for job in newly_scheduled:
             db.refresh(job)
 
+    # Gap 2: any newly scheduled job whose slice is already done should be
+    # dispatched immediately. Slow-path jobs (slice not yet done) will be
+    # dispatched from inside slicing_service.run_slice when slicing finishes.
+    if newly_scheduled:
+        from app.services import dispatch_service
+        for job in newly_scheduled:
+            try:
+                dispatch_service.dispatch_to_printer(db, job.id)
+            except Exception:  # pragma: no cover
+                # Logged in dispatch_service; do not unwind the scheduler.
+                pass
+
     return newly_scheduled
 
 
 def start_scheduled_job(db: Session, job_id) -> PrintJob:
-    """Stub for Sprint 8 connector integration.
+    """Manual trigger to dispatch a scheduled job to its printer.
 
-    Flips status scheduled → printing and stamps started_at. The real
-    connector upload (OctoPrint/PrusaLink) lands in Sprint 8.
+    Wraps dispatch_service.dispatch_to_printer.
     """
+    from app.services import dispatch_service
+
     job = db.query(PrintJob).filter(PrintJob.id == job_id).first()
     if job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
@@ -167,10 +180,7 @@ def start_scheduled_job(db: Session, job_id) -> PrintJob:
             detail=f"Cannot start job in status '{job.status}'",
         )
 
-    # TODO(slicing-sprint): wire submit_job here once slicing service exists
-    job.status = "printing"
-    job.started_at = datetime.now(timezone.utc)
-    db.commit()
+    dispatch_service.dispatch_to_printer(db, job.id)
     db.refresh(job)
     return job
 

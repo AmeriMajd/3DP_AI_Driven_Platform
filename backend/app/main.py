@@ -137,6 +137,24 @@ def _sync_printers_schema() -> None:
 _sync_printers_schema()
 
 
+def _sync_print_jobs_schema() -> None:
+    statements = [
+        "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS remote_job_id VARCHAR",
+    ]
+    try:
+        with engine.begin() as connection:
+            for statement in statements:
+                try:
+                    connection.execute(text(statement))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
+_sync_print_jobs_schema()
+
+
 app = FastAPI(
     title="3DP Intelligence Platform",
     version="1.0.0",

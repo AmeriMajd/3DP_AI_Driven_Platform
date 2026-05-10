@@ -164,6 +164,15 @@ def run_slice(db: Session, slicing_job_id: UUID, *, worker_id: str) -> None:
             size,
             gcode_path,
         )
+
+        # Gap 2: hand off to printer if scheduling already matched one.
+        try:
+            from app.services import dispatch_service
+            dispatch_service.dispatch_to_printer(db, sj.print_job_id)
+        except Exception:
+            logger.exception(
+                "run_slice: dispatch failed for PrintJob %s", sj.print_job_id
+            )
     except Exception as exc:
         try:
             db.rollback()

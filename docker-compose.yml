@@ -65,7 +65,7 @@ services:
       # Reuse api secrets so model imports (Fernet etc.) don't blow up.
       SECRET_KEY: oVOyHvJuPbUTopgqBfrKdAnHGkSo87P6cjviDkX96gYg8xbtYLqPVbySx9zPPM13
       ADMIN_SIGNUP_KEY: 3dp-admin-secret-2026
-      PRINTER_ENCRYPTION_KEY: ${PRINTER_ENCRYPTION_KEY:-}
+      # PRINTER_ENCRYPTION_KEY is read from /app/.env (mounted from backend/.env).
     depends_on:
       - db
       - redis

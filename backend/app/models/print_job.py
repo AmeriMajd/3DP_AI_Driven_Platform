@@ -91,3 +91,4 @@ class PrintJob(Base):
     ended_at = Column(DateTime(timezone=True), nullable=True)
 
     error_message = Column(String, nullable=True)
+    remote_job_id = Column(String, nullable=True)
