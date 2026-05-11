@@ -1,7 +1,8 @@
+import hashlib
 import secrets
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
 
 from app.core.database import get_db
 from app.core.security import hash_password
@@ -18,6 +19,14 @@ from app.schemas.password_reset import (
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 @router.get("/reset-password/validate", response_model=ValidateResetTokenResponse, status_code=200)
 def validate_reset_token(token: str, db: Session = Depends(get_db)):
 
@@ -26,14 +35,15 @@ def validate_reset_token(token: str, db: Session = Depends(get_db)):
         detail="Invalid or expired reset token"
     )
 
+    token_hash = _hash_token(token)
     reset_token = db.query(PasswordResetToken).filter(
-        PasswordResetToken.token == token
+        PasswordResetToken.token == token_hash
     ).first()
 
     if not reset_token:
         raise invalid_token_error
 
-    if reset_token.expires_at < datetime.utcnow():
+    if reset_token.expires_at < _utcnow():
         raise invalid_token_error
 
     if reset_token.used:
@@ -58,22 +68,38 @@ def forgot_password(data: ForgotPasswordSchema, db: Session = Depends(get_db)):
     if not user:
         return ForgotPasswordResponse()
 
-    token = secrets.token_urlsafe(32)
-    expires_at = datetime.utcnow() + timedelta(hours=1)
+    # Rate limit: one request per minute
+    recent = db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == user.id,
+        PasswordResetToken.created_at > _utcnow() - timedelta(minutes=1)
+    ).first()
+    if recent:
+        return ForgotPasswordResponse()
+
+    # Invalidate all previous unused tokens for this user
+    db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == user.id,
+        PasswordResetToken.used == False  # noqa: E712
+    ).delete()
+
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = _hash_token(raw_token)
+    expires_at = _utcnow() + timedelta(hours=1)
 
     reset_token = PasswordResetToken(
         user_id=user.id,
-        token=token,
+        token=token_hash,
         expires_at=expires_at
     )
     db.add(reset_token)
+    db.flush()
+
+    sent = send_password_reset_email(to_email=user.email, reset_token=raw_token)
+    if not sent:
+        db.rollback()
+        return ForgotPasswordResponse()
+
     db.commit()
-
-    send_password_reset_email(
-        to_email=user.email,
-        reset_token=token
-    )
-
     return ForgotPasswordResponse()
 
 
@@ -85,27 +111,26 @@ def reset_password(data: ResetPasswordSchema, db: Session = Depends(get_db)):
         detail="Invalid or expired reset token"
     )
 
+    token_hash = _hash_token(data.token)
     reset_token = db.query(PasswordResetToken).filter(
-        PasswordResetToken.token == data.token
+        PasswordResetToken.token == token_hash
     ).first()
 
     if not reset_token:
         raise invalid_token_error
 
-    if reset_token.expires_at < datetime.utcnow():
+    if reset_token.expires_at < _utcnow():
         raise invalid_token_error
 
     if reset_token.used:
         raise invalid_token_error
-
-    new_hashed_password = hash_password(data.new_password)
 
     user = db.query(User).filter(User.id == reset_token.user_id).first()
 
     if not user:
         raise invalid_token_error
 
-    user.password = new_hashed_password
+    user.password = hash_password(data.new_password)
     db.flush()
 
     reset_token.used = True
@@ -116,5 +141,4 @@ def reset_password(data: ResetPasswordSchema, db: Session = Depends(get_db)):
     ).delete()
 
     db.commit()
-
     return ResetPasswordResponse()

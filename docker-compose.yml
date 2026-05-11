@@ -11,7 +11,14 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    #FastAPI container
+
+  redis:
+    image: redis:7-alpine
+    container_name: 3dp_redis
+    ports:
+      - "6379:6379"
+
+  #FastAPI container
   api:
     build:
       context: ./backend
@@ -28,16 +35,57 @@ services:
       SMTP_PORT: 2525
       SMTP_USER: caa5e8eb5ef7db
       SMTP_PASS: df87d599c000b0
-      SMTP_FROM: noreply@3dp.com
+      EMAIL_FROM: noreply@3dp.com
       APP_BASE_URL: http://localhost:3000
+      REDIS_URL: redis://redis:6379/0
+      GCODE_UPLOAD_DIR: /app/uploads/gcode
+      SLICER_TIMEOUT_SECONDS: 600
+      IN_APP_SLICING_ENABLED: "true"
     depends_on:
       - db
+      - redis
     volumes:
       - ./backend:/app
       - stl_uploads:/app/uploads/stl
       - glb_uploads:/app/uploads/glb
+      - gcode_uploads:/app/uploads/gcode
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: worker.Dockerfile
+    container_name: 3dp_worker
+    environment:
+      DATABASE_URL: postgresql://threedp_user:3dpplatform@db:5432/threedp_db
+      REDIS_URL: redis://redis:6379/0
+      SLICER_PRUSA_PATH: /usr/bin/prusa-slicer
+      GCODE_UPLOAD_DIR: /app/uploads/gcode
+      SLICER_TIMEOUT_SECONDS: 600
+      SLICING_WORKER_CONCURRENCY: 2
+      # Reuse api secrets so model imports (Fernet etc.) don't blow up.
+      SECRET_KEY: oVOyHvJuPbUTopgqBfrKdAnHGkSo87P6cjviDkX96gYg8xbtYLqPVbySx9zPPM13
+      ADMIN_SIGNUP_KEY: 3dp-admin-secret-2026
+      # PRINTER_ENCRYPTION_KEY is read from /app/.env (mounted from backend/.env).
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./backend:/app
+      - stl_uploads:/app/uploads/stl
+      - gcode_uploads:/app/uploads/gcode
+
+  octoprint:
+    image: octoprint/octoprint:latest
+    container_name: 3dp_octoprint
+    ports:
+      - "5000:80"
+    volumes:
+      - octoprint_data:/octoprint
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   stl_uploads:
   glb_uploads:
+  gcode_uploads:
+  octoprint_data:

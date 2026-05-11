@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import '../../../shared/services/dio_client.dart';
+import '../domain/estimate_payload.dart';
 import '../domain/recommend_request.dart';
 import '../domain/recommendation_result.dart';
 import '../domain/recommendation_repository.dart';
@@ -67,6 +68,21 @@ class RecommendationRepositoryImpl implements RecommendationRepository {
         options: Options(responseType: ResponseType.bytes),
       );
       return Uint8List.fromList(response.data as List<int>);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  /// POST /estimate — compute cost/time estimate for a recommendation
+  @override
+  Future<EstimatePayload> fetchEstimate(String recommendationId) async {
+    try {
+      final response = await _dio.post(
+        '/estimate',
+        data: {'recommendation_id': recommendationId},
+      );
+      return EstimatePayload.fromJson(
+          response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }

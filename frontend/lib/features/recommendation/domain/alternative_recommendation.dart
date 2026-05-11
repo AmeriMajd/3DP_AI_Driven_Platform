@@ -11,6 +11,11 @@ class AlternativeRecommendation {
   final int costScore;
   final int qualityScore;
   final int speedScore;
+  final double? estimatedCost;
+  final int? estimatedTimeMinutes;
+  final String? currency;
+  final String? pricingVersion;
+  final String? estimationConfidence;
 
   const AlternativeRecommendation({
     required this.technology,
@@ -25,7 +30,40 @@ class AlternativeRecommendation {
     required this.costScore,
     required this.qualityScore,
     required this.speedScore,
+    this.estimatedCost,
+    this.estimatedTimeMinutes,
+    this.currency,
+    this.pricingVersion,
+    this.estimationConfidence,
   });
+
+  AlternativeRecommendation copyWith({
+    double? estimatedCost,
+    int? estimatedTimeMinutes,
+    String? currency,
+    String? pricingVersion,
+    String? estimationConfidence,
+  }) {
+    return AlternativeRecommendation(
+      technology: technology,
+      material: material,
+      layerHeight: layerHeight,
+      infillDensity: infillDensity,
+      printSpeed: printSpeed,
+      wallCount: wallCount,
+      coolingFan: coolingFan,
+      supportDensity: supportDensity,
+      confidence: confidence,
+      costScore: costScore,
+      qualityScore: qualityScore,
+      speedScore: speedScore,
+      estimatedCost: estimatedCost ?? this.estimatedCost,
+      estimatedTimeMinutes: estimatedTimeMinutes ?? this.estimatedTimeMinutes,
+      currency: currency ?? this.currency,
+      pricingVersion: pricingVersion ?? this.pricingVersion,
+      estimationConfidence: estimationConfidence ?? this.estimationConfidence,
+    );
+  }
 
   factory AlternativeRecommendation.fromJson(Map<String, dynamic> json) {
     return AlternativeRecommendation(
@@ -41,6 +79,11 @@ class AlternativeRecommendation {
       costScore: (json['cost_score'] as num).toInt(),
       qualityScore: (json['quality_score'] as num).toInt(),
       speedScore: (json['speed_score'] as num).toInt(),
+      estimatedCost: (json['estimated_cost'] as num?)?.toDouble(),
+      estimatedTimeMinutes: (json['estimated_time_minutes'] as num?)?.toInt(),
+      currency: json['currency'] as String?,
+      pricingVersion: json['pricing_version'] as String?,
+      estimationConfidence: json['estimation_confidence'] as String?,
     );
   }
 
@@ -57,5 +100,10 @@ class AlternativeRecommendation {
         'cost_score': costScore,
         'quality_score': qualityScore,
         'speed_score': speedScore,
+        'estimated_cost': estimatedCost,
+        'estimated_time_minutes': estimatedTimeMinutes,
+        'currency': currency,
+        'pricing_version': pricingVersion,
+        'estimation_confidence': estimationConfidence,
       };
 }

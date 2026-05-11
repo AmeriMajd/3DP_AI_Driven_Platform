@@ -11,10 +11,13 @@ venv/
 
 desktop.ini
 Thumbs.db
-
+.claude/
 .DS_Store
 .vscode/
 
 docs/
 # ML model binaries — download separately
 backend/models_ml/*.joblib
+CLAUDE.md
+.codegraph
+.mcp

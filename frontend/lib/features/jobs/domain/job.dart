@@ -16,6 +16,7 @@ class Job {
   final DateTime? startedAt;
   final DateTime? endedAt;
   final String? errorMessage;
+  final int? timeLeftSeconds;
 
   const Job({
     required this.id,
@@ -35,6 +36,7 @@ class Job {
     this.startedAt,
     this.endedAt,
     this.errorMessage,
+    this.timeLeftSeconds,
   });
 
   Job copyWith({
@@ -48,6 +50,7 @@ class Job {
     int? estimatedDurationS,
     int? actualDurationS,
     double? estimatedCost,
+    int? timeLeftSeconds,
   }) {
     return Job(
       id: id,
@@ -67,6 +70,7 @@ class Job {
       startedAt: startedAt ?? this.startedAt,
       endedAt: endedAt ?? this.endedAt,
       errorMessage: errorMessage ?? this.errorMessage,
+      timeLeftSeconds: timeLeftSeconds ?? this.timeLeftSeconds,
     );
   }
 
@@ -95,6 +99,7 @@ class Job {
           ? DateTime.parse(json['ended_at'] as String)
           : null,
       errorMessage: json['error_message'] as String?,
+      timeLeftSeconds: (json['time_left_seconds'] as num?)?.toInt(),
     );
   }
 

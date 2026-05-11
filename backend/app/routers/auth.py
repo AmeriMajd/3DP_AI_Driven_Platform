@@ -107,11 +107,9 @@ def register(data: RegisterSchema, db: Session = Depends(get_db)):
         role=invitation.role       # from invitation, not request
     )
     db.add(new_user)
-    db.commit()
+    invitation.used = True  # type: ignore
+    db.commit()             # single commit — both changes are atomic
     db.refresh(new_user)
-
-    invitation.used = True # type: ignore
-    db.commit()
 
     return new_user
 

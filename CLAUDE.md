@@ -81,7 +81,7 @@ Key service responsibilities:
 - `slicer_export_service.py` — Cura `.inst.cfg` and PrusaSlicer `.ini` profile generation
 - `printer_service.py` — printer fleet CRUD
 
-**Auth**: JWT access + refresh token rotation. Roles: `admin` / `operator`. Invitation-based user registration.
+**Auth**: JWT access + refresh token rotation. Roles: `admin` / `operator`. Single-admin model: one admin bootstrapped via `ADMIN_SIGNUP_KEY`, who then invites operators only.
 
 ### Frontend — Clean Architecture + MVVM (Riverpod)
 
@@ -158,8 +158,8 @@ Docker Compose starts PostgreSQL 15 (`threedp_db`) and the FastAPI container tog
 All 11 endpoints are production-ready. Logic is embedded in routers (no dedicated service layer).
 
 **What's implemented:**
-- Admin self-signup guarded by `ADMIN_SIGNUP_KEY`
-- Invitation-based operator registration: admin calls `POST /admin/invitations` → token emailed → user registers at `POST /auth/register?token=...`
+- Admin self-signup guarded by `ADMIN_SIGNUP_KEY` — only one admin can exist (enforced at signup)
+- Operator-only invitation flow: admin calls `POST /admin/invitations` → token emailed → user registers at `POST /auth/register?token=...` with role hardcoded to `operator`
 - JWT login with access + refresh token rotation; refresh tokens persisted in DB and revoked on logout or password reset
 - Full password reset flow: forgot-password email → validate token → reset
 - Role enforcement via `require_role()` FastAPI dependency (`admin` / `operator`)

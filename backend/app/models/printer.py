@@ -46,6 +46,8 @@ class Printer(Base):
 
     # Encrypted via Fernet — never exposed in any response schema
     api_key_encrypted = Column(LargeBinary, nullable=True)
+    # PrusaLink uses HTTP Digest: username + api_key
+    username = Column(String, nullable=True)
 
     status = Column(
         Enum(

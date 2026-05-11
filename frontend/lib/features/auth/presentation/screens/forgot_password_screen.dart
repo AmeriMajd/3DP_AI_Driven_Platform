@@ -271,7 +271,7 @@ class _ForgotPasswordScreenState
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'The link expires in 15 minutes. Check your spam folder if you don\'t see it.',
+                  'The link expires in 1 hour. Check your spam folder if you don\'t see it.',
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,

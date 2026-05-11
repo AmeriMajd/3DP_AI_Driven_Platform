@@ -26,6 +26,11 @@ try:
 except ImportError:
     XGBClassifier = None  # type: ignore
 
+try:
+    from catboost import CatBoostClassifier
+except ImportError:
+    CatBoostClassifier = None  # type: ignore
+
 _CLASSIFICATION_STAGES = {"stage1_tech", "stage2_fdm", "stage2_sla"}
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
@@ -38,6 +43,8 @@ def _build_clf(family: str, params: dict):
         return LGBMClassifier(**params, class_weight="balanced", verbose=-1)
     if family == "xgboost":
         return XGBClassifier(**params, eval_metric="mlogloss", verbosity=0)
+    if family == "catboost":
+        return CatBoostClassifier(**params, verbose=0, auto_class_weights="Balanced")
     raise ValueError(f"Unknown classifier family: {family}")
 
 
@@ -115,7 +122,9 @@ def tune_stage(
     direction = "maximize" if is_clf else "minimize"
     sampler = optuna.samplers.TPESampler(seed=seed)
     study = optuna.create_study(direction=direction, sampler=sampler)
-    study.optimize(objective, n_trials=n_trials, timeout=600)
+    study.optimize(objective, n_trials=n_trials)
+
+    trials_df = study.trials_dataframe(attrs=("number", "value", "params", "state"))
 
     return {
         "stage": stage_name,
@@ -123,4 +132,5 @@ def tune_stage(
         "best_params": study.best_params,
         "best_value": float(study.best_value),
         "n_trials": len(study.trials),
+        "trials_df": trials_df,
     }

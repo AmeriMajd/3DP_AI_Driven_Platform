@@ -12,3 +12,8 @@ final authViewModelProvider =
     StateNotifierProvider<AuthViewModel, AuthState>((ref) {
   return AuthViewModel(ref.read(authRepositoryProvider));
 });
+
+final invitationsProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  return ref.read(authRepositoryProvider).getInvitations();
+});

@@ -7,6 +7,7 @@ import '../../../../core/router/app_routes.dart';
 import '../../domain/stl_file.dart';
 import '../../domain/orientation_result.dart';
 import '../providers/upload_providers.dart';
+import '../viewmodels/upload_viewmodel.dart';
 import '../widgets/model_3d_viewer.dart';
 import '../widgets/geometry_details_card.dart';
 import '../widgets/model_status_banner.dart';
@@ -23,35 +24,30 @@ class FileDetailScreen extends ConsumerStatefulWidget {
 class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  late final UploadViewModel _uploadNotifier;
 
-  // 0-indexed slot of the orientation the user tapped in the Orientation tab.
-  // Converted to a 1-indexed rank when passed to Model3DViewer.
   int? _selectedOrientationIndex;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _uploadNotifier = ref.read(uploadViewModelProvider.notifier);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final files = ref.read(uploadViewModelProvider).files;
       final file = _findFile(files);
       if (file == null) return;
 
       if (!file.isReady && !file.isError) {
-        // Fichier encore en cours de traitement — lancer le polling.
-        // orientationsProvider se rechargera automatiquement quand
-        // uploadViewModelProvider mettra status à 'ready'.
-        ref.read(uploadViewModelProvider.notifier).startPolling(widget.fileId);
+        _uploadNotifier.startPolling(widget.fileId);
       }
-      // Si déjà ready : orientationsProvider(fileId) se déclenche
-      // automatiquement au premier watch dans le build.
     });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    ref.read(uploadViewModelProvider.notifier).stopPolling();
+    Future.microtask(_uploadNotifier.stopPolling);
     super.dispose();
   }
 

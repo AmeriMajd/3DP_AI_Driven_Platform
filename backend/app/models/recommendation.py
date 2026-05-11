@@ -61,6 +61,16 @@ class Recommendation(Base):
     # extracted from stl_file.best_orientation_{rank} at recommendation creation time
     selected_orientation_json = Column(JSON, nullable=True)
 
+    # ── Cost & time estimation ────────────────────────────────────────────────
+    estimated_cost            = Column(Float,    nullable=True)
+    estimated_time_minutes    = Column(Integer,  nullable=True)
+    currency                  = Column(String(8), nullable=True, default="TND")
+    pricing_version           = Column(String(32), nullable=True)
+    estimation_confidence     = Column(String(8),  nullable=True)  # "high" | "low"
+    # Forward-compatible (no UI yet — populated later for ML training data).
+    actual_print_time_minutes = Column(Integer,  nullable=True)
+    actual_material_grams     = Column(Float,    nullable=True)
+
     # ── User feedback ─────────────────────────────────────────────────────────
     user_rating = Column(Integer, nullable=True)           # 1–5
 

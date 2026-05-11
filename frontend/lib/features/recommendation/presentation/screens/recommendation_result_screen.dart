@@ -11,6 +11,7 @@ import '../../domain/alternative_recommendation.dart';
 import '../../domain/recommend_request.dart';
 import '../../domain/recommendation_result.dart';
 import '../providers/recommendation_providers.dart';
+import '../widgets/estimate_card.dart';
 import '../widgets/star_rating_widget.dart';
 import '../../../jobs/presentation/widgets/submit_job_dialog.dart';
 import '../../../upload/presentation/providers/upload_providers.dart';
@@ -46,6 +47,41 @@ class _RecommendationResultScreenState
   bool _isExporting = false;
 
   RecommendationResult? get _r => _localResult ?? widget.result;
+
+  @override
+  void initState() {
+    super.initState();
+    final r = widget.result;
+    if (r != null && r.estimatedCost == null && r.estimatedTimeMinutes == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(estimateProvider(r.id).future).then((payload) {
+          if (!mounted) return;
+          final base = _localResult ?? r;
+          setState(() {
+            _localResult = base.copyWith(
+              estimatedCost: payload.primary.estimatedCost,
+              estimatedTimeMinutes: payload.primary.estimatedTimeMinutes,
+              currency: payload.primary.currency,
+              pricingVersion: payload.primary.pricingVersion,
+              estimationConfidence: payload.primary.estimationConfidence,
+              alternative: (base.alternative != null &&
+                      payload.alternative != null)
+                  ? base.alternative!.copyWith(
+                      estimatedCost: payload.alternative!.estimatedCost,
+                      estimatedTimeMinutes:
+                          payload.alternative!.estimatedTimeMinutes,
+                      currency: payload.alternative!.currency,
+                      pricingVersion: payload.alternative!.pricingVersion,
+                      estimationConfidence:
+                          payload.alternative!.estimationConfidence,
+                    )
+                  : base.alternative,
+            );
+          });
+        }).catchError((_) {});
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -320,6 +356,24 @@ class _RecommendationResultScreenState
       // ── B: Print Parameters ─────────────────────────────────────────────
       _buildParametersCard(r, showAlt),
       const SizedBox(height: 14),
+
+      // ── B2: Cost & Time Estimate ────────────────────────────────────────
+      if (_hasEstimate(r, showAlt)) ...[
+        EstimateCard(
+          cost: showAlt ? r.alternative?.estimatedCost : r.estimatedCost,
+          minutes: showAlt
+              ? r.alternative?.estimatedTimeMinutes
+              : r.estimatedTimeMinutes,
+          currency: showAlt ? r.alternative?.currency : r.currency,
+          confidence: showAlt
+              ? r.alternative?.estimationConfidence
+              : r.estimationConfidence,
+          isAlt: showAlt,
+          primaryCost: showAlt ? r.estimatedCost : null,
+          primaryMinutes: showAlt ? r.estimatedTimeMinutes : null,
+        ),
+        const SizedBox(height: 14),
+      ],
 
       // ── C: Performance Scores ───────────────────────────────────────────
       _buildScoresCard(r, showAlt),
@@ -727,6 +781,7 @@ class _RecommendationResultScreenState
           final active = _activeTab == i;
           return Expanded(
             child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () => setState(() => _activeTab = i),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 160),
@@ -1318,6 +1373,18 @@ class _RecommendationResultScreenState
 
   Widget _divider() =>
       const Divider(height: 1, thickness: 0.5, color: Color(0xFFEEEEF0));
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Section B2 — Cost & Time Estimate
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  bool _hasEstimate(RecommendationResult r, bool showAlt) {
+    final alt = r.alternative;
+    if (showAlt && alt != null) {
+      return alt.estimatedCost != null || alt.estimatedTimeMinutes != null;
+    }
+    return r.estimatedCost != null || r.estimatedTimeMinutes != null;
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Section C — Performance Scores

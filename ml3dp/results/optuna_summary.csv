@@ -1,0 +1,6 @@
+stage,model,best_score,depth,iterations,l2_leaf_reg,learning_rate,max_depth,max_features,min_child_samples,min_samples_leaf,n_estimators,num_leaves,reg_alpha
+stage1_tech,catboost,0.9082674005274624,10.0,100.0,1.0807844216636038,0.0878478835794495,,,,,,,
+stage2_fdm,lightgbm,0.8815701348546515,,,,0.0171551874586352,,,26.0,,200.0,46.0,0.0040271954042863
+stage2_sla,catboost,0.8745278996865204,5.0,200.0,2.8794987027743084,0.0160861682795993,,,,,,,
+stage3_fdm,random_forest,4.638474361434706,,,,,5.0,,,7.0,450.0,,
+stage3_sla,random_forest,4.224648413203508,,,,,5.0,,,3.0,400.0,,

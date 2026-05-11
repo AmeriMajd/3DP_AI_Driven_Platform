@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../domain/auth_state.dart';
 import '../providers/auth_providers.dart';
+import '../../../../../main.dart' show initialWebRoute;
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -37,9 +38,21 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         case SessionStatus.notInitialized:
           _go(AppRoutes.adminSignup);
         case SessionStatus.unauthenticated:
-          _go(AppRoutes.login);
+          // Honour invite / reset-password links even when not logged in
+          if (initialWebRoute.startsWith(AppRoutes.register) ||
+              initialWebRoute.startsWith(AppRoutes.resetPassword)) {
+            _go(initialWebRoute);
+          } else {
+            _go(AppRoutes.login);
+          }
         case SessionStatus.authenticated:
-          _go(AppRoutes.upload);
+          // Don't override public token-based routes (invite, reset-password)
+          if (initialWebRoute.startsWith(AppRoutes.register) ||
+              initialWebRoute.startsWith(AppRoutes.resetPassword)) {
+            _go(initialWebRoute);
+          } else {
+            _go(AppRoutes.upload);
+          }
         case SessionStatus.unknown:
           break;
       }
