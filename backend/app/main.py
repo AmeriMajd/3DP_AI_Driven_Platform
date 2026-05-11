@@ -11,7 +11,8 @@ import app.models.password_reset_token
 from app.models.stl_file import STLFile
 import app.models.recommendation
 import app.models.printer  
-import app.models.print_job  
+import app.models.print_job
+import app.models.slicing_job
 
 # ── Import routers ─────────────────────────────────────────────────────────────
 from app.routers import auth, admin, invitations
@@ -24,6 +25,7 @@ from app.routers.printers import router as printers_router
 from app.routers.estimate import router as estimate_router
 from app.services import stl_service
 from app.routers import jobs
+from app.routers import slicing
 
 
 # ── Create all tables ──────────────────────────────────────────────────────────
@@ -135,6 +137,26 @@ def _sync_printers_schema() -> None:
 _sync_printers_schema()
 
 
+def _sync_print_jobs_schema() -> None:
+    statements = [
+        "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS remote_job_id VARCHAR",
+        "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS time_left_seconds INTEGER",
+        "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS last_polled_at TIMESTAMP WITH TIME ZONE",
+    ]
+    try:
+        with engine.begin() as connection:
+            for statement in statements:
+                try:
+                    connection.execute(text(statement))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
+_sync_print_jobs_schema()
+
+
 app = FastAPI(
     title="3DP Intelligence Platform",
     version="1.0.0",
@@ -162,10 +184,25 @@ app.include_router(recommendation_router)
 app.include_router(printers_router)
 app.include_router(estimate_router)
 app.include_router(jobs.router)
+app.include_router(slicing.router)
 
 @app.on_event("startup")
 def recover_stl_jobs() -> None:
     stl_service.recover_pending_files()
+
+
+@app.on_event("startup")
+def recover_orphan_slicing_jobs() -> None:
+    from app.core.database import SessionLocal
+    from app.services import slicing_service
+
+    db = SessionLocal()
+    try:
+        n = slicing_service.recover_running(db)
+        if n:
+            print(f"recover_orphan_slicing_jobs: reset {n} stuck rows")
+    finally:
+        db.close()
 
 @app.get("/", tags=["Health"])
 def root():

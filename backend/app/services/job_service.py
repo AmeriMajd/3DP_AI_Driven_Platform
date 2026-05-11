@@ -13,6 +13,7 @@ Status transitions handled here:
 - resume:  paused                  → 'queued'     (then re-run scheduler)
 """
 
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
@@ -20,11 +21,14 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.print_job import PrintJob
 from app.models.recommendation import Recommendation
 from app.models.stl_file import STLFile
 from app.schemas.job import JobCreate
 from app.services.scheduling_service import assign_pending_jobs, free_printer
+
+logger = logging.getLogger(__name__)
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
@@ -111,6 +115,27 @@ def submit_job(db: Session, current_user: dict, payload: JobCreate) -> PrintJob:
     # Try to schedule it immediately (and any other jobs that were waiting).
     assign_pending_jobs(db)
     db.refresh(job)
+
+    # Auto-slice (Gap 1). Fail loudly via log — DO NOT swallow silently.
+    if getattr(payload, "auto_slice", True) and settings.IN_APP_SLICING_ENABLED:
+        from app.models.user import User as UserModel
+        from app.services import slicing_service
+        from app.workers.queue import enqueue_slice_sync
+
+        user = db.query(UserModel).filter(UserModel.id == user_id).first()
+        if user is not None:
+            slicing_job = slicing_service.create_slicing_job(
+                db, print_job=job, user=user
+            )
+            try:
+                enqueue_slice_sync(slicing_job.id)
+            except Exception as exc:
+                logger.exception(
+                    "auto-slice enqueue failed for slicing_job=%s: %s",
+                    slicing_job.id,
+                    exc,
+                )
+
     return job
 
 
