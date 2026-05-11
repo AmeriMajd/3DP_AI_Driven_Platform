@@ -1,0 +1,33 @@
+{
+  "stage1_tech": {
+    "depth": "10",
+    "iterations": "100",
+    "l2_leaf_reg": 1.0807844216636038,
+    "learning_rate": 0.0878478835794495
+  },
+  "stage2_fdm": {
+    "learning_rate": 0.0171551874586352,
+    "min_child_samples": "26",
+    "n_estimators": "200",
+    "num_leaves": "46",
+    "reg_alpha": 0.0040271954042863
+  },
+  "stage2_sla": {
+    "depth": "5",
+    "iterations": "200",
+    "l2_leaf_reg": 2.8794987027743084,
+    "learning_rate": 0.0160861682795993
+  },
+  "stage3_fdm": {
+    "n_estimators": 450,
+    "max_depth": 5,
+    "min_samples_leaf": 7,
+    "max_features": null
+  },
+  "stage3_sla": {
+    "n_estimators": 400,
+    "max_depth": 5,
+    "min_samples_leaf": 3,
+    "max_features": null
+  }
+}

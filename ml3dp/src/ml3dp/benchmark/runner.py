@@ -48,6 +48,9 @@ def _fit(model, family: str, X_train, y_train):
         model._le = le
         sw = compute_sample_weight("balanced", y_enc)
         model.fit(X_train, y_enc, sample_weight=sw)
+    elif family == "gradient_boosting":
+        sw = compute_sample_weight("balanced", y_train)
+        model.fit(X_train, y_train, sample_weight=sw)
     else:
         model.fit(X_train, y_train)
 
@@ -86,12 +89,14 @@ def run_benchmark(
     splits: dict,
     encoder_kind: str = "ordinal",
     smoke: bool = False,
+    seeds: list[int] | None = None,
 ) -> pd.DataFrame:
     """Run cross-family benchmark.
 
     Returns a DataFrame with one row per (stage, family, seed) run.
     """
-    seeds = [0] if smoke else [0, 1, 2, 3, 4]
+    if seeds is None:
+        seeds = [0] if smoke else [0, 1, 2, 3, 4]
     smoke_families = set(_SMOKE_FAMILIES)
     rows: list[dict] = []
 

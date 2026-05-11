@@ -65,7 +65,9 @@ class _MLModels:
         self.stage2_sla = None
         self.stage3_fdm = None
         self.stage3_sla = None
-        self._stage2_fdm_le = None  # LabelEncoder present when stage2_fdm is xgboost
+        self._stage2_fdm_le = None  # LabelEncoder present when a stage-2 model is wrapped
+        self.label_encoders: dict = {}   # intent ordinal maps + label spaces (optional)
+        self.feature_names: dict = {}    # per-stage feature column order (optional)
         self.meta: dict = {}
         self._loaded = False
 
@@ -75,16 +77,33 @@ class _MLModels:
             cls._instance = _MLModels()
         return cls._instance
 
+    @staticmethod
+    def _load_one(primary: str, *legacy_fallbacks: str):
+        """Load *primary* from MODELS_DIR; fall back to a legacy filename for rollback."""
+        import joblib
+
+        path = MODELS_DIR / primary
+        if path.exists():
+            return joblib.load(path)
+        for name in legacy_fallbacks:
+            legacy_path = MODELS_DIR / name
+            if legacy_path.exists():
+                logger.warning("ML artifact %s missing; using legacy %s", primary, name)
+                return joblib.load(legacy_path)
+        # Preserve original behaviour: surface a clear FileNotFoundError on the target name.
+        return joblib.load(path)
+
     def load(self) -> None:
         if self._loaded:
             return
         try:
             import joblib
 
-            self.stage1_tech = joblib.load(MODELS_DIR / "stage1_tech.joblib")
+            # Target filenames (thesis Table III.12); legacy names kept as rollback fallback.
+            self.stage1_tech = self._load_one("stage1_classifier.joblib", "stage1_tech.joblib")
 
-            # stage2_fdm is saved as a plain model or as {"model":..., "label_encoder":...}
-            stage2_fdm_obj = joblib.load(MODELS_DIR / "stage2_fdm.joblib")
+            # A stage-2 model may be a plain estimator or {"model":..., "label_encoder":...}.
+            stage2_fdm_obj = self._load_one("stage2a_material.joblib", "stage2_fdm.joblib")
             if isinstance(stage2_fdm_obj, dict):
                 self.stage2_fdm = stage2_fdm_obj["model"]
                 self._stage2_fdm_le = stage2_fdm_obj.get("label_encoder")
@@ -92,9 +111,16 @@ class _MLModels:
                 self.stage2_fdm = stage2_fdm_obj
                 self._stage2_fdm_le = None
 
-            self.stage2_sla = joblib.load(MODELS_DIR / "stage2_sla.joblib")
-            self.stage3_fdm = joblib.load(MODELS_DIR / "stage3_fdm.joblib")
-            self.stage3_sla = joblib.load(MODELS_DIR / "stage3_sla.joblib")
+            self.stage2_sla = self._load_one("stage2b_material.joblib", "stage2_sla.joblib")
+            self.stage3_fdm = self._load_one("stage3a_regressor.joblib", "stage3_fdm.joblib")
+            self.stage3_sla = self._load_one("stage3b_regressor.joblib", "stage3_sla.joblib")
+
+            # Optional companion artifacts — present alongside the final release.
+            for attr, fname in (("label_encoders", "label_encoders.joblib"),
+                                ("feature_names", "feature_names.joblib")):
+                fpath = MODELS_DIR / fname
+                if fpath.exists():
+                    setattr(self, attr, joblib.load(fpath))
 
             with open(META_FILE) as f:
                 self.meta = json.load(f)

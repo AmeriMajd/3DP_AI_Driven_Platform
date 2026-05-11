@@ -57,10 +57,20 @@ def xgboost_classifier_space(trial) -> dict:
     }
 
 
+def catboost_classifier_space(trial) -> dict:
+    return {
+        "iterations": trial.suggest_int("iterations", 100, 500, step=50),
+        "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
+        "depth": trial.suggest_int("depth", 3, 10),
+        "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1.0, 10.0, log=True),
+    }
+
+
 CLASSIFIER_SPACES = {
     "random_forest": random_forest_classifier_space,
     "lightgbm": lightgbm_classifier_space,
     "xgboost": xgboost_classifier_space,
+    "catboost": catboost_classifier_space,
 }
 
 REGRESSOR_SPACES = {
