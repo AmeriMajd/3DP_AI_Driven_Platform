@@ -102,7 +102,11 @@ class DioClient {
             );
 
             // Save the new access token
-            final newAccessToken = response.data['access_token'];
+            final newAccessToken = response.data['access_token'] as String?;
+            if (newAccessToken == null) {
+              await _forceLogout();
+              return handler.reject(error);
+            }
             await StorageService.saveToken(newAccessToken);
 
             // Retry the original failed request with the new token

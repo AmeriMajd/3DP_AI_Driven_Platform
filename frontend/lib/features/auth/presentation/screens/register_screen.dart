@@ -288,14 +288,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ),
                         const SizedBox(height: 8),
 
-                        // Token ID
-                        Text(
-                          'Token ID: ${widget.token}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
                         const SizedBox(height: 20),
 
                         // Bouton
@@ -320,7 +312,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   // ── Carte info invitation ─────────────────────────────────────────────
   Widget _buildInviteInfoCard() {
     final roleLabel = _formatRole(_prefilledRole);
-    final isAdmin = _prefilledRole == 'admin';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -339,8 +330,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               color: AppColors.primaryLight,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              isAdmin ? Icons.shield_outlined : Icons.people_outline,
+            child: const Icon(
+              Icons.people_outline,
               color: AppColors.primary,
               size: 22,
             ),

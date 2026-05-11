@@ -10,35 +10,12 @@ import '../../domain/auth_state.dart';
 import '../widgets/auth_card.dart';
 import '../widgets/auth_primary_button.dart';
 import '../widgets/auth_text_field.dart';
-import 'package:go_router/go_router.dart';
-import '../../../../../core/router/app_routes.dart';
-
-// ── Modèle mock pour l'historique ──────────────────────────────────────────
-enum InviteStatus { pending, used, expired }
-
-class InviteHistoryItem {
-  final String email;
-  final String role;
-  final String sentDate;
-  final String timeInfo;
-  final bool timeIsColored; // true = afficher en bleu (temps restant)
-  final InviteStatus status;
-
-  const InviteHistoryItem({
-    required this.email,
-    required this.role,
-    required this.sentDate,
-    required this.timeInfo,
-    this.timeIsColored = false,
-    required this.status,
-  });
-}
 
 // ── Screen ──────────────────────────────────────────────────────────────────
 class InviteUserScreen extends ConsumerStatefulWidget {
   const InviteUserScreen({super.key});
 
-   @override
+  @override
   ConsumerState<InviteUserScreen> createState() => _InviteUserScreenState();
 }
 
@@ -46,48 +23,9 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
 
-  // Rôle sélectionné — 'admin' ou 'operator'
-  String _selectedRole = 'operator';
-
-  // ── État invitation générée ──
   bool _invitationGenerated = false;
   String _generatedEmail = '';
-  String _generatedRole = '';
   String _generatedLink = '';
-
-   // ── Liste Des Données ──────────────────────────
-  // ignore: prefer_final_fields
-  List<InviteHistoryItem> _history = [
-    const InviteHistoryItem(
-      email: 'sarah@company.com',
-      role: 'Admin',
-      sentDate: '21-02-2026',
-      timeInfo: 'Expired',
-      status: InviteStatus.expired,
-    ),
-    const InviteHistoryItem(
-      email: 'mike@company.com',
-      role: 'Operator',
-      sentDate: '22-02-2026',
-      timeInfo: '13 hours',
-      timeIsColored: true,
-      status: InviteStatus.pending,
-    ),
-    const InviteHistoryItem(
-      email: 'lisa@company.com',
-      role: 'Operator',
-      sentDate: '10-02-2026',
-      timeInfo: 'Expired',
-      status: InviteStatus.expired,
-    ),
-    const InviteHistoryItem(
-      email: 'john@company.com',
-      role: 'Admin',
-      sentDate: '18-02-2026',
-      timeInfo: 'Used',
-      status: InviteStatus.used,
-    ),
-  ];
 
   @override
   void dispose() {
@@ -99,48 +37,31 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
     if (!_formKey.currentState!.validate()) return;
     ref.read(authViewModelProvider.notifier).generateInvite(
           email: _emailController.text.trim(),
-          role: _selectedRole,
+          role: 'operator',
         );
   }
 
-  void _sendAnother(){
+  void _sendAnother() {
     setState(() {
-      _invitationGenerated= false;
-      _generatedEmail='';
-      _generatedRole = '';
-     _generatedLink = '';
-     _emailController.clear();
-     _selectedRole= 'operator';
-
+      _invitationGenerated = false;
+      _generatedEmail = '';
+      _generatedLink = '';
+      _emailController.clear();
     });
   }
-  
+
   @override
-  Widget build(BuildContext context){
+  Widget build(BuildContext context) {
     final authState = ref.watch(authViewModelProvider);
 
     ref.listen<AuthState>(authViewModelProvider, (_, next) {
-      if (next.status == AuthStatus.success){
-        final now = DateTime.now();
-        final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-
+      if (next.status == AuthStatus.success) {
         setState(() {
-          _history.insert(0, 
-          InviteHistoryItem(email: _emailController.text.trim(),
-        role: _selectedRole == 'admin' ? 'Admin' : 'Operator',
-        sentDate: dateStr,
-        timeInfo: '48 hours',
-        timeIsColored: true,
-        status: InviteStatus.pending,
-        ),
-        );
-        
-        _invitationGenerated = true;
+          _invitationGenerated = true;
           _generatedEmail = _emailController.text.trim();
-          _generatedRole = _selectedRole;
-          _generatedLink =  next.successMessage ?? '';
-          
+          _generatedLink = next.successMessage ?? '';
         });
+        ref.invalidate(invitationsProvider);
         ref.read(authViewModelProvider.notifier).reset();
       }
 
@@ -154,9 +75,9 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
         );
         ref.read(authViewModelProvider.notifier).reset();
       }
-    });   
+    });
 
- return Scaffold(
+    return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: SafeArea(
         child: Center(
@@ -167,18 +88,13 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
-                  // ── Header ──────────────────────────────────────────────
                   _buildHeader(),
                   const SizedBox(height: 20),
-
-                  // ── Section 1 : Formulaire ou Résultat Invitation ────────────────────────
-                  _invitationGenerated ? _buildInvitationResult() 
+                  _invitationGenerated
+                      ? _buildInvitationResult()
                       : _buildInvitationForm(authState),
                   const SizedBox(height: 20),
-
-                  // ── Section 2 : Invitation History ───────────────────────
-                  _buildHistory(),      
+                  _buildHistory(),
                 ],
               ),
             ),
@@ -188,109 +104,63 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
     );
   }
 
-// ── Formulaire d'invitation ──────────────────────────────────────────────
+  // ── Form ─────────────────────────────────────────────────────────────────
   Widget _buildInvitationForm(AuthState authState) {
     return AuthCard(
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-
-                          // Titre section
-                          const Text(
-                            'Create Invitation',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Enter user details and select their access level',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Email
-                          AuthTextField(
-                            label: 'Email Address',
-                            hint: 'user@company.com',
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            validator: Validators.validateEmail,
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Role selector
-                          const Text(
-                            'Role',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-
-                          // Carte Administrator
-                          _RoleCard(
-                            title: 'Administrator',
-                            description:
-                                'Manage users, printers, settings, analytics, and create invitations',
-                            icon: Icons.shield_outlined,
-                            value: 'admin',
-                            groupValue: _selectedRole,
-                            onTap: () =>
-                                setState(() => _selectedRole = 'admin'),
-                          ),
-                          const SizedBox(height: 10),
-
-                          // Carte Operator
-                          _RoleCard(
-                            title: 'Operator',
-                            description:
-                                'Upload models, schedule prints, monitor jobs, and view fleet',
-                            icon: Icons.people_outline,
-                            value: 'operator',
-                            groupValue: _selectedRole,
-                            onTap: () =>
-                                setState(() => _selectedRole = 'operator'),
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Bouton
-                          AuthPrimaryButton(
-                            label: AppStrings.inviteButton,
-                            icon: Icons.person_add_outlined,
-                            isLoading: authState.isLoading,
-                            onPressed: _submit,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Create Invitation',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              "Enter the operator's email address to send an invitation",
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 20),
+            AuthTextField(
+              label: 'Email Address',
+              hint: 'user@company.com',
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              validator: Validators.validateEmail,
+            ),
+            const SizedBox(height: 24),
+            AuthPrimaryButton(
+              label: AppStrings.inviteButton,
+              icon: Icons.person_add_outlined,
+              isLoading: authState.isLoading,
+              onPressed: _submit,
+            ),
+          ],
+        ),
+      ),
+    );
   }
-  // ── Carte résultat après génération ────────────────────────────────────
+
+  // ── Result card ───────────────────────────────────────────────────────────
   Widget _buildInvitationResult() {
-    final roleLabel = _generatedRole =='admin' ? 'Administrator' : 'Operator';
+    const roleLabel = 'Operator';
 
     return AuthCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Vert
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.08),
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: AppColors.success.withValues(alpha: 0.2)),
-                  ),
+              border: Border.all(color: AppColors.success.withValues(alpha: 0.2)),
+            ),
             child: Row(
               children: [
                 Container(
@@ -319,38 +189,34 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
                       Text(
                         'Share this link with $_generatedEmail',
                         style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
+                            fontSize: 12, color: AppColors.textSecondary),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
-                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 20),
 
-          // ── Infos ──
           _InfoRow(label: 'Email:', value: _generatedEmail),
           const SizedBox(height: 10),
           Row(
             children: [
               const Expanded(
                 child: Text('Role:',
-                    style: TextStyle(
-                        fontSize: 13, color: AppColors.textSecondary)),
+                    style:
+                        TextStyle(fontSize: 13, color: AppColors.textSecondary)),
               ),
-              Text(
+              const Text(
                 roleLabel,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary),
               ),
               const SizedBox(width: 8),
-              // Badge Pending
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -361,21 +227,20 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
                 child: const Text(
                   'Pending',
                   style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            children: const [
+          const Row(
+            children: [
               Expanded(
                 child: Text('Expires:',
-                    style: TextStyle(
-                        fontSize: 13, color: AppColors.textSecondary)),
+                    style:
+                        TextStyle(fontSize: 13, color: AppColors.textSecondary)),
               ),
               Icon(Icons.access_time_outlined,
                   size: 14, color: AppColors.primary),
@@ -383,23 +248,20 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
               Text(
                 '48 hours',
                 style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                ),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary),
               ),
             ],
           ),
           const SizedBox(height: 20),
 
-          // ── Lien copiable ──
           const Text(
             'Invitation Link',
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary),
           ),
           const SizedBox(height: 8),
           Container(
@@ -447,7 +309,6 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
           ),
           const SizedBox(height: 12),
 
-          // ── Bouton QR ──
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -455,14 +316,12 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
                 context,
                 link: _generatedLink,
                 email: _generatedEmail,
-                role: _generatedRole == 'admin' ? 'Administrator' : 'Operator',
+                role: 'Operator',
               ),
               icon: const Icon(Icons.qr_code_outlined,
                   size: 18, color: AppColors.textPrimary),
-              label: const Text(
-                'Show QR Code',
-                style: TextStyle(color: AppColors.textPrimary),
-              ),
+              label: const Text('Show QR Code',
+                  style: TextStyle(color: AppColors.textPrimary)),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 side: const BorderSide(color: AppColors.borderLight),
@@ -473,50 +332,100 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
           ),
           const SizedBox(height: 12),
 
-          // ── Bouton Send Another ──
           AuthPrimaryButton(
             label: 'Send Another Invitation',
             onPressed: _sendAnother,
           ),
         ],
-
-    ),
+      ),
     );
   }
 
-   // ── Historique ───────────────────────────────────────────────────────────
+  // ── History ───────────────────────────────────────────────────────────────
   Widget _buildHistory() {
-    return AuthCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Invitation History',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Track all sent invitations and their status',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
+    final invitationsAsync = ref.watch(invitationsProvider);
 
-                        // Liste mockée
-                        ..._history.map(
-                          (item) => _InviteHistoryTile(item: item),
-                        ),
-                      ],
+    return AuthCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Invitation History',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  );
+                    SizedBox(height: 2),
+                    Text(
+                      'Track all sent invitations and their status',
+                      style: TextStyle(
+                          fontSize: 13, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () => ref.invalidate(invitationsProvider),
+                icon: const Icon(Icons.refresh_outlined,
+                    size: 20, color: AppColors.textSecondary),
+                tooltip: 'Refresh',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          invitationsAsync.when(
+            loading: () => const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AppColors.primary),
+              ),
+            ),
+            error: (e, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Failed to load invitations',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.error.withValues(alpha: 0.8)),
+                ),
+              ),
+            ),
+            data: (items) {
+              if (items.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      'No invitations sent yet',
+                      style: TextStyle(
+                          fontSize: 13, color: AppColors.textSecondary),
+                    ),
+                  ),
+                );
+              }
+              return Column(
+                children: items
+                    .map((item) => _InviteHistoryTile(item: item))
+                    .toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
-  // ── QR code dialog ─────────────────────────────────────────────────────
+
+  // ── QR dialog ─────────────────────────────────────────────────────────────
   void _showQrDialog(
     BuildContext context, {
     required String link,
@@ -529,7 +438,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
     );
   }
 
-  // ── Header widget ──────────────────────────────────────────────────────
+  // ── Header ────────────────────────────────────────────────────────────────
   Widget _buildHeader() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -545,55 +454,33 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
               color: Colors.white, size: 22),
         ),
         const SizedBox(width: 12),
-        Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              'Invite New User',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Invite Operator',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
-            ),
-            Text(
-              'Generate secure invitation tokens for new team members',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
+              Text(
+                'Generate secure invitation tokens for new operators',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
               ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 2,
-            ),
-          ],
-        ),
-        ),
-        const SizedBox(width: 8),
-      // ── Boutons navigation ──
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          _NavButton(
-            label: 'First Admin',
-            icon: Icons.shield_outlined,
-            onTap: () => context.go(AppRoutes.adminSignup),
+            ],
           ),
-          const SizedBox(height: 6),
-          _NavButton(
-            label: 'Register with token',
-            icon: Icons.person_outline,
-            onTap: () => context.go(
-              '${AppRoutes.register}?token=tk_mock_test',
-            ),
-          ),
-      ],
-      ),
+        ),
       ],
     );
   }
 }
-// ── Info Row ─────────────────────────────────────────────────────────────────
+
+// ── Info Row ──────────────────────────────────────────────────────────────────
 class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
@@ -626,158 +513,81 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-// ── Role Card Widget ────────────────────────────────────────────────────────
-class _RoleCard extends StatelessWidget {
-  final String title;
-  final String description;
-  final IconData icon;
-  final String value;
-  final String groupValue;
-  final VoidCallback onTap;
-
-  const _RoleCard({
-    required this.title,
-    required this.description,
-    required this.icon,
-    required this.value,
-    required this.groupValue,
-    required this.onTap,
-  });
-
-  bool get _isSelected => value == groupValue;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: _isSelected
-              ? AppColors.primary.withValues(alpha: 0.04)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _isSelected ? AppColors.primary : AppColors.borderLight,
-            width: _isSelected ? 2 : 1.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            // Bullet / radio indicator
-            Container(
-              width: 16,
-              height: 16,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: _isSelected
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
-                  width: 2,
-                ),
-              ),
-              child: _isSelected
-                  ? Center(
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 12),
-
-            // Texte
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    description,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Icône droite
-            Icon(icon,
-                color: _isSelected
-                    ? AppColors.primary
-                    : AppColors.textSecondary,
-                size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── History Tile Widget ─────────────────────────────────────────────────────
+// ── History Tile ──────────────────────────────────────────────────────────────
 class _InviteHistoryTile extends StatelessWidget {
-  final InviteHistoryItem item;
+  final Map<String, dynamic> item;
 
   const _InviteHistoryTile({required this.item});
 
+  String get _status => item['status'] as String? ?? 'pending';
+
   Color get _statusColor {
-    switch (item.status) {
-      case InviteStatus.used:
+    switch (_status) {
+      case 'used':
         return AppColors.success;
-      case InviteStatus.pending:
-        return AppColors.accent;
-      case InviteStatus.expired:
+      case 'expired':
         return AppColors.error;
+      default:
+        return AppColors.accent;
     }
   }
 
   IconData get _statusIcon {
-    switch (item.status) {
-      case InviteStatus.used:
+    switch (_status) {
+      case 'used':
         return Icons.check_circle_outline;
-      case InviteStatus.pending:
-        return Icons.access_time_outlined;
-      case InviteStatus.expired:
+      case 'expired':
         return Icons.cancel_outlined;
+      default:
+        return Icons.access_time_outlined;
     }
   }
 
   String get _statusLabel {
-    switch (item.status) {
-      case InviteStatus.used:
+    switch (_status) {
+      case 'used':
         return 'Used';
-      case InviteStatus.pending:
-        return 'Pending';
-      case InviteStatus.expired:
+      case 'expired':
         return 'Expired';
+      default:
+        return 'Pending';
+    }
+  }
+
+  String _formatSentDate() {
+    try {
+      final dt = DateTime.parse(item['created_at'] as String);
+      final local = dt.toLocal();
+      return '${local.day.toString().padLeft(2, '0')}-'
+          '${local.month.toString().padLeft(2, '0')}-'
+          '${local.year}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  String _formatTimeInfo() {
+    if (_status == 'used') return 'Used';
+    if (_status == 'expired') return 'Expired';
+    try {
+      final expires = DateTime.parse(item['expires_at'] as String).toLocal();
+      final remaining = expires.difference(DateTime.now());
+      if (remaining.isNegative) return 'Expired';
+      final hours = remaining.inHours;
+      final minutes = remaining.inMinutes.remainder(60);
+      if (hours > 0) return '${hours}h ${minutes}m left';
+      return '${minutes}m left';
+    } catch (_) {
+      return '';
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final email = item['email'] as String? ?? '';
+    final sentDate = _formatSentDate();
+    final timeInfo = _formatTimeInfo();
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
@@ -790,73 +600,61 @@ class _InviteHistoryTile extends StatelessWidget {
             width: 1.5,
           ),
         ),
-      child: Row(
-        children: [
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      item.email,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    email,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
                     ),
-                    const SizedBox(width: 8),
-                    
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${item.role} • ${item.sentDate} • ${item.timeInfo}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // Status badge
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: _statusColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                  color: _statusColor.withValues(alpha: 0.3), width: 1),
-            ),
-            child: Row(
-              children: [
-                Icon(_statusIcon, size: 12, color: _statusColor),
-                const SizedBox(width: 4),
-                Text(
-                  _statusLabel,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _statusColor,
+                  const SizedBox(height: 3),
+                  Text(
+                    'Operator • $sentDate • $timeInfo',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.textSecondary),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          
-        ],
-        
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: _statusColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: _statusColor.withValues(alpha: 0.3), width: 1),
+              ),
+              child: Row(
+                children: [
+                  Icon(_statusIcon, size: 12, color: _statusColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    _statusLabel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _statusColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 }
-// ── QR Code Dialog ───────────────────────────────────────────────────────────
+
+// ── QR Code Dialog ────────────────────────────────────────────────────────────
 class _QrDialog extends StatelessWidget {
   final String link;
   final String email;
@@ -878,7 +676,6 @@ class _QrDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header
             Row(
               children: [
                 Container(
@@ -921,10 +718,7 @@ class _QrDialog extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 20),
-
-            // QR code
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -953,10 +747,7 @@ class _QrDialog extends StatelessWidget {
                 ),
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // Email + role info
             Container(
               width: double.infinity,
               padding:
@@ -987,10 +778,7 @@ class _QrDialog extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 12),
-
-            // Copy link button
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -1013,48 +801,6 @@ class _QrDialog extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10)),
                   padding: const EdgeInsets.symmetric(vertical: 11),
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NavButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _NavButton({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.cardLight,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.borderLight),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: AppColors.primary),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
               ),
             ),
           ],

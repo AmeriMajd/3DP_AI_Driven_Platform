@@ -3,11 +3,12 @@ import uuid as uuid_lib
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import require_role
 from app.models.user import User
 from app.models.invitation import Invitation
-from app.schemas.invitation import CreateInvitationSchema, InvitationResponse
+from app.schemas.invitation import CreateInvitationSchema, InvitationResponse, InvitationHistoryItem
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -32,11 +33,7 @@ def create_invitation(
     # Step 4: Set expiry
     expires_at = datetime.utcnow() + timedelta(hours=48)
 
-    # TODO: remove after login endpoint is built
-    try:
-        creator_id = uuid_lib.UUID(current_user["user_id"])
-    except (ValueError, AttributeError):
-        creator_id = None
+    creator_id = uuid_lib.UUID(current_user["user_id"])
 
     # Step 5: Save to DB
     invitation = Invitation(
@@ -51,7 +48,7 @@ def create_invitation(
     db.refresh(invitation)
 
     # Step 6: Return 201
-    shareable_link = f"https://3dpapp.com/register?token={token}"
+    shareable_link = f"{settings.APP_BASE_URL}/register?token={token}"
 
     return InvitationResponse(
         token=token,
@@ -60,3 +57,36 @@ def create_invitation(
         role=data.role,
         expires_at=expires_at
     )
+
+
+@router.get("/invitations", response_model=list[InvitationHistoryItem])
+def list_invitations(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_role("admin"))
+):
+    invitations = (
+        db.query(Invitation)
+        .order_by(Invitation.created_at.desc())
+        .all()
+    )
+
+    now = datetime.utcnow()
+    result = []
+    for inv in invitations:
+        if inv.used:
+            status = "used"
+        elif inv.expires_at < now:
+            status = "expired"
+        else:
+            status = "pending"
+
+        result.append(InvitationHistoryItem(
+            id=inv.id,
+            email=inv.email,
+            role=inv.role,
+            status=status,
+            created_at=inv.created_at,
+            expires_at=inv.expires_at,
+        ))
+
+    return result

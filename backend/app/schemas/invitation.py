@@ -13,12 +13,11 @@ from typing import Literal
 class CreateInvitationSchema(BaseModel):
     """
     Request body for POST /admin/invitations.
-    The admin specifies who to invite and what role they will have.
-    Literal["admin", "operator"] restricts the value to exactly
-    these two strings. Anything else returns 422 automatically.
+    Only operators can be invited — there is a single admin (the first admin).
+    Anything other than "operator" returns 422 automatically.
     """
     email: EmailStr
-    role: Literal["admin", "operator"]
+    role: Literal["operator"]
 
 
 # ── INVITATION RESPONSE (what we return) ──────
@@ -49,6 +48,23 @@ class ValidateInvitationResponse(BaseModel):
     """
     email: str
     role: str
+    expires_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── INVITATION HISTORY ITEM ───────────────────
+
+class InvitationHistoryItem(BaseModel):
+    """
+    One row in GET /admin/invitations response.
+    status is computed: 'used' | 'expired' | 'pending'.
+    """
+    id: UUID
+    email: str
+    role: str
+    status: str
+    created_at: datetime
     expires_at: datetime
 
     model_config = {"from_attributes": True}

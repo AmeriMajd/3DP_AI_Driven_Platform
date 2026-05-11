@@ -104,8 +104,13 @@ class AuthRepositoryMock implements AuthRepository {
   }
 
   @override
-Future<void> logout() async {
-  await Future.delayed(const Duration(milliseconds: 500));
-  // simule le logout
-}
+  Future<void> logout() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getInvitations() async {
+    await Future.delayed(const Duration(seconds: 1));
+    return [];
+  }
 }

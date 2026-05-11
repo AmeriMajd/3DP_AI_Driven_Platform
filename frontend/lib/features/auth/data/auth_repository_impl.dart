@@ -88,6 +88,16 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+  Future<List<Map<String, dynamic>>> getInvitations() async {
+    try {
+      final response = await _dio.get('/admin/invitations');
+      return (response.data as List).cast<Map<String, dynamic>>();
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
   /// GET /invitations/validate?token=abc123xyz
   ///
   /// Vérifie que le token est valide, non expiré, et non utilisé.
