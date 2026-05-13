@@ -5,10 +5,10 @@ from app.core.database import get_db
 from app.core.config import settings
 from app.core.security import hash_password, get_current_user
 from app.models.user import User
-from app.models.invitation import Invitation
 from app.models.stl_file import STLFile
 from app.models.recommendation import Recommendation
 from app.models.print_job import PrintJob
+from app.services.invitation_service import InvitationService
 from app.schemas.auth import (
     AdminSignupSchema, RegisterSchema, UserResponse,
     LoginSchema, LoginResponse, UserProfile,
@@ -79,25 +79,7 @@ def register(data: RegisterSchema, db: Session = Depends(get_db)):
     6. Return 201
     """
 
-    invitation = db.query(Invitation).filter(
-        Invitation.token == data.token
-    ).first()
-
-    if not invitation:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired invitation"
-        )
-    if (invitation.expires_at < datetime.utcnow()) is True:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired invitation"
-        )
-    if invitation.used is True:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired invitation"
-        )
+    invitation = InvitationService(db).consume_invitation(data.token)
 
     hashed = hash_password(data.password)
     new_user = User(
@@ -107,7 +89,6 @@ def register(data: RegisterSchema, db: Session = Depends(get_db)):
         role=invitation.role       # from invitation, not request
     )
     db.add(new_user)
-    invitation.used = True  # type: ignore
     db.commit()             # single commit — both changes are atomic
     db.refresh(new_user)
 
