@@ -9,13 +9,13 @@ from __future__ import annotations
 import asyncio
 from uuid import UUID
 
-from arq import create_pool
-from arq.connections import RedisSettings
-
 from app.core.config import settings
 
 
 async def enqueue_slice(slicing_job_id: UUID) -> None:
+    from arq import create_pool
+    from arq.connections import RedisSettings
+
     pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
     try:
         await pool.enqueue_job("slice_task", str(slicing_job_id))
