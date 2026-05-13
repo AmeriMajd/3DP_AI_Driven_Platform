@@ -9,13 +9,13 @@ from app.models.stl_file import STLFile
 from app.models.recommendation import Recommendation
 from app.models.print_job import PrintJob
 from app.services.invitation_service import InvitationService
+from app.services.session_service import SessionService
 from app.schemas.auth import (
     AdminSignupSchema, RegisterSchema, UserResponse,
     LoginSchema, LoginResponse, UserProfile,
     UserMeResponse, UserStats, UpdateProfileSchema, ChangePasswordSchema,
 )
-from datetime import datetime, timedelta
-from app.core.security import verify_password, create_access_token, create_refresh_token
+from app.core.security import verify_password
 from app.models.refresh_token import RefreshToken
 
 
@@ -119,19 +119,8 @@ def login(data: LoginSchema, db: Session = Depends(get_db)):
             detail="Account is disabled"
         )
 
-    # 4) Create access token: includes sub + role
-    access_token = create_access_token({"sub": str(user.id), "role": user.role})
+    access_token, refresh_token = SessionService(db).create_session(user)
 
-    # 5) Create refresh token: includes sub; create_refresh_token adds type="refresh"
-    refresh_token = create_refresh_token({"sub": str(user.id)})
-
-    # 6) Persist refresh token in DB
-    expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    db_token = RefreshToken(user_id=user.id, token=refresh_token, expires_at=expires_at)
-    db.add(db_token)
-    db.commit()
-
-    # 7) Return tokens + user profile
     return LoginResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -217,6 +206,5 @@ def revoke_all_sessions(
     current: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    db.query(RefreshToken).filter(RefreshToken.user_id == current["user_id"]).delete()
-    db.commit()
+    SessionService(db).revoke_all_sessions(current["user_id"])
     return {"message": "All sessions revoked"}
