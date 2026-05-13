@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/job_repository.dart';
 import '../../data/mock_job_repository.dart';
 import '../../data/job_repository_impl.dart';
 import '../../domain/job.dart';
+import '../../domain/job_slicing.dart';
 
 final jobRepositoryProvider = Provider<JobRepository>((ref) {
   // flutter run --dart-define=USE_MOCK_JOBS=false  →  switches to real API
@@ -21,6 +24,16 @@ final jobDetailProvider =
 });
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
+
+final jobSlicingProvider =
+    FutureProvider.autoDispose.family<JobSlicing, String>((ref, id) async {
+  final slicing = await ref.watch(jobRepositoryProvider).getJobSlicing(id);
+  if (slicing.isActive) {
+    final timer = Timer(const Duration(seconds: 4), ref.invalidateSelf);
+    ref.onDispose(timer.cancel);
+  }
+  return slicing;
+});
 
 class AdminJobsFilter {
   final String? status;

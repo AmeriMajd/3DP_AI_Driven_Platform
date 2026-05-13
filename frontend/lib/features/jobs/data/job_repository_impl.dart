@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../shared/services/dio_client.dart';
 import '../domain/job.dart';
+import '../domain/job_slicing.dart';
 import 'job_repository.dart';
 
 class JobRepositoryImpl implements JobRepository {
@@ -42,6 +43,16 @@ class JobRepositoryImpl implements JobRepository {
     try {
       final response = await _dio.get('/jobs/$id');
       return Job.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  @override
+  Future<JobSlicing> getJobSlicing(String id) async {
+    try {
+      final response = await _dio.get('/jobs/$id/slicing');
+      return JobSlicing.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }

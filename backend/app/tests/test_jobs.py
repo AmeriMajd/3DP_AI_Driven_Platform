@@ -20,8 +20,10 @@ import uuid
 from fastapi import status
 
 from app.core.security import hash_password
+from app.models.print_job import PrintJob
 from app.models.printer import Printer
 from app.models.recommendation import Recommendation
+from app.models.slicing_job import SlicingJob
 from app.models.stl_file import STLFile
 from app.models.user import User
 
@@ -280,6 +282,85 @@ def test_get_isolation_returns_404_not_403(client, db_session, test_user, test_u
     assert resp.status_code != status.HTTP_403_FORBIDDEN
 
 
+def test_get_job_slicing_returns_empty_state_without_slicing_row(
+    client, db_session, test_user, test_user_token
+):
+    stl = _make_stl(db_session, test_user.id)
+    rec = _make_recommendation(db_session, test_user.id, stl.id)
+    job = client.post(
+        "/jobs",
+        json={
+            "stl_file_id": str(stl.id),
+            "recommendation_id": str(rec.id),
+            "auto_slice": False,
+        },
+        headers=_auth(test_user_token),
+    ).json()
+
+    resp = client.get(f"/jobs/{job['id']}/slicing", headers=_auth(test_user_token))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["job_id"] == job["id"]
+    assert body["slicing_job_id"] is None
+    assert body["status"] is None
+    assert body["gcode_ready"] is False
+
+
+def test_get_job_slicing_returns_slicing_state(
+    client, db_session, test_user, test_user_token
+):
+    stl = _make_stl(db_session, test_user.id)
+    rec = _make_recommendation(db_session, test_user.id, stl.id)
+    job = client.post(
+        "/jobs",
+        json={
+            "stl_file_id": str(stl.id),
+            "recommendation_id": str(rec.id),
+            "auto_slice": False,
+        },
+        headers=_auth(test_user_token),
+    ).json()
+
+    slicing_job = SlicingJob(
+        id=uuid.uuid4(),
+        user_id=test_user.id,
+        print_job_id=uuid.UUID(job["id"]),
+        status="running",
+    )
+    db_session.add(slicing_job)
+    db_session.commit()
+
+    resp = client.get(f"/jobs/{job['id']}/slicing", headers=_auth(test_user_token))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["job_id"] == job["id"]
+    assert body["slicing_job_id"] == str(slicing_job.id)
+    assert body["status"] == "running"
+    assert body["gcode_ready"] is False
+
+
+def test_get_job_slicing_isolation_blocks_other_users(
+    client, db_session, test_user, test_user_token
+):
+    stl = _make_stl(db_session, test_user.id)
+    rec = _make_recommendation(db_session, test_user.id, stl.id)
+    job = client.post(
+        "/jobs",
+        json={
+            "stl_file_id": str(stl.id),
+            "recommendation_id": str(rec.id),
+            "auto_slice": False,
+        },
+        headers=_auth(test_user_token),
+    ).json()
+
+    _create_user(db_session, email="slicing-user-b@test.com")
+    token_b = _login(client, "slicing-user-b@test.com")
+
+    resp = client.get(f"/jobs/{job['id']}/slicing", headers=_auth(token_b))
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
 # ── Cancel ────────────────────────────────────────────────────────────────────
 
 
@@ -324,6 +405,128 @@ def test_cancel_frees_printer_and_assigns_next(
     job2_now = client.get(f"/jobs/{job2['id']}", headers=_auth(test_user_token)).json()
     assert job2_now["status"] == "scheduled"
     assert job2_now["printer_id"] == str(printer.id)
+
+
+def test_cancel_printing_job_stops_printer_and_assigns_next(
+    client, db_session, test_user, test_user_token
+):
+    printer = _make_printer(db_session)
+
+    stl1 = _make_stl(db_session, test_user.id)
+    rec1 = _make_recommendation(db_session, test_user.id, stl1.id)
+    job1 = client.post(
+        "/jobs",
+        json={"stl_file_id": str(stl1.id), "recommendation_id": str(rec1.id)},
+        headers=_auth(test_user_token),
+    ).json()
+    assert job1["status"] == "scheduled"
+
+    stl2 = _make_stl(db_session, test_user.id)
+    rec2 = _make_recommendation(db_session, test_user.id, stl2.id)
+    job2 = client.post(
+        "/jobs",
+        json={"stl_file_id": str(stl2.id), "recommendation_id": str(rec2.id)},
+        headers=_auth(test_user_token),
+    ).json()
+    assert job2["status"] == "queued"
+
+    db_job1 = db_session.query(PrintJob).filter(PrintJob.id == uuid.UUID(job1["id"])).one()
+    db_job1.status = "printing"
+    db_session.commit()
+
+    cancel_resp = client.patch(
+        f"/jobs/{job1['id']}/cancel", headers=_auth(test_user_token)
+    )
+    assert cancel_resp.status_code == 200, cancel_resp.text
+    body = cancel_resp.json()
+    assert body["status"] == "canceled"
+    assert body["ended_at"] is not None
+
+    db_session.refresh(printer)
+    assert printer.status == "printing"
+
+    job2_now = client.get(f"/jobs/{job2['id']}", headers=_auth(test_user_token)).json()
+    assert job2_now["status"] == "scheduled"
+    assert job2_now["printer_id"] == str(printer.id)
+
+
+def test_cancel_job_cancels_pending_slicing_job(
+    client, db_session, test_user, test_user_token
+):
+    stl = _make_stl(db_session, test_user.id)
+    rec = _make_recommendation(db_session, test_user.id, stl.id)
+    job = client.post(
+        "/jobs",
+        json={
+            "stl_file_id": str(stl.id),
+            "recommendation_id": str(rec.id),
+            "auto_slice": False,
+        },
+        headers=_auth(test_user_token),
+    ).json()
+
+    slicing_job = SlicingJob(
+        id=uuid.uuid4(),
+        user_id=test_user.id,
+        print_job_id=uuid.UUID(job["id"]),
+        status="queued",
+    )
+    db_session.add(slicing_job)
+    db_session.commit()
+
+    cancel_resp = client.patch(
+        f"/jobs/{job['id']}/cancel", headers=_auth(test_user_token)
+    )
+    assert cancel_resp.status_code == 200, cancel_resp.text
+    assert cancel_resp.json()["status"] == "canceled"
+
+    db_session.refresh(slicing_job)
+    assert slicing_job.status == "canceled"
+    assert slicing_job.ended_at is not None
+
+
+def test_cancel_printing_job_continues_when_connector_rejects(
+    client, db_session, test_user, test_user_token, monkeypatch
+):
+    class RejectingConnector:
+        async def cancel_job(self):
+            return False
+
+    from app.services import job_service
+
+    monkeypatch.setattr(
+        job_service,
+        "get_connector",
+        lambda printer, decrypted_api_key=None: RejectingConnector(),
+    )
+
+    printer = _make_printer(db_session)
+    stl = _make_stl(db_session, test_user.id)
+    rec = _make_recommendation(db_session, test_user.id, stl.id)
+    job = client.post(
+        "/jobs",
+        json={
+            "stl_file_id": str(stl.id),
+            "recommendation_id": str(rec.id),
+            "auto_slice": False,
+        },
+        headers=_auth(test_user_token),
+    ).json()
+
+    db_job = db_session.query(PrintJob).filter(PrintJob.id == uuid.UUID(job["id"])).one()
+    db_job.status = "printing"
+    db_session.commit()
+
+    cancel_resp = client.patch(
+        f"/jobs/{job['id']}/cancel", headers=_auth(test_user_token)
+    )
+    assert cancel_resp.status_code == 200, cancel_resp.text
+    body = cancel_resp.json()
+    assert body["status"] == "canceled"
+    assert "canceled locally only" in body["error_message"]
+
+    db_session.refresh(printer)
+    assert printer.status == "idle"
 
 
 def test_cancel_isolation_blocks_other_users(

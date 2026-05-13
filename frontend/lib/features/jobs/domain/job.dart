@@ -113,7 +113,10 @@ class Job {
   static const paused = 'paused';
 
   bool get isCancelable =>
-      status == queued || status == scheduled || status == paused;
+      status == queued ||
+      status == scheduled ||
+      status == printing ||
+      status == paused;
   bool get isActive => status == printing || status == scheduled;
   bool get isFinished =>
       status == completed || status == failed || status == canceled;
