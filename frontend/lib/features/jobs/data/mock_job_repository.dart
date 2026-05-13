@@ -1,5 +1,6 @@
 import 'dart:math';
 import '../domain/job.dart';
+import '../domain/job_slicing.dart';
 import 'job_repository.dart';
 
 class MockJobRepository implements JobRepository {
@@ -93,6 +94,31 @@ class MockJobRepository implements JobRepository {
     await Future.delayed(const Duration(milliseconds: 300));
     return _jobs.firstWhere((j) => j.id == id,
         orElse: () => throw Exception('Job not found: $id'));
+  }
+
+  @override
+  Future<JobSlicing> getJobSlicing(String id) async {
+    await Future.delayed(const Duration(milliseconds: 250));
+    final job = _jobs.firstWhere((j) => j.id == id,
+        orElse: () => throw Exception('Job not found: $id'));
+    String? status;
+    if (job.status == Job.queued || job.status == Job.scheduled) {
+      status = JobSlicing.running;
+    } else if (job.status == Job.printing || job.status == Job.completed) {
+      status = JobSlicing.done;
+    } else if (job.status == Job.failed) {
+      status = JobSlicing.error;
+    } else if (job.status == Job.canceled) {
+      status = JobSlicing.canceled;
+    }
+    return JobSlicing(
+      jobId: id,
+      slicingJobId: status == null ? null : 'slice-$id',
+      status: status,
+      startedAt: job.submittedAt.add(const Duration(minutes: 1)),
+      endedAt: status == JobSlicing.done ? job.scheduledAt : null,
+      gcodeReady: status == JobSlicing.done,
+    );
   }
 
   @override

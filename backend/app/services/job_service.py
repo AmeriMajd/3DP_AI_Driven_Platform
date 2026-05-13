@@ -8,11 +8,12 @@ User isolation:
 
 Status transitions handled here:
 - submit:  → 'queued'  (then assign_pending_jobs may flip to 'scheduled')
-- cancel:  queued|scheduled|paused → 'canceled'   (frees printer if scheduled)
+- cancel:  queued|scheduled|printing|paused → 'canceled'   (frees printer if assigned)
 - suspend: queued|scheduled        → 'paused'     (frees printer if scheduled)
 - resume:  paused                  → 'queued'     (then re-run scheduler)
 """
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -22,10 +23,15 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.connectors.factory import get_connector
 from app.models.print_job import PrintJob
+from app.models.printer import Printer
 from app.models.recommendation import Recommendation
+from app.models.slicing_job import SlicingJob
 from app.models.stl_file import STLFile
 from app.schemas.job import JobCreate
+from app.schemas.slicing import JobSlicingRead
+from app.services.printer_service import get_decrypted_api_key
 from app.services.scheduling_service import assign_pending_jobs, free_printer
 
 logger = logging.getLogger(__name__)
@@ -164,30 +170,87 @@ def get_job(db: Session, current_user: dict, job_id: UUID) -> PrintJob:
     return _get_owned_job_or_404(db, current_user, job_id)
 
 
+def get_job_slicing(db: Session, current_user: dict, job_id: UUID) -> JobSlicingRead:
+    """Return slicing state for a job, enforcing the same isolation as job reads."""
+    job = _get_owned_job_or_404(db, current_user, job_id)
+    slicing_job = (
+        db.query(SlicingJob)
+        .filter(SlicingJob.print_job_id == job.id)
+        .first()
+    )
+
+    if slicing_job is None:
+        return JobSlicingRead(job_id=job.id)
+
+    return JobSlicingRead(
+        job_id=job.id,
+        slicing_job_id=slicing_job.id,
+        status=slicing_job.status,
+        error_message=slicing_job.error_message,
+        started_at=slicing_job.started_at,
+        ended_at=slicing_job.ended_at,
+        created_at=slicing_job.created_at,
+        gcode_ready=slicing_job.status == "done" and bool(slicing_job.gcode_path),
+    )
+
+
 def cancel_job(db: Session, current_user: dict, job_id: UUID) -> PrintJob:
-    """Cancel a job. Owner or admin. Frees the printer if scheduled."""
+    """Cancel a job. Owner or admin. Stops active prints and frees the printer."""
     job = _get_owned_job_or_404(db, current_user, job_id)
 
-    if job.status not in {"queued", "scheduled", "paused"}:
+    if job.status not in {"queued", "scheduled", "printing", "paused"}:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Cannot cancel job in status '{job.status}'",
         )
 
-    was_scheduled = job.status == "scheduled"
-    freed_printer_id = job.printer_id if was_scheduled else None
+    was_assigned = job.status in {"scheduled", "printing"} and job.printer_id is not None
+    was_printing = job.status == "printing"
+    freed_printer_id = job.printer_id if was_assigned else None
+    cancel_warning: str | None = None
+
+    if was_printing and freed_printer_id is not None:
+        printer = db.query(Printer).filter(Printer.id == freed_printer_id).first()
+        if printer is None:
+            cancel_warning = "Printer record missing; canceled locally only"
+            logger.warning("cancel_job: printer %s missing for %s", freed_printer_id, job.id)
+        else:
+            try:
+                api_key = get_decrypted_api_key(printer)
+                connector = get_connector(printer, decrypted_api_key=api_key)
+                canceled_on_printer = asyncio.run(connector.cancel_job())
+            except Exception as exc:
+                canceled_on_printer = False
+                cancel_warning = f"Printer cancellation failed; canceled locally only: {exc}"
+                logger.exception("cancel_job: connector cancel_job raised for %s", job.id)
+
+            if not canceled_on_printer and cancel_warning is None:
+                cancel_warning = "Printer did not accept cancellation; canceled locally only"
+                logger.warning("cancel_job: connector rejected cancellation for %s", job.id)
 
     job.status = "canceled"
     job.ended_at = datetime.now(timezone.utc)
+    job.time_left_seconds = None
+    if cancel_warning is not None:
+        job.error_message = cancel_warning[:1000]
 
-    if was_scheduled:
+    slicing_job = (
+        db.query(SlicingJob)
+        .filter(SlicingJob.print_job_id == job.id)
+        .first()
+    )
+    if slicing_job is not None and slicing_job.status in {"queued", "running"}:
+        slicing_job.status = "canceled"
+        slicing_job.ended_at = job.ended_at
+
+    if was_assigned:
         free_printer(db, freed_printer_id)
 
     db.commit()
     db.refresh(job)
 
     # If we freed a printer, see if any waiting job can now use it.
-    if was_scheduled:
+    if was_assigned:
         assign_pending_jobs(db)
         db.refresh(job)
 

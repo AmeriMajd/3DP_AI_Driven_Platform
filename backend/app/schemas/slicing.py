@@ -21,3 +21,14 @@ class SlicingJobRead(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class JobSlicingRead(BaseModel):
+    job_id: UUID
+    slicing_job_id: Optional[UUID] = None
+    status: Optional[SlicingStatus] = None
+    error_message: Optional[str] = None
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    gcode_ready: bool = False
