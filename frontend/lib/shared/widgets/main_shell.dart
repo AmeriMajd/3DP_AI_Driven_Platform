@@ -14,13 +14,23 @@ const _noAppBarRoutes = [
   AppRoutes.recommendHistory,
   AppRoutes.jobQueue,   // JobQueueScreen has its own inline header
   '/jobs/',             // JobDetailScreen has its own nav bar
-  AppRoutes.profile,    // ProfileScreen has its own AppBar
+  AppRoutes.profile,
 ];
 
-// ── Provider pour le fullName ─────────────────────────────────────────────────
+// Per-screen action slot. Screens push widgets via shellActionsProvider.
+final shellActionsProvider = StateProvider<List<Widget>>((_) => const []);
+
+// Unread notification count — wire to real source later.
+final unreadNotificationsProvider = StateProvider<int>((_) => 0);
+
 final userFullNameProvider = FutureProvider<String?>((ref) async {
   return await StorageService.getFullName();
 });
+
+class _SectionMeta {
+  final String title;
+  const _SectionMeta(this.title);
+}
 
 class MainShell extends ConsumerWidget {
   final Widget child;
@@ -35,18 +45,18 @@ class MainShell extends ConsumerWidget {
     return 0;
   }
 
-  String _currentTitle(int index) {
+  _SectionMeta _meta(int index) {
     switch (index) {
       case 0:
-        return 'Upload Model';
+        return const _SectionMeta('New model');
       case 1:
-        return 'Fleet';
+        return const _SectionMeta('Overview');
       case 2:
-        return 'My Jobs';
+        return const _SectionMeta('Queue');
       case 3:
-        return 'Monitoring';
+        return const _SectionMeta('Insights');
       default:
-        return '3DP Platform';
+        return const _SectionMeta('3DP');
     }
   }
 
@@ -62,56 +72,26 @@ class MainShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = _currentIndex(context);
     final fullNameAsync = ref.watch(userFullNameProvider);
+    final fullName = fullNameAsync.valueOrNull ?? 'User';
+    final meta = _meta(currentIndex);
     final showAppBar = _showAppBar(context);
+    final extraActions = ref.watch(shellActionsProvider);
+    final unread = ref.watch(unreadNotificationsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
-
-      // ── AppBar partagée ───────────────────────────────────────────────
+      backgroundColor: AppColors.backgroundLight,
       appBar: showAppBar
-          ? AppBar(
-              backgroundColor: AppColors.backgroundLight,
-              elevation: 0,
-              scrolledUnderElevation: 0,
-              centerTitle: true,
-              title: Text(
-                _currentTitle(currentIndex),
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1C1C1E),
-                  letterSpacing: -0.3,
-                ),
+          ? PreferredSize(
+              preferredSize: const Size.fromHeight(60),
+              child: _ShellAppBar(
+                title: meta.title,
+                extraActions: extraActions,
+                unread: unread,
+                fullName: fullName,
               ),
-              actions: [
-                // 🔔 Notifications
-                IconButton(
-                  icon: const Icon(
-                    Icons.notifications_outlined,
-                    size: 22,
-                    color: Color(0xFF1C1C1E),
-                  ),
-                  onPressed: () {
-                    // TODO — NotificationsScreen Sprint 5
-                  },
-                ),
-
-                // 👤 Avatar avec initiales
-                Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: fullNameAsync.when(
-                    data: (name) => _AvatarMenu(fullName: name ?? 'User'),
-                    loading: () => const _AvatarMenu(fullName: 'User'),
-                    error: (e, _) => const _AvatarMenu(fullName: 'User'),
-                  ),
-                ),
-              ],
             )
           : null,
-
       body: child,
-
-      // ── Bottom Navbar ─────────────────────────────────────────────────
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -160,7 +140,126 @@ class MainShell extends ConsumerWidget {
   }
 }
 
-// ── Avatar avec popup menu ────────────────────────────────────────────────────
+class _ShellAppBar extends StatelessWidget {
+  final String title;
+  final List<Widget> extraActions;
+  final int unread;
+  final String fullName;
+
+  const _ShellAppBar({
+    required this.title,
+    required this.extraActions,
+    required this.unread,
+    required this.fullName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.backgroundLight,
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+          decoration: const BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: Color(0xFFE5E7EB), width: 0.5),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              ...extraActions.expand(
+                (w) => [w, const SizedBox(width: 6)],
+              ),
+              _BellButton(unread: unread),
+              const SizedBox(width: 8),
+              _AvatarMenu(fullName: fullName),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BellButton extends StatelessWidget {
+  final int unread;
+  const _BellButton({required this.unread});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Material(
+          color: AppColors.cardLight,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              // TODO: notifications route
+            },
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: const Icon(
+                Icons.notifications_none_rounded,
+                size: 18,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+        ),
+        if (unread > 0)
+          Positioned(
+            right: -2,
+            top: -2,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: AppColors.backgroundLight,
+                  width: 2,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                unread > 99 ? '99+' : '$unread',
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1.1,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _AvatarMenu extends ConsumerWidget {
   final String fullName;
   const _AvatarMenu({required this.fullName});
@@ -193,7 +292,6 @@ class _AvatarMenu extends ConsumerWidget {
         }
       },
       itemBuilder: (_) => [
-        // Header — nom complet + role
         PopupMenuItem(
           enabled: false,
           height: 40,
@@ -227,10 +325,7 @@ class _AvatarMenu extends ConsumerWidget {
             },
           ),
         ),
-
         const PopupMenuDivider(height: 1, color: Color(0xFF8E8E93)),
-
-        // My Account
         const PopupMenuItem(
           value: 'account',
           height: 44,
@@ -249,8 +344,6 @@ class _AvatarMenu extends ConsumerWidget {
             ],
           ),
         ),
-
-        // Settings
         const PopupMenuItem(
           value: 'settings',
           height: 44,
@@ -265,10 +358,7 @@ class _AvatarMenu extends ConsumerWidget {
             ],
           ),
         ),
-
         const PopupMenuDivider(height: 1, color: Color(0xFF8E8E93)),
-
-        // Logout
         const PopupMenuItem(
           value: 'logout',
           height: 40,
@@ -285,10 +375,10 @@ class _AvatarMenu extends ConsumerWidget {
         ),
       ],
       child: Container(
-        width: 34,
-        height: 34,
+        width: 36,
+        height: 36,
         decoration: const BoxDecoration(
-          color: Color(0xFF4B6BFB),
+          color: AppColors.primary,
           shape: BoxShape.circle,
         ),
         child: Center(
@@ -307,7 +397,6 @@ class _AvatarMenu extends ConsumerWidget {
   }
 }
 
-// ── Nav Item ──────────────────────────────────────────────────────────────────
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final IconData activeIcon;
@@ -336,9 +425,7 @@ class _NavItem extends StatelessWidget {
             Icon(
               isActive ? activeIcon : icon,
               size: 23,
-              color: isActive
-                  ? const Color(0xFF4B6BFB)
-                  : const Color(0xFF8E8E93),
+              color: isActive ? AppColors.primary : const Color(0xFF8E8E93),
             ),
             const SizedBox(height: 4),
             Text(
@@ -346,9 +433,7 @@ class _NavItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                color: isActive
-                    ? const Color(0xFF4B6BFB)
-                    : const Color(0xFF8E8E93),
+                color: isActive ? AppColors.primary : const Color(0xFF8E8E93),
               ),
             ),
           ],

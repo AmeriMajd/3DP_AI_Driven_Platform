@@ -29,7 +29,6 @@ class JobCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isPrinting = job.status == Job.printing;
-    final isQueued = job.status == Job.queued;
     final isCompleted = job.status == Job.completed;
 
     return GestureDetector(
@@ -159,8 +158,8 @@ class JobCard extends ConsumerWidget {
                 ),
               ),
             ],
-            // Cancel button only (queued)
-            if (isQueued)
+            // Cancel button for queued, scheduled, paused, and active jobs.
+            if (job.isCancelable && !isPrinting)
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
                 child: Align(

@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
 from app.schemas.job import JobCreate, JobRead
+from app.schemas.slicing import JobSlicingRead
 from app.services import job_service
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
@@ -65,6 +66,18 @@ def get_job(
     db: Session = Depends(get_db),
 ):
     return job_service.get_job(db, current_user, job_id)
+
+
+@router.get(
+    "/{job_id}/slicing",
+    response_model=JobSlicingRead,
+)
+def get_job_slicing(
+    job_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return job_service.get_job_slicing(db, current_user, job_id)
 
 
 @router.patch(

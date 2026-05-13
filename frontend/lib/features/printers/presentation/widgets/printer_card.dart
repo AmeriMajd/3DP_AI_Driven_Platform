@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../jobs/domain/job.dart';
 import '../../domain/printer.dart';
+import '../../providers/printer_job_providers.dart';
 import 'printer_status_badge.dart';
 
-class PrinterCard extends StatelessWidget {
+class PrinterCard extends ConsumerWidget {
   final Printer printer;
   final VoidCallback? onTap;
 
@@ -16,6 +19,24 @@ class PrinterCard extends StatelessWidget {
         return Icons.layers_outlined;
       case PrinterTechnology.sla:
         return Icons.opacity_outlined;
+    }
+  }
+
+  Color _iconTileColor() {
+    switch (printer.technology) {
+      case PrinterTechnology.fdm:
+        return const Color(0xFFD1FAE5); // mint
+      case PrinterTechnology.sla:
+        return const Color(0xFFEDE9FE); // lavender
+    }
+  }
+
+  Color _iconColor() {
+    switch (printer.technology) {
+      case PrinterTechnology.fdm:
+        return const Color(0xFF059669);
+      case PrinterTechnology.sla:
+        return AppColors.primary;
     }
   }
 
@@ -32,32 +53,41 @@ class PrinterCard extends StatelessWidget {
     final x = printer.buildVolumeX;
     final y = printer.buildVolumeY;
     final z = printer.buildVolumeZ;
-    if (x == null || y == null || z == null) {
-      return 'Volume: —';
-    }
-    return 'Volume: ${x.toStringAsFixed(0)}×${y.toStringAsFixed(0)}×${z.toStringAsFixed(0)} mm';
+    if (x == null || y == null || z == null) return '—';
+    return '${x.toStringAsFixed(0)}×${y.toStringAsFixed(0)}×${z.toStringAsFixed(0)}';
   }
 
-  String _materialsLabel() {
-    final materials = printer.materialsSupported;
-    if (materials == null || materials.isEmpty) {
-      return 'Materials: —';
+  String _formatEta(Job job) {
+    int? secs = job.timeLeftSeconds;
+    if (secs == null &&
+        job.estimatedDurationS != null &&
+        job.startedAt != null) {
+      final elapsed = DateTime.now().difference(job.startedAt!).inSeconds;
+      secs = job.estimatedDurationS! - elapsed;
     }
-    final preview = materials.take(3).join(', ');
-    if (materials.length <= 3) {
-      return 'Materials: $preview';
-    }
-    return 'Materials: $preview +${materials.length - 3}';
+    if (secs == null || secs <= 0) return '—';
+    final h = secs ~/ 3600;
+    final m = (secs % 3600) ~/ 60;
+    if (h > 0) return '${h}h ${m}m left';
+    return '${m}m left';
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final job = ref.watch(printerActiveJobProvider(printer.id));
+
+    return Material(
+      color: AppColors.cardLight,
+      borderRadius: BorderRadius.circular(20),
+      elevation: 0,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
-        child: Padding(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,17 +95,13 @@ class PrinterCard extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 42,
-                    height: 42,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
+                      color: _iconTileColor(),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(
-                      _technologyIcon(),
-                      color: AppColors.primary,
-                      size: 22,
-                    ),
+                    child: Icon(_technologyIcon(), color: _iconColor(), size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -92,9 +118,11 @@ class PrinterCard extends StatelessWidget {
                             color: AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
-                          printer.model ?? _technologyLabel(),
+                          '${_technologyLabel()} · ${printer.model ?? _technologyLabel()}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary,
@@ -106,26 +134,105 @@ class PrinterCard extends StatelessWidget {
                   PrinterStatusBadge(status: printer.status, compact: true),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                _volumeLabel(),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _materialsLabel(),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                ),
-              ),
+              const SizedBox(height: 14),
+              if (job != null) _buildJobBlock(job) else _buildIdleBlock(),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildJobBlock(Job job) {
+    final pct = job.progressPct.clamp(0, 100).toDouble();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                job.displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            Text(
+              '${pct.toStringAsFixed(0)}%',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: pct / 100,
+            minHeight: 6,
+            backgroundColor: const Color(0xFFF3F4F6),
+            valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'In progress',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+            Text(
+              _formatEta(job),
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIdleBlock() {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            printer.status == PrinterStatusValue.idle
+                ? 'Ready'
+                : printer.status == PrinterStatusValue.offline
+                    ? 'Offline'
+                    : printer.status == PrinterStatusValue.error
+                        ? 'Needs attention'
+                        : 'Maintenance',
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+        Text(
+          _volumeLabel(),
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
     );
   }
 }

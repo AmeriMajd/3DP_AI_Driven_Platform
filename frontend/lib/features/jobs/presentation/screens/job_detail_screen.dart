@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../features/printers/providers/printer_providers.dart';
 import '../../domain/job.dart';
+import '../../domain/job_slicing.dart';
 import '../providers/job_providers.dart';
 import '../widgets/job_status_badge.dart';
 
@@ -35,11 +36,12 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final jobAsync = widget.initialJob != null
-        ? AsyncValue.data(widget.initialJob!)
-        : ref.watch(jobDetailProvider(widget.jobId));
+    final jobAsync = ref.watch(jobDetailProvider(widget.jobId));
+    final effectiveJobAsync = jobAsync.isLoading && widget.initialJob != null
+        ? AsyncValue<Job>.data(widget.initialJob!)
+        : jobAsync;
 
-    return jobAsync.when(
+    return effectiveJobAsync.when(
       loading: () => const Scaffold(
         backgroundColor: Color(0xFFF2F2F7),
         body: Center(child: CircularProgressIndicator()),
@@ -82,6 +84,14 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                         // Details
                         const _SectionLabel('Details'),
                         _DetailsCard(job: job, formatDuration: _formatDuration),
+                        const SizedBox(height: 20),
+
+                        // Slicing
+                        const _SectionLabel('Preparation'),
+                        _SlicingCard(
+                          slicingAsync: ref.watch(jobSlicingProvider(job.id)),
+                          formatTime: _formatTime,
+                        ),
                         const SizedBox(height: 20),
 
                         // Timeline
@@ -154,6 +164,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
       await ref.read(jobRepositoryProvider).cancelJob(job.id);
       ref.invalidate(myJobsProvider);
       ref.invalidate(jobDetailProvider(job.id));
+      ref.invalidate(jobSlicingProvider(job.id));
       if (mounted) setState(() => _showConfirm = false);
     } catch (e) {
       if (mounted) {
@@ -434,6 +445,194 @@ class _DetailsCard extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+class _SlicingCard extends StatelessWidget {
+  final AsyncValue<JobSlicing> slicingAsync;
+  final String Function(DateTime?) formatTime;
+
+  const _SlicingCard({
+    required this.slicingAsync,
+    required this.formatTime,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return slicingAsync.when(
+      loading: () => const _SlicingShell(
+        icon: Icons.hourglass_top_rounded,
+        iconColor: Color(0xFF8E8E93),
+        title: 'Checking preparation',
+        subtitle: 'Loading slicing status',
+      ),
+      error: (_, _) => const _SlicingShell(
+        icon: Icons.error_outline_rounded,
+        iconColor: Color(0xFFFF3B30),
+        title: 'Preparation status unavailable',
+        subtitle: 'Could not load slicing status',
+      ),
+      data: (slicing) {
+        final config = _SlicingConfig.from(slicing);
+        final timeLabel = slicing.endedAt != null
+            ? 'Finished ${formatTime(slicing.endedAt)}'
+            : slicing.startedAt != null
+                ? 'Started ${formatTime(slicing.startedAt)}'
+                : slicing.createdAt != null
+                    ? 'Queued ${formatTime(slicing.createdAt)}'
+                    : null;
+        final subtitle = [
+          config.subtitle,
+          if (timeLabel != null) timeLabel,
+          if (slicing.errorMessage != null) slicing.errorMessage!,
+        ].join(' - ');
+
+        return _SlicingShell(
+          icon: config.icon,
+          iconColor: config.color,
+          title: config.title,
+          subtitle: subtitle,
+          showSpinner: slicing.status == JobSlicing.running,
+        );
+      },
+    );
+  }
+}
+
+class _SlicingShell extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final bool showSpinner;
+
+  const _SlicingShell({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    this.showSpinner = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [
+          BoxShadow(color: Color(0x0F000000), blurRadius: 3, offset: Offset(0, 1)),
+          BoxShadow(color: Color(0x0F000000), blurRadius: 14, offset: Offset(0, 4)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: showSpinner
+                ? Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: iconColor,
+                    ),
+                  )
+                : Icon(icon, color: iconColor, size: 19),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black)),
+                const SizedBox(height: 3),
+                Text(subtitle,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF8E8E93),
+                        height: 1.3),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SlicingConfig {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+
+  const _SlicingConfig({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+  });
+
+  factory _SlicingConfig.from(JobSlicing slicing) {
+    switch (slicing.status) {
+      case JobSlicing.queued:
+        return const _SlicingConfig(
+          title: 'Waiting to slice',
+          subtitle: 'G-code generation is queued',
+          icon: Icons.schedule_rounded,
+          color: Color(0xFF8E8E93),
+        );
+      case JobSlicing.running:
+        return const _SlicingConfig(
+          title: 'Slicing model',
+          subtitle: 'Generating printer-ready G-code',
+          icon: Icons.auto_awesome_rounded,
+          color: Color(0xFFFF9500),
+        );
+      case JobSlicing.done:
+        return _SlicingConfig(
+          title: 'Slicing complete',
+          subtitle: slicing.gcodeReady
+              ? 'G-code is ready for printing'
+              : 'Slicing finished without a G-code file',
+          icon: Icons.check_circle_rounded,
+          color: const Color(0xFF34C759),
+        );
+      case JobSlicing.error:
+        return const _SlicingConfig(
+          title: 'Slicing failed',
+          subtitle: 'The model could not be prepared',
+          icon: Icons.error_rounded,
+          color: Color(0xFFFF3B30),
+        );
+      case JobSlicing.canceled:
+        return const _SlicingConfig(
+          title: 'Slicing canceled',
+          subtitle: 'Preparation was stopped',
+          icon: Icons.cancel_rounded,
+          color: Color(0xFFFF3B30),
+        );
+      default:
+        return const _SlicingConfig(
+          title: 'Slicing not started',
+          subtitle: 'No preparation job has been created',
+          icon: Icons.hourglass_empty_rounded,
+          color: Color(0xFF8E8E93),
+        );
+    }
   }
 }
 

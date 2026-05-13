@@ -1,4 +1,5 @@
 import '../domain/job.dart';
+import '../domain/job_slicing.dart';
 
 abstract class JobRepository {
   Future<Job> submitJob({
@@ -12,6 +13,8 @@ abstract class JobRepository {
   Future<List<Job>> getMyJobs();
 
   Future<Job> getJobById(String id);
+
+  Future<JobSlicing> getJobSlicing(String id);
 
   Future<Job> cancelJob(String id);
 
