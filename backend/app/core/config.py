@@ -34,6 +34,17 @@ class Settings(BaseSettings):
     STATUS_POLL_COMPLETION_THRESHOLD: float = 0.99
     STATUS_POLL_ENABLED: bool = True
 
+    # WebSockets (PRD §6.4)
+    WEBSOCKETS_ENABLED: bool = True
+    WS_PING_INTERVAL_S: int = 30
+    WS_PONG_TIMEOUT_S: int = 90
+    WS_SEND_QUEUE_MAX: int = 1000
+    WS_BACKPRESSURE_GRACE_S: int = 30
+    WS_LAST_EVENT_TTL_S: int = 86400  # 24h, refreshed on each publish
+    WS_MAX_TOPICS_PER_CONNECTION: int = 100
+    WS_MAX_SOCKETS_PER_USER: int = 5
+    PRINTER_POLL_INTERVAL_S: int = 5
+
     class Config:
         env_file = ".env"
 
