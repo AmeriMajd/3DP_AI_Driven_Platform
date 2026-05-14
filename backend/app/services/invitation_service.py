@@ -64,6 +64,38 @@ class InvitationService:
         invitation.used = True
         return invitation
 
+    def resend_invitation(self, invitation_id: UUID) -> Invitation:
+        invitation = (
+            self.db.query(Invitation)
+            .filter(Invitation.id == invitation_id)
+            .first()
+        )
+        if invitation is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invitation not found",
+            )
+        if invitation.used:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invitation already used",
+            )
+
+        # Rate limit: reject if last (re)send happened less than 1 hour ago.
+        # Tokens get a fresh 48h window on each (re)send, so >47h remaining
+        # means the last send is younger than 1h.
+        if invitation.expires_at - datetime.utcnow() > timedelta(hours=47):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Invitation was sent less than an hour ago. Try again later.",
+            )
+
+        invitation.token = secrets.token_urlsafe(32)
+        invitation.expires_at = datetime.utcnow() + timedelta(hours=48)
+        self.db.commit()
+        self.db.refresh(invitation)
+        return invitation
+
     def list_invitations(self) -> list[InvitationHistoryItem]:
         invitations = (
             self.db.query(Invitation)

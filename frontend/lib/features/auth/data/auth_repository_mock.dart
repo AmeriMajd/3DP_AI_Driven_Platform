@@ -26,12 +26,18 @@ class AuthRepositoryMock implements AuthRepository {
   }
 
   @override
-  Future<String> generateInvite({
+  Future<bool> generateInvite({
     required String email,
     required String role,
   }) async {
     await Future.delayed(const Duration(seconds: 2));
-    return 'tk_mock_${DateTime.now().millisecondsSinceEpoch}';
+    return true;
+  }
+
+  @override
+  Future<bool> resendInvite({required String invitationId}) async {
+    await Future.delayed(const Duration(seconds: 1));
+    return true;
   }
 
   @override

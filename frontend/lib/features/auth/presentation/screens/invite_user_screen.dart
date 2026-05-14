@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/utils/validators.dart';
 import '../../../../../core/constants/app_strings.dart';
@@ -23,9 +21,12 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
 
-  bool _invitationGenerated = false;
-  String _generatedEmail = '';
-  String _generatedLink = '';
+  bool _invitationSent = false;
+  String _sentEmail = '';
+
+  // True while a resend HTTP call is in flight. Used to dim the
+  // resend buttons in the history list and avoid double-clicks.
+  bool _resending = false;
 
   @override
   void dispose() {
@@ -43,11 +44,18 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
 
   void _sendAnother() {
     setState(() {
-      _invitationGenerated = false;
-      _generatedEmail = '';
-      _generatedLink = '';
+      _invitationSent = false;
+      _sentEmail = '';
       _emailController.clear();
     });
+  }
+
+  Future<void> _resend(String invitationId) async {
+    setState(() => _resending = true);
+    await ref
+        .read(authViewModelProvider.notifier)
+        .resendInvite(invitationId: invitationId);
+    if (mounted) setState(() => _resending = false);
   }
 
   @override
@@ -56,11 +64,25 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
 
     ref.listen<AuthState>(authViewModelProvider, (_, next) {
       if (next.status == AuthStatus.success) {
-        setState(() {
-          _invitationGenerated = true;
-          _generatedEmail = _emailController.text.trim();
-          _generatedLink = next.successMessage ?? '';
-        });
+        final message = next.successMessage ?? '';
+        final isCreate = _emailController.text.trim().isNotEmpty &&
+            !_invitationSent &&
+            message.contains('sent to');
+
+        if (isCreate) {
+          setState(() {
+            _invitationSent = true;
+            _sentEmail = _emailController.text.trim();
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message.isEmpty ? 'Invitation sent' : message),
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
         ref.invalidate(invitationsProvider);
         ref.read(authViewModelProvider.notifier).reset();
       }
@@ -90,7 +112,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
                 children: [
                   _buildHeader(),
                   const SizedBox(height: 20),
-                  _invitationGenerated
+                  _invitationSent
                       ? _buildInvitationResult()
                       : _buildInvitationForm(authState),
                   const SizedBox(height: 20),
@@ -122,7 +144,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
             ),
             const SizedBox(height: 4),
             const Text(
-              "Enter the operator's email address to send an invitation",
+              "Enter the operator's email address — we'll email them the invitation link",
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
@@ -136,7 +158,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
             const SizedBox(height: 24),
             AuthPrimaryButton(
               label: AppStrings.inviteButton,
-              icon: Icons.person_add_outlined,
+              icon: Icons.mail_outline,
               isLoading: authState.isLoading,
               onPressed: _submit,
             ),
@@ -146,10 +168,8 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
     );
   }
 
-  // ── Result card ───────────────────────────────────────────────────────────
+  // ── Result card (email-sent confirmation) ─────────────────────────────────
   Widget _buildInvitationResult() {
-    const roleLabel = 'Operator';
-
     return AuthCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,7 +190,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
                     color: AppColors.success.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check_circle_outline,
+                  child: const Icon(Icons.mark_email_read_outlined,
                       color: AppColors.success, size: 20),
                 ),
                 const SizedBox(width: 12),
@@ -179,7 +199,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Invitation Generated',
+                        'Invitation Email Sent',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -187,7 +207,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
                         ),
                       ),
                       Text(
-                        'Share this link with $_generatedEmail',
+                        'We emailed the invitation link to $_sentEmail',
                         style: const TextStyle(
                             fontSize: 12, color: AppColors.textSecondary),
                         overflow: TextOverflow.ellipsis,
@@ -200,37 +220,21 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
           ),
           const SizedBox(height: 20),
 
-          _InfoRow(label: 'Email:', value: _generatedEmail),
+          _InfoRow(label: 'Email:', value: _sentEmail),
           const SizedBox(height: 10),
-          Row(
+          const Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text('Role:',
                     style:
                         TextStyle(fontSize: 13, color: AppColors.textSecondary)),
               ),
-              const Text(
-                roleLabel,
+              Text(
+                'Operator',
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'Pending',
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87),
-                ),
               ),
             ],
           ),
@@ -238,7 +242,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
           const Row(
             children: [
               Expanded(
-                child: Text('Expires:',
+                child: Text('Link expires:',
                     style:
                         TextStyle(fontSize: 13, color: AppColors.textSecondary)),
               ),
@@ -256,14 +260,6 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
           ),
           const SizedBox(height: 20),
 
-          const Text(
-            'Invitation Link',
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary),
-          ),
-          const SizedBox(height: 8),
           Container(
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -272,65 +268,22 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: AppColors.borderLight),
             ),
-            child: Row(
+            child: const Row(
               children: [
+                Icon(Icons.info_outline,
+                    size: 16, color: AppColors.textSecondary),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _generatedLink,
-                    style: const TextStyle(
+                    "Didn't receive it? You can resend from the history list below.",
+                    style: TextStyle(
                         fontSize: 12, color: AppColors.textSecondary),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: _generatedLink));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Link copied to clipboard'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: AppColors.cardLight,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.borderLight),
-                    ),
-                    child: const Icon(Icons.copy_outlined,
-                        size: 16, color: AppColors.textSecondary),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => _showQrDialog(
-                context,
-                link: _generatedLink,
-                email: _generatedEmail,
-                role: 'Operator',
-              ),
-              icon: const Icon(Icons.qr_code_outlined,
-                  size: 18, color: AppColors.textPrimary),
-              label: const Text('Show QR Code',
-                  style: TextStyle(color: AppColors.textPrimary)),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                side: const BorderSide(color: AppColors.borderLight),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
           AuthPrimaryButton(
             label: 'Send Another Invitation',
@@ -415,26 +368,17 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
               }
               return Column(
                 children: items
-                    .map((item) => _InviteHistoryTile(item: item))
+                    .map((item) => _InviteHistoryTile(
+                          item: item,
+                          resending: _resending,
+                          onResend: () => _resend(item['id'] as String),
+                        ))
                     .toList(),
               );
             },
           ),
         ],
       ),
-    );
-  }
-
-  // ── QR dialog ─────────────────────────────────────────────────────────────
-  void _showQrDialog(
-    BuildContext context, {
-    required String link,
-    required String email,
-    required String role,
-  }) {
-    showDialog(
-      context: context,
-      builder: (_) => _QrDialog(link: link, email: email, role: role),
     );
   }
 
@@ -467,7 +411,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
                 ),
               ),
               Text(
-                'Generate secure invitation tokens for new operators',
+                'Send invitation emails to onboard new operators',
                 style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 2,
@@ -516,8 +460,14 @@ class _InfoRow extends StatelessWidget {
 // ── History Tile ──────────────────────────────────────────────────────────────
 class _InviteHistoryTile extends StatelessWidget {
   final Map<String, dynamic> item;
+  final bool resending;
+  final VoidCallback onResend;
 
-  const _InviteHistoryTile({required this.item});
+  const _InviteHistoryTile({
+    required this.item,
+    required this.resending,
+    required this.onResend,
+  });
 
   String get _status => item['status'] as String? ?? 'pending';
 
@@ -587,6 +537,7 @@ class _InviteHistoryTile extends StatelessWidget {
     final email = item['email'] as String? ?? '';
     final sentDate = _formatSentDate();
     final timeInfo = _formatTimeInfo();
+    final canResend = _status != 'used';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -623,6 +574,18 @@ class _InviteHistoryTile extends StatelessWidget {
                 ],
               ),
             ),
+            if (canResend) ...[
+              IconButton(
+                onPressed: resending ? null : onResend,
+                icon: const Icon(Icons.send_outlined, size: 18),
+                color: AppColors.primary,
+                tooltip: 'Resend invitation',
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+              const SizedBox(width: 6),
+            ],
             Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -645,162 +608,6 @@ class _InviteHistoryTile extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── QR Code Dialog ────────────────────────────────────────────────────────────
-class _QrDialog extends StatelessWidget {
-  final String link;
-  final String email;
-  final String role;
-
-  const _QrDialog({
-    required this.link,
-    required this.email,
-    required this.role,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.qr_code_rounded,
-                      size: 20, color: AppColors.primary),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Scan to Register',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        'Share this QR with the new user',
-                        style: TextStyle(
-                            fontSize: 11, color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded,
-                      size: 20, color: AppColors.textSecondary),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.borderLight),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: QrImageView(
-                data: link,
-                version: QrVersions.auto,
-                size: 200,
-                eyeStyle: const QrEyeStyle(
-                  eyeShape: QrEyeShape.square,
-                  color: AppColors.primary,
-                ),
-                dataModuleStyle: const QrDataModuleStyle(
-                  dataModuleShape: QrDataModuleShape.square,
-                  color: Color(0xFF1A1A2E),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.inputFill,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.borderLight),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    email,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$role · Expires in 48 hours',
-                    style: const TextStyle(
-                        fontSize: 11, color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: link));
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Link copied to clipboard'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.copy_outlined, size: 16),
-                label: const Text('Copy Link'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.borderLight),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                ),
               ),
             ),
           ],

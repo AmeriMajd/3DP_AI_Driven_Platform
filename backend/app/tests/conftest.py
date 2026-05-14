@@ -103,6 +103,15 @@ def test_user_token(client, test_user):
     return response.json()["access_token"]
 
 
+@pytest.fixture(autouse=True)
+def _stub_invitation_email(monkeypatch):
+    """Prevent real SMTP calls during tests."""
+    import app.routers.admin as admin_module
+    monkeypatch.setattr(
+        admin_module, "send_invitation_email", lambda *args, **kwargs: True
+    )
+
+
 @pytest.fixture
 def sample_stl_file_bytes():
     """Minimal valid binary STL — single triangle."""
