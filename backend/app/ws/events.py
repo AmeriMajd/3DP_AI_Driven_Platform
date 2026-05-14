@@ -52,32 +52,38 @@ def _build_envelope(topic: str, type_: str, data: dict[str, Any]) -> dict[str, A
 
 
 async def publish_async(topic: str, type_: str, data: dict[str, Any]) -> None:
-    """Publish event to Redis + refresh last-event cache."""
+    """Publish event to Redis + refresh last-event cache. Best-effort."""
     if not settings.WEBSOCKETS_ENABLED:
         return
     envelope = _build_envelope(topic, type_, data)
     payload = json.dumps(envelope)
-    client = await _get_pub()
-    pipe = client.pipeline()
-    pipe.publish(f"{CHANNEL_PREFIX}{topic}", payload)
-    pipe.set(f"{LAST_PREFIX}{topic}", payload, ex=settings.WS_LAST_EVENT_TTL_S)
-    await pipe.execute()
+    try:
+        client = await _get_pub()
+        pipe = client.pipeline()
+        pipe.publish(f"{CHANNEL_PREFIX}{topic}", payload)
+        pipe.set(f"{LAST_PREFIX}{topic}", payload, ex=settings.WS_LAST_EVENT_TTL_S)
+        await pipe.execute()
+    except Exception:
+        logger.warning("ws publish failed (topic=%s type=%s)", topic, type_, exc_info=True)
 
 
 def publish(topic: str, type_: str, data: dict[str, Any]) -> None:
     """Sync entrypoint for callers outside an event loop (worker, BackgroundTasks).
 
-    Best-effort: if no running loop, runs a fresh one. If a loop is running in the
-    calling thread, schedules the coroutine on it.
+    Best-effort: never raises. If no loop, runs a fresh one. If a loop is
+    already running in the calling thread, schedules the coroutine on it.
     """
     if not settings.WEBSOCKETS_ENABLED:
         return
     try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        asyncio.run(publish_async(topic, type_, data))
-        return
-    loop.create_task(publish_async(topic, type_, data))
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(publish_async(topic, type_, data))
+            return
+        loop.create_task(publish_async(topic, type_, data))
+    except Exception:
+        logger.warning("ws publish dispatch failed (topic=%s type=%s)", topic, type_, exc_info=True)
 
 
 async def get_last_event(topic: str) -> Optional[dict[str, Any]]:

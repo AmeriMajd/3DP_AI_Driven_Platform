@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 import tempfile
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import UUID
@@ -20,6 +22,7 @@ from app.models.slicing_job import SlicingJob
 from app.models.stl_file import STLFile
 from app.models.user import User
 from app.services.slicer_profile_builder import build_prusaslicer_ini
+from app.ws.emit import emit_slicing_progress, emit_slicing_status
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +85,9 @@ def create_slicing_job(
             raise
         return sj
     db.refresh(sj)
+    emit_slicing_status(
+        sj.print_job_id, status=sj.status, slicing_job_id=sj.id
+    )
     return sj
 
 
@@ -95,6 +101,9 @@ def cancel(db: Session, sj: SlicingJob) -> SlicingJob:
     sj.ended_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(sj)
+    emit_slicing_status(
+        sj.print_job_id, status=sj.status, slicing_job_id=sj.id
+    )
     return sj
 
 
@@ -137,6 +146,10 @@ def run_slice(db: Session, slicing_job_id: UUID, *, worker_id: str) -> None:
     sj.worker_id = worker_id
     sj.started_at = datetime.now(timezone.utc)
     db.commit()
+    emit_slicing_status(
+        sj.print_job_id, status=sj.status, slicing_job_id=sj.id
+    )
+    emit_slicing_progress(sj.print_job_id, percent=0.0, phase="starting")
 
     try:
         gcode_path = _do_slice(sj)
@@ -158,6 +171,10 @@ def run_slice(db: Session, slicing_job_id: UUID, *, worker_id: str) -> None:
         sj.file_size_bytes = size
         sj.ended_at = datetime.now(timezone.utc)
         db.commit()
+        emit_slicing_progress(sj.print_job_id, percent=100.0, phase="done")
+        emit_slicing_status(
+            sj.print_job_id, status=sj.status, slicing_job_id=sj.id
+        )
         logger.info(
             "run_slice: %s done, %d bytes at %s",
             slicing_job_id,
@@ -186,6 +203,12 @@ def run_slice(db: Session, slicing_job_id: UUID, *, worker_id: str) -> None:
         sj.error_message = str(exc)[:4000]
         sj.ended_at = datetime.now(timezone.utc)
         db.commit()
+        emit_slicing_status(
+            sj.print_job_id,
+            status=sj.status,
+            slicing_job_id=sj.id,
+            error_message=sj.error_message,
+        )
         logger.exception("run_slice: %s failed", slicing_job_id)
 
 
@@ -243,16 +266,10 @@ def _do_slice(sj: SlicingJob) -> Path:
             str(stl_path),
         ]
         logger.info("run_slice: cmd %s", " ".join(cmd))
-        with stderr_log.open("wb") as err_f:
-            result = subprocess.run(
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=err_f,
-                timeout=settings.SLICER_TIMEOUT_SECONDS,
-            )
-        if result.returncode != 0:
+        returncode = _run_slicer_with_progress(cmd, stderr_log, sj.print_job_id)
+        if returncode != 0:
             raise RuntimeError(
-                f"prusa-slicer exit {result.returncode}: {_tail(stderr_log)}"
+                f"prusa-slicer exit {returncode}: {_tail(stderr_log)}"
             )
         if not gcode_path.exists():
             raise RuntimeError("prusa-slicer reported success but no gcode produced")
@@ -260,6 +277,56 @@ def _do_slice(sj: SlicingJob) -> Path:
     finally:
         ini_path.unlink(missing_ok=True)
         stderr_log.unlink(missing_ok=True)
+
+
+_PERCENT_RE = re.compile(r"(\d{1,3})\s*%")
+
+
+def _run_slicer_with_progress(
+    cmd: list[str], stderr_log: Path, print_job_id
+) -> int:
+    """Run PrusaSlicer, tee combined stdout+stderr to `stderr_log`, emit
+    slicing.progress for each new percent value found.
+
+    Returns the subprocess returncode. Raises RuntimeError on timeout.
+    """
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    last_pct = -1
+
+    def _consume() -> None:
+        nonlocal last_pct
+        with stderr_log.open("wb") as err_f:
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                err_f.write(line.encode("utf-8", errors="replace"))
+                m = _PERCENT_RE.search(line)
+                if m is None:
+                    continue
+                pct = max(0, min(100, int(m.group(1))))
+                if pct > last_pct:
+                    last_pct = pct
+                    try:
+                        emit_slicing_progress(print_job_id, percent=float(pct))
+                    except Exception:
+                        # Never let an emit failure kill the slice.
+                        logger.debug("slicing progress emit failed", exc_info=True)
+
+    t = threading.Thread(target=_consume, daemon=True)
+    t.start()
+    try:
+        proc.wait(timeout=settings.SLICER_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        raise RuntimeError("prusa-slicer timed out") from None
+    t.join(timeout=5)
+    return proc.returncode
 
 
 def _tail(path: Path) -> str:
