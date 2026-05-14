@@ -15,6 +15,7 @@ const _noAppBarRoutes = [
   AppRoutes.jobQueue,   // JobQueueScreen has its own inline header
   '/jobs/',             // JobDetailScreen has its own nav bar
   AppRoutes.profile,
+  AppRoutes.adminUsers, // UsersScreen has its own inline header
 ];
 
 // Per-screen action slot. Screens push widgets via shellActionsProvider.
@@ -27,6 +28,10 @@ final userFullNameProvider = FutureProvider<String?>((ref) async {
   return await StorageService.getFullName();
 });
 
+final userRoleProvider = FutureProvider<String?>((ref) async {
+  return await StorageService.getUserRole();
+});
+
 class _SectionMeta {
   final String title;
   const _SectionMeta(this.title);
@@ -36,12 +41,13 @@ class MainShell extends ConsumerWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
 
-  int _currentIndex(BuildContext context) {
+  int _currentIndex(BuildContext context, {bool isAdmin = false}) {
     final location = GoRouterState.of(context).uri.toString();
     if (location.startsWith(AppRoutes.upload)) return 0;
     if (location.startsWith(AppRoutes.fleet)) return 1;
     if (location.startsWith(AppRoutes.jobQueue)) return 2;
     if (location.startsWith(AppRoutes.monitoring)) return 3;
+    if (isAdmin && location.startsWith(AppRoutes.adminUsers)) return 4;
     return 0;
   }
 
@@ -55,6 +61,8 @@ class MainShell extends ConsumerWidget {
         return const _SectionMeta('Queue');
       case 3:
         return const _SectionMeta('Insights');
+      case 4:
+        return const _SectionMeta('Users');
       default:
         return const _SectionMeta('3DP');
     }
@@ -70,9 +78,10 @@ class MainShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentIndex = _currentIndex(context);
     final fullNameAsync = ref.watch(userFullNameProvider);
     final fullName = fullNameAsync.valueOrNull ?? 'User';
+    final isAdmin = ref.watch(userRoleProvider).valueOrNull == 'admin';
+    final currentIndex = _currentIndex(context, isAdmin: isAdmin);
     final meta = _meta(currentIndex);
     final showAppBar = _showAppBar(context);
     final extraActions = ref.watch(shellActionsProvider);
@@ -131,6 +140,14 @@ class MainShell extends ConsumerWidget {
                   isActive: currentIndex == 3,
                   onTap: () => context.go(AppRoutes.monitoring),
                 ),
+                if (isAdmin)
+                  _NavItem(
+                    icon: Icons.group_outlined,
+                    activeIcon: Icons.group_rounded,
+                    label: 'Users',
+                    isActive: currentIndex == 4,
+                    onTap: () => context.go(AppRoutes.adminUsers),
+                  ),
               ],
             ),
           ),

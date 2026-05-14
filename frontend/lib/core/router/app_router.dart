@@ -17,6 +17,7 @@ import '../../features/jobs/presentation/screens/job_detail_screen.dart';
 import '../../features/jobs/presentation/screens/job_admin_screen.dart';
 import '../../features/jobs/domain/job.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/users/presentation/screens/users_screen.dart';
 import '../../features/printers/presentation/screens/printer_detail_screen.dart';
 import '../../features/printers/presentation/screens/printer_form_screen.dart';
 import '../../features/printers/presentation/screens/printer_list_screen.dart';
@@ -178,6 +179,11 @@ final appRouter = GoRouter(
           path: AppRoutes.profile,
           name: AppRoutes.profile,
           builder: (context, state) => const ProfileScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.adminUsers,
+          name: AppRoutes.adminUsers,
+          builder: (_, _) => const UsersScreen(),
         ),
       ],
     ),

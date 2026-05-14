@@ -1879,6 +1879,9 @@ class _RecommendationResultScreenState
                       recommendationId: r.id,
                       stlFileName: stlFileName,
                       technology: r.technology,
+                      estimatedCost: r.estimatedCost,
+                      estimatedTimeMinutes: r.estimatedTimeMinutes,
+                      currency: r.currency,
                     ),
             icon: const Icon(Icons.print_rounded, size: 20),
             label: const Text(

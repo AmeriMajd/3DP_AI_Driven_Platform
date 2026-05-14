@@ -12,6 +12,9 @@ class SubmitJobDialog extends ConsumerStatefulWidget {
   final String? recommendationId;
   final String? stlFileName;
   final String? technology; // 'FDM' | 'SLA' | null → show all
+  final double? estimatedCost;
+  final int? estimatedTimeMinutes;
+  final String? currency;
 
   const SubmitJobDialog({
     super.key,
@@ -19,6 +22,9 @@ class SubmitJobDialog extends ConsumerStatefulWidget {
     this.recommendationId,
     this.stlFileName,
     this.technology,
+    this.estimatedCost,
+    this.estimatedTimeMinutes,
+    this.currency,
   });
 
   static Future<void> show(
@@ -27,6 +33,9 @@ class SubmitJobDialog extends ConsumerStatefulWidget {
     String? recommendationId,
     String? stlFileName,
     String? technology,
+    double? estimatedCost,
+    int? estimatedTimeMinutes,
+    String? currency,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -37,6 +46,9 @@ class SubmitJobDialog extends ConsumerStatefulWidget {
         recommendationId: recommendationId,
         stlFileName: stlFileName,
         technology: technology,
+        estimatedCost: estimatedCost,
+        estimatedTimeMinutes: estimatedTimeMinutes,
+        currency: currency,
       ),
     );
   }
@@ -244,12 +256,12 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
                   padding: EdgeInsets.symmetric(vertical: 9),
                   child: Divider(height: 0.5, color: Color(0x1A3C3C43)),
                 ),
-                _SummaryRow(label: 'Est. time', value: '~2h 30m'),
+                _SummaryRow(label: 'Est. time', value: _formatTime(widget.estimatedTimeMinutes)),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 9),
                   child: Divider(height: 0.5, color: Color(0x1A3C3C43)),
                 ),
-                _SummaryRow(label: 'Est. cost', value: '3.50 TND'),
+                _SummaryRow(label: 'Est. cost', value: _formatCost(widget.estimatedCost, widget.currency)),
               ],
             ),
           ),
@@ -313,6 +325,20 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
         ],
       ),
     );
+  }
+
+  String _formatTime(int? minutes) {
+    if (minutes == null) return '—';
+    if (minutes < 60) return '~${minutes}m';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    return m == 0 ? '~${h}h' : '~${h}h ${m}m';
+  }
+
+  String _formatCost(double? cost, String? currency) {
+    if (cost == null) return '—';
+    final cur = currency ?? 'TND';
+    return '${cost.toStringAsFixed(2)} $cur';
   }
 
   PrinterTechnology? get _printerTechnology {
