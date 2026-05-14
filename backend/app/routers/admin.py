@@ -1,6 +1,6 @@
 import uuid as uuid_lib
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status  # BackgroundTasks used by resend
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -23,38 +23,30 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 @router.post("/invitations", response_model=InvitationResponse, status_code=201)
 def create_invitation(
     data: CreateInvitationSchema,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_role("admin")),
 ):
     creator_id = uuid_lib.UUID(current_user["user_id"])
     invitation = InvitationService(db).create_invitation(data, created_by=creator_id)
 
-    background_tasks.add_task(
-        send_invitation_email,
-        invitation.email,
-        invitation.token,
-        invitation.role,
-        None,
-    )
-
     return InvitationResponse(
         id=invitation.id,
         email=invitation.email,
         role=invitation.role,
         expires_at=invitation.expires_at,
-        email_sent=True,
+        email_sent=False,
+        token=invitation.token,
     )
 
 
-@router.post("/invitations/{invitation_id}/resend", response_model=InvitationResponse)
-def resend_invitation(
+@router.post("/invitations/{invitation_id}/send-email", response_model=InvitationResponse)
+def send_invitation_email_endpoint(
     invitation_id: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_role("admin")),
 ):
-    invitation = InvitationService(db).resend_invitation(uuid_lib.UUID(invitation_id))
+    invitation = InvitationService(db).send_invitation_email(uuid_lib.UUID(invitation_id))
 
     background_tasks.add_task(
         send_invitation_email,
@@ -70,6 +62,7 @@ def resend_invitation(
         role=invitation.role,
         expires_at=invitation.expires_at,
         email_sent=True,
+        token=invitation.token,
     )
 
 
@@ -142,5 +135,5 @@ def delete_user(
     user = db.query(User).filter(User.id == uuid_lib.UUID(user_id)).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    db.delete(user)
+    user.is_active = False
     db.commit()

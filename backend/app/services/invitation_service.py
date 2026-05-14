@@ -31,6 +31,21 @@ class InvitationService:
                 detail="This email already has an account",
             )
 
+        pending_invitation = (
+            self.db.query(Invitation)
+            .filter(
+                Invitation.email == data.email,
+                Invitation.used == False,
+                Invitation.expires_at > datetime.utcnow(),
+            )
+            .first()
+        )
+        if pending_invitation:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A pending invitation already exists for this email",
+            )
+
         invitation = Invitation(
             email=data.email,
             role=data.role,
@@ -64,7 +79,7 @@ class InvitationService:
         invitation.used = True
         return invitation
 
-    def resend_invitation(self, invitation_id: UUID) -> Invitation:
+    def send_invitation_email(self, invitation_id: UUID) -> Invitation:
         invitation = (
             self.db.query(Invitation)
             .filter(Invitation.id == invitation_id)
@@ -79,15 +94,6 @@ class InvitationService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invitation already used",
-            )
-
-        # Rate limit: reject if last (re)send happened less than 1 hour ago.
-        # Tokens get a fresh 48h window on each (re)send, so >47h remaining
-        # means the last send is younger than 1h.
-        if invitation.expires_at - datetime.utcnow() > timedelta(hours=47):
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Invitation was sent less than an hour ago. Try again later.",
             )
 
         invitation.token = secrets.token_urlsafe(32)

@@ -5,7 +5,6 @@ class AppRoutes {
 
   // ── Auth ──
   static const String adminSignup = '/admin-signup';
-  static const String inviteUser = '/invite';
   static const String register = '/register';
   static const String login = '/login';
   static const String forgotPassword = '/forgot-password';

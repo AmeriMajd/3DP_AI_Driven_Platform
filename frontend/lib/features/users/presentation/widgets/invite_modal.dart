@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../auth/presentation/providers/auth_providers.dart';
-import '../../../auth/domain/auth_state.dart';
+import '../providers/users_providers.dart';
+import '../viewmodels/users_viewmodel.dart';
 
 class InviteModal extends ConsumerStatefulWidget {
   final VoidCallback? onInviteSent;
@@ -19,38 +20,47 @@ class _InviteModalState extends ConsumerState<InviteModal> {
   final _emailController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  String? _generatedLink;
-  String _generatedEmail = '';
-
   @override
   void dispose() {
     _emailController.dispose();
     super.dispose();
   }
 
+  String _buildRegistrationLink(String token) {
+    final base = dotenv.env['APP_BASE_URL'] ??
+        dotenv.env['API_BASE_URL'] ??
+        'http://localhost:8000';
+    return '$base/register?token=$token';
+  }
+
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    _generatedEmail = _emailController.text.trim();
-    await ref.read(authViewModelProvider.notifier).generateInvite(
-          email: _generatedEmail,
+    await ref.read(usersViewModelProvider.notifier).generateInvite(
+          email: _emailController.text.trim(),
           role: 'operator',
         );
   }
 
-  void _showQr() {
-    if (_generatedLink == null) return;
+  Future<void> _sendEmail(String invitationId) async {
+    await ref
+        .read(usersViewModelProvider.notifier)
+        .sendInviteEmail(invitationId: invitationId);
+    if (mounted) {
+      ref.read(usersViewModelProvider.notifier).resetInviteState();
+      widget.onInviteSent?.call();
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _showQr(String link, String email) {
     showDialog(
       context: context,
-      builder: (_) => _QrDialog(
-        link: _generatedLink!,
-        email: _generatedEmail,
-      ),
+      builder: (_) => _QrDialog(link: link, email: email),
     );
   }
 
-  void _copyLink() {
-    if (_generatedLink == null) return;
-    Clipboard.setData(ClipboardData(text: _generatedLink!));
+  void _copyLink(String link) {
+    Clipboard.setData(ClipboardData(text: link));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Link copied to clipboard'),
@@ -61,15 +71,8 @@ class _InviteModalState extends ConsumerState<InviteModal> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authViewModelProvider);
-
-    ref.listen<AuthState>(authViewModelProvider, (_, next) {
-      if (next.status == AuthStatus.success && _generatedLink == null) {
-        setState(() => _generatedLink = next.successMessage ?? '');
-        ref.read(authViewModelProvider.notifier).reset();
-        widget.onInviteSent?.call();
-      }
-    });
+    final state = ref.watch(usersViewModelProvider);
+    final hasResult = state.inviteToken != null;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -81,16 +84,14 @@ class _InviteModalState extends ConsumerState<InviteModal> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-        child: _generatedLink != null
-            ? _buildResult()
-            : _buildForm(authState),
+        child: hasResult ? _buildResult(state) : _buildForm(state),
       ),
     );
   }
 
   // ── Form ──────────────────────────────────────────────────────────────────
 
-  Widget _buildForm(AuthState authState) {
+  Widget _buildForm(UsersState state) {
     return Form(
       key: _formKey,
       child: Column(
@@ -99,9 +100,7 @@ class _InviteModalState extends ConsumerState<InviteModal> {
         children: [
           _Handle(),
           const SizedBox(height: 20),
-          _ModalHeader(
-            onClose: () => Navigator.of(context).pop(),
-          ),
+          _ModalHeader(onClose: () => Navigator.of(context).pop()),
           const SizedBox(height: 24),
           const Text(
             'EMAIL ADDRESS',
@@ -145,11 +144,10 @@ class _InviteModalState extends ConsumerState<InviteModal> {
           ),
           const SizedBox(height: 12),
           _InfoNote(),
-          if (authState.status == AuthStatus.error &&
-              authState.errorMessage != null) ...[
+          if (state.inviteError != null) ...[
             const SizedBox(height: 10),
             Text(
-              authState.errorMessage!,
+              state.inviteError!,
               style: const TextStyle(fontSize: 12, color: AppColors.error),
             ),
           ],
@@ -175,9 +173,7 @@ class _InviteModalState extends ConsumerState<InviteModal> {
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
-                  onPressed: authState.status == AuthStatus.loading
-                      ? null
-                      : _submit,
+                  onPressed: state.inviteLoading ? null : _submit,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 13),
@@ -185,7 +181,7 @@ class _InviteModalState extends ConsumerState<InviteModal> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: authState.status == AuthStatus.loading
+                  child: state.inviteLoading
                       ? const SizedBox(
                           width: 18,
                           height: 18,
@@ -207,7 +203,11 @@ class _InviteModalState extends ConsumerState<InviteModal> {
 
   // ── Result ────────────────────────────────────────────────────────────────
 
-  Widget _buildResult() {
+  Widget _buildResult(UsersState state) {
+    final link = _buildRegistrationLink(state.inviteToken!);
+    final email = state.inviteEmail ?? '';
+    final inviteId = state.inviteId ?? '';
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,7 +240,7 @@ class _InviteModalState extends ConsumerState<InviteModal> {
                     ),
                   ),
                   Text(
-                    'Share this link with $_generatedEmail',
+                    'Share this link with $email',
                     style: const TextStyle(
                         fontSize: 12, color: AppColors.textSecondary),
                     overflow: TextOverflow.ellipsis,
@@ -257,17 +257,16 @@ class _InviteModalState extends ConsumerState<InviteModal> {
         ),
         const SizedBox(height: 20),
 
-        // Info row
-        _ResultRow(label: 'Email', value: _generatedEmail),
+        _ResultRow(label: 'Email', value: email),
         const SizedBox(height: 8),
         const _ResultRow(label: 'Role', value: 'Operator'),
         const SizedBox(height: 8),
-        Row(
-          children: const [
+        const Row(
+          children: [
             Expanded(
               child: Text('Expires',
-                  style: TextStyle(
-                      fontSize: 13, color: AppColors.textSecondary)),
+                  style:
+                      TextStyle(fontSize: 13, color: AppColors.textSecondary)),
             ),
             Icon(Icons.access_time_outlined,
                 size: 13, color: AppColors.primary),
@@ -295,7 +294,7 @@ class _InviteModalState extends ConsumerState<InviteModal> {
             children: [
               Expanded(
                 child: Text(
-                  _generatedLink ?? '',
+                  link,
                   style: const TextStyle(
                       fontSize: 11, color: AppColors.textSecondary),
                   overflow: TextOverflow.ellipsis,
@@ -303,7 +302,7 @@ class _InviteModalState extends ConsumerState<InviteModal> {
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: _copyLink,
+                onTap: () => _copyLink(link),
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
@@ -324,7 +323,7 @@ class _InviteModalState extends ConsumerState<InviteModal> {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: _showQr,
+            onPressed: () => _showQr(link, email),
             icon: const Icon(Icons.qr_code_outlined,
                 size: 16, color: AppColors.textPrimary),
             label: const Text('Show QR Code',
@@ -339,40 +338,32 @@ class _InviteModalState extends ConsumerState<InviteModal> {
         ),
         const SizedBox(height: 10),
 
-        // Send email / Done row
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                // TODO: call send_invitation_email endpoint when ready
-                onPressed: () {},
-                icon: const Icon(Icons.mail_outline_rounded,
-                    size: 15, color: AppColors.textPrimary),
-                label: const Text('Send email',
-                    style: TextStyle(color: AppColors.textPrimary)),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  side: const BorderSide(color: Color(0xFFE5E7EB)),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
+        // Send email — sole CTA
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: state.inviteLoading
+                ? null
+                : () => _sendEmail(inviteId),
+            icon: state.inviteLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.mail_outline_rounded, size: 16),
+            label: const Text(
+              'Send email',
+              style: TextStyle(fontWeight: FontWeight.w600),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-                child: const Text('Done',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-              ),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
-          ],
+          ),
         ),
       ],
     );
@@ -416,9 +407,9 @@ class _ModalHeader extends StatelessWidget {
               color: AppColors.primary, size: 18),
         ),
         const SizedBox(width: 12),
-        Column(
+        const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
               'Invite operator',
               style: TextStyle(
@@ -475,8 +466,7 @@ class _InfoNote extends StatelessWidget {
                         color: Color(0xFF0F766E)),
                   ),
                   TextSpan(
-                      text:
-                          ' to let them register and access the platform.'),
+                      text: ' to let them register and access the platform.'),
                 ],
               ),
             ),
@@ -513,7 +503,7 @@ class _ResultRow extends StatelessWidget {
   }
 }
 
-// ── QR Dialog (same as InviteUserScreen) ──────────────────────────────────────
+// ── QR Dialog ─────────────────────────────────────────────────────────────────
 
 class _QrDialog extends StatelessWidget {
   final String link;

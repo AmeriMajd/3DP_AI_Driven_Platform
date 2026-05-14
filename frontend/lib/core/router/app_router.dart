@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/screens/admin_signup_screen.dart';
-import '../../features/auth/presentation/screens/invite_user_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
@@ -43,13 +42,6 @@ final appRouter = GoRouter(
       path: AppRoutes.adminSignup,
       name: AppRoutes.adminSignup,
       builder: (context, state) => const AdminSignupScreen(),
-    ),
-
-    // ── Invite User ──
-    GoRoute(
-      path: AppRoutes.inviteUser,
-      name: AppRoutes.inviteUser,
-      builder: (context, state) => const InviteUserScreen(),
     ),
 
     // ── Register — reçoit le token via query param ──

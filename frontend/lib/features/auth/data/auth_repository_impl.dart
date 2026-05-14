@@ -7,7 +7,7 @@ import '../domain/auth_repository.dart';
 /// Implémentation réelle de [AuthRepository].
 ///
 /// Connecté au backend FastAPI via [DioClient].
-/// Gère 4 opérations : adminSignup, generateInvite, validateInvite, register.
+/// Gère les opérations : adminSignup, validateInvite, register, login, tokens.
 /// En cas d'erreur réseau ou serveur, lance une [Exception]
 /// avec le message retourné par l'API.
 
@@ -51,59 +51,6 @@ class AuthRepositoryImpl implements AuthRepository {
           // clé injectée automatiquement — invisible pour l'utilisateur
         },
       );
-    } on DioException catch (e) {
-      throw Exception(_handleError(e));
-    }
-  }
-
-  /// POST /admin/invitations
-  ///
-  /// Génère un token d'invitation pour un nouvel utilisateur.
-  /// Endpoint protégé — réservé aux admins authentifiés.
-  ///
-  /// [email] : email du futur utilisateur
-  /// [role]  : 'admin' | 'operator'
-  ///
-  /// Retourne le token généré par le backend.
-  ///
-  /// Erreurs possibles :
-  /// - 400 : Email a déjà un compte
-  /// - 401 : Admin non authentifié
-  /// - 403 : Accès admin requis
-
-  @override
-  Future<bool> generateInvite({
-    required String email,
-    required String role,
-  }) async {
-    try {
-      final response = await _dio.post(
-        '/admin/invitations',
-        data: {'email': email, 'role': role},
-      );
-      return response.data['email_sent'] as bool? ?? true;
-    } on DioException catch (e) {
-      throw Exception(_handleError(e));
-    }
-  }
-
-  @override
-  Future<bool> resendInvite({required String invitationId}) async {
-    try {
-      final response = await _dio.post(
-        '/admin/invitations/$invitationId/resend',
-      );
-      return response.data['email_sent'] as bool? ?? true;
-    } on DioException catch (e) {
-      throw Exception(_handleError(e));
-    }
-  }
-
-  @override
-  Future<List<Map<String, dynamic>>> getInvitations() async {
-    try {
-      final response = await _dio.get('/admin/invitations');
-      return (response.data as List).cast<Map<String, dynamic>>();
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }

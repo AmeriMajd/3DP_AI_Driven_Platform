@@ -268,7 +268,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           },
           onChangePwd: () => _goTo(_SubScreen.changePwd),
           onRevokeAll: () => setState(() => _confirmRevokeVisible = true),
-          onInvite: () => context.push(AppRoutes.inviteUser),
+          onInvite: () => context.push(AppRoutes.adminUsers),
         );
     }
   }

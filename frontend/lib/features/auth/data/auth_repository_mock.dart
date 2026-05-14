@@ -4,7 +4,6 @@ import '../domain/auth_repository.dart';
 ///
 /// Simule :
 /// - [adminSignup] → succès après 2s
-/// - [generateInvite] → succès avec faux token
 /// - [register] → erreur simulée pour tester l'état d'erreur
 class AuthRepositoryMock implements AuthRepository {
   
@@ -23,21 +22,6 @@ class AuthRepositoryMock implements AuthRepository {
     await Future.delayed(const Duration(seconds: 2));
     // ✅ Simule un succès
     // throw Exception('Email already exists'); // décommente pour tester erreur
-  }
-
-  @override
-  Future<bool> generateInvite({
-    required String email,
-    required String role,
-  }) async {
-    await Future.delayed(const Duration(seconds: 2));
-    return true;
-  }
-
-  @override
-  Future<bool> resendInvite({required String invitationId}) async {
-    await Future.delayed(const Duration(seconds: 1));
-    return true;
   }
 
   @override
@@ -114,9 +98,4 @@ class AuthRepositoryMock implements AuthRepository {
     await Future.delayed(const Duration(milliseconds: 500));
   }
 
-  @override
-  Future<List<Map<String, dynamic>>> getInvitations() async {
-    await Future.delayed(const Duration(seconds: 1));
-    return [];
-  }
 }

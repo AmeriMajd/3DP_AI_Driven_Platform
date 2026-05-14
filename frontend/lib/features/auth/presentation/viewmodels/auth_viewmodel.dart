@@ -33,41 +33,6 @@ class AuthViewModel extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> generateInvite({
-    required String email,
-    required String role,
-  }) async {
-    state = state.copyWith(status: AuthStatus.loading);
-    try {
-      await _repo.generateInvite(email: email, role: role);
-      state = state.copyWith(
-        status: AuthStatus.success,
-        successMessage: 'Invitation email sent to $email',
-      );
-    } catch (e) {
-      state = state.copyWith(
-        status: AuthStatus.error,
-        errorMessage: e.toString(),
-      );
-    }
-  }
-
-  Future<void> resendInvite({required String invitationId}) async {
-    state = state.copyWith(status: AuthStatus.loading);
-    try {
-      await _repo.resendInvite(invitationId: invitationId);
-      state = state.copyWith(
-        status: AuthStatus.success,
-        successMessage: 'Invitation email resent',
-      );
-    } catch (e) {
-      state = state.copyWith(
-        status: AuthStatus.error,
-        errorMessage: e.toString(),
-      );
-    }
-  }
-
   Future<Map<String, dynamic>?> validateInvite({required String token}) async {
     try {
       final data = await _repo.validateInvite(token: token);

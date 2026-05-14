@@ -25,14 +25,14 @@ class CreateInvitationSchema(BaseModel):
 class InvitationResponse(BaseModel):
     """
     Returned after a successful invitation creation or resend.
-    The invitation link is delivered to the invitee by email — it is
-    no longer returned in the API response.
+    token is included so the admin can copy/share the registration link directly.
     """
     id: UUID
     email: str
     role: str
     expires_at: datetime
     email_sent: bool
+    token: str
 
     model_config = {"from_attributes": True}
 

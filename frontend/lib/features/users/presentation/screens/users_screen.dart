@@ -337,7 +337,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
         ),
         content: Text(
-          "This will deactivate ${user.fullName}'s access to the platform.",
+          "${user.fullName}'s access will be revoked. They'll appear as Inactive and their data will be preserved.",
           style: const TextStyle(
               color: AppColors.textSecondary, fontSize: 14),
         ),

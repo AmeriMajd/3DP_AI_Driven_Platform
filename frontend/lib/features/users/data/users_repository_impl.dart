@@ -28,6 +28,32 @@ class UsersRepositoryImpl implements UsersRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> generateInvite({
+    required String email,
+    required String role,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/admin/invitations',
+        data: {'email': email, 'role': role},
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  @override
+  Future<bool> sendInviteEmail({required String invitationId}) async {
+    try {
+      final response = await _dio.post('/admin/invitations/$invitationId/send-email');
+      return response.data['email_sent'] as bool? ?? true;
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  @override
   Future<List<Map<String, dynamic>>> getInvitations() async {
     try {
       final response = await _dio.get('/admin/invitations');
