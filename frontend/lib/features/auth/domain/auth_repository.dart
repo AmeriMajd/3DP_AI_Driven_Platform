@@ -7,7 +7,9 @@ abstract class AuthRepository {
     required String password,
   });
 
-  Future<String> generateInvite({required String email, required String role});
+  Future<bool> generateInvite({required String email, required String role});
+
+  Future<bool> resendInvite({required String invitationId});
 
   Future<List<Map<String, dynamic>>> getInvitations();
 

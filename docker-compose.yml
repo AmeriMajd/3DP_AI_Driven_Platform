@@ -31,12 +31,12 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
       REFRESH_TOKEN_EXPIRE_DAYS: 7
       ADMIN_SIGNUP_KEY: 3dp-admin-secret-2026
-      SMTP_HOST: sandbox.smtp.mailtrap.io
-      SMTP_PORT: 2525
-      SMTP_USER: caa5e8eb5ef7db
-      SMTP_PASS: df87d599c000b0
-      EMAIL_FROM: noreply@3dp.com
-      APP_BASE_URL: http://localhost:3000
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USER: amerymaajd0@gmail.com
+      SMTP_PASS: "bpum oiwp wulh haav"
+      EMAIL_FROM: amerymaajd0@gmail.com
+      APP_BASE_URL: http://localhost:8080
       REDIS_URL: redis://redis:6379/0
       GCODE_UPLOAD_DIR: /app/uploads/gcode
       SLICER_TIMEOUT_SECONDS: 600

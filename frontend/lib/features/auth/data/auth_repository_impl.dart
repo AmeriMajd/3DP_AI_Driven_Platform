@@ -72,17 +72,28 @@ class AuthRepositoryImpl implements AuthRepository {
   /// - 403 : Accès admin requis
 
   @override
-  Future<String> generateInvite({
+  Future<bool> generateInvite({
     required String email,
     required String role,
   }) async {
-    //await Future.delayed(const Duration(seconds: 2));
     try {
       final response = await _dio.post(
         '/admin/invitations',
         data: {'email': email, 'role': role},
       );
-      return response.data['link'] as String;
+      return response.data['email_sent'] as bool? ?? true;
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  @override
+  Future<bool> resendInvite({required String invitationId}) async {
+    try {
+      final response = await _dio.post(
+        '/admin/invitations/$invitationId/resend',
+      );
+      return response.data['email_sent'] as bool? ?? true;
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }

@@ -1,10 +1,10 @@
 import uuid as uuid_lib
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.database import get_db
+from app.core.email import send_invitation_email
 from app.core.security import require_role
 from app.models.invitation import Invitation
 from app.models.print_job import PrintJob
@@ -23,19 +23,53 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 @router.post("/invitations", response_model=InvitationResponse, status_code=201)
 def create_invitation(
     data: CreateInvitationSchema,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_role("admin")),
 ):
     creator_id = uuid_lib.UUID(current_user["user_id"])
     invitation = InvitationService(db).create_invitation(data, created_by=creator_id)
-    shareable_link = f"{settings.APP_BASE_URL}/register?token={invitation.token}"
+
+    background_tasks.add_task(
+        send_invitation_email,
+        invitation.email,
+        invitation.token,
+        invitation.role,
+        None,
+    )
 
     return InvitationResponse(
-        token=invitation.token,
-        link=shareable_link,
+        id=invitation.id,
         email=invitation.email,
         role=invitation.role,
         expires_at=invitation.expires_at,
+        email_sent=True,
+    )
+
+
+@router.post("/invitations/{invitation_id}/resend", response_model=InvitationResponse)
+def resend_invitation(
+    invitation_id: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_role("admin")),
+):
+    invitation = InvitationService(db).resend_invitation(uuid_lib.UUID(invitation_id))
+
+    background_tasks.add_task(
+        send_invitation_email,
+        invitation.email,
+        invitation.token,
+        invitation.role,
+        None,
+    )
+
+    return InvitationResponse(
+        id=invitation.id,
+        email=invitation.email,
+        role=invitation.role,
+        expires_at=invitation.expires_at,
+        email_sent=True,
     )
 
 
