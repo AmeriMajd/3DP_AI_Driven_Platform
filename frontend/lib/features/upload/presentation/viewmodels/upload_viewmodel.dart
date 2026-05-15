@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/stl_repository.dart';
@@ -7,11 +6,6 @@ import '../../domain/upload_state.dart';
 
 class UploadViewModel extends StateNotifier<UploadState> {
   final StlRepository _repo;
-  Timer? _pollingTimer;
-
-  static const _pollInterval = Duration(seconds: 2);
-  static const _maxPollAttempts = 150;
-  static const _staleUploadedThreshold = Duration(minutes: 10);
 
   UploadViewModel(this._repo) : super(const UploadState());
 
@@ -122,42 +116,15 @@ class UploadViewModel extends StateNotifier<UploadState> {
     }
   }
 
+  // HTTP polling removed — STL pipeline pushes `stl.status` events over WS,
+  // and FileDetailScreen calls `refreshFile(id)` on each event. We keep
+  // start/stopPolling as a no-op state marker so existing callers compile
+  // and the UI knows which file is currently transitioning.
   void startPolling(String fileId) {
-    stopPolling();
     state = state.copyWith(pollingFileId: fileId);
-    var attempts = 0;
-
-    _pollingTimer = Timer.periodic(_pollInterval, (_) async {
-      attempts++;
-      try {
-        final updated = await _repo.getFile(id: fileId);
-        _replaceFile(updated);
-
-        final isStale = updated.status == 'uploaded' &&
-            DateTime.now().difference(updated.createdAt) >
-                _staleUploadedThreshold;
-
-        if (updated.status == 'ready' || updated.status == 'error') {
-          stopPolling();
-        } else if (isStale) {
-          _failPolling('File is stuck in uploaded status. Please re-upload it.');
-          stopPolling();
-        } else if (attempts >= _maxPollAttempts) {
-          _failPolling('Processing timed out. Status: ${updated.status}');
-          stopPolling();
-        }
-      } catch (_) {
-        if (attempts >= _maxPollAttempts) {
-          _failPolling('Network error during processing. Check the file status manually.');
-          stopPolling();
-        }
-      }
-    });
   }
 
   void stopPolling() {
-    _pollingTimer?.cancel();
-    _pollingTimer = null;
     state = state.copyWith(clearPollingFileId: true);
   }
 
@@ -188,16 +155,4 @@ class UploadViewModel extends StateNotifier<UploadState> {
     );
   }
 
-  void _failPolling(String message) {
-    state = state.copyWith(
-      status: UploadStatus.error,
-      errorMessage: message,
-    );
-  }
-
-  @override
-  void dispose() {
-    _pollingTimer?.cancel();
-    super.dispose();
-  }
 }
