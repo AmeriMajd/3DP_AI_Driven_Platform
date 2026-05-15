@@ -76,6 +76,8 @@ def emit_job_progress(
     if time_left_seconds is not None:
         data["time_left_seconds"] = time_left_seconds
     publish(_job_topic(print_job_id), "job.progress", data)
+    # Mirror to admin fleet view so list screens tick without per-card subscribes.
+    publish("admin:jobs", "job.progress", data)
 
 
 def emit_slicing_progress(

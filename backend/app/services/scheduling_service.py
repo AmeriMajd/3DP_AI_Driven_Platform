@@ -64,8 +64,13 @@ def _supports_material(printer: Printer, material: str) -> bool:
 def find_compatible_printer(db: Session, job: PrintJob) -> Optional[Printer]:
     """Return an idle printer that can run this job, or None.
 
-    Prefers the printer with the smallest build volume that still fits
-    (leaves the bigger printers free for bigger jobs). Ties broken by name.
+    If `job.printer_id` is set (user pinned a specific printer), only that
+    printer is considered. If it's not idle or not compatible, returns None
+    — the job stays queued until that printer is available; we do not silently
+    fall back to a different printer.
+
+    Otherwise (no pinned printer): prefers the smallest build volume that
+    still fits, leaving bigger printers free for bigger jobs. Ties by name.
     """
     rec = db.query(Recommendation).filter(Recommendation.id == job.recommendation_id).first()
     if rec is None or rec.technology is None or rec.material is None:
@@ -74,6 +79,20 @@ def find_compatible_printer(db: Session, job: PrintJob) -> Optional[Printer]:
     stl = db.query(STLFile).filter(STLFile.id == job.stl_file_id).first()
     if stl is None:
         return None
+
+    if job.printer_id is not None:
+        pinned = (
+            db.query(Printer)
+            .filter(Printer.id == job.printer_id)
+            .filter(Printer.status == "idle")
+            .filter(Printer.technology == rec.technology)
+            .first()
+        )
+        if pinned is None:
+            return None
+        if not _supports_material(pinned, rec.material) or not _bbox_fits(stl, pinned):
+            return None
+        return pinned
 
     candidates = (
         db.query(Printer)

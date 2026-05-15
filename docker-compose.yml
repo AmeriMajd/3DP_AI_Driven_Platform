@@ -62,6 +62,7 @@ services:
       GCODE_UPLOAD_DIR: /app/uploads/gcode
       SLICER_TIMEOUT_SECONDS: 600
       SLICING_WORKER_CONCURRENCY: 2
+      STATUS_POLL_INTERVAL_SECONDS: 5
       # Reuse api secrets so model imports (Fernet etc.) don't blow up.
       SECRET_KEY: oVOyHvJuPbUTopgqBfrKdAnHGkSo87P6cjviDkX96gYg8xbtYLqPVbySx9zPPM13
       ADMIN_SIGNUP_KEY: 3dp-admin-secret-2026

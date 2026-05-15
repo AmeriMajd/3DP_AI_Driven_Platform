@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/ws/ws_protocol.dart';
+import '../../../../core/ws/ws_providers.dart';
 import '../../../printers/domain/printer.dart';
 import '../../../printers/domain/printer_filter.dart';
 import '../../../printers/providers/printer_providers.dart';
@@ -103,6 +105,15 @@ class _JobQueueScreenState extends ConsumerState<JobQueueScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Subscribe to admin:jobs (admin only) — backend mirrors job.status +
+    // job.progress to that topic so the list ticks live without per-card subs.
+    final isAdminForWs = ref.watch(isAdminProvider).value ?? false;
+    if (isAdminForWs) {
+      ref.listen(wsTopicEventsProvider(WsTopics.adminJobs), (_, next) {
+        next.whenData((_) => ref.invalidate(myJobsProvider));
+      });
+    }
+
     final jobsAsync = ref.watch(myJobsProvider);
     final printers =
         ref.watch(printersListProvider(const PrinterFilter())).valueOrNull ??

@@ -67,11 +67,40 @@ async def publish_async(topic: str, type_: str, data: dict[str, Any]) -> None:
         logger.warning("ws publish failed (topic=%s type=%s)", topic, type_, exc_info=True)
 
 
+async def _publish_with_fresh_client(
+    topic: str, type_: str, data: dict[str, Any]
+) -> None:
+    """Variant of `publish_async` that creates and tears down its own Redis
+    connection. Used from the sync `publish()` path where `asyncio.run` closes
+    the loop on exit — caching a connection across calls would bind the new
+    loop's resources to a dead loop and raise 'Event loop is closed'.
+    """
+    if not settings.WEBSOCKETS_ENABLED:
+        return
+    envelope = _build_envelope(topic, type_, data)
+    payload = json.dumps(envelope)
+    client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+    try:
+        pipe = client.pipeline()
+        pipe.publish(f"{CHANNEL_PREFIX}{topic}", payload)
+        pipe.set(f"{LAST_PREFIX}{topic}", payload, ex=settings.WS_LAST_EVENT_TTL_S)
+        await pipe.execute()
+    except Exception:
+        logger.warning("ws publish failed (topic=%s type=%s)", topic, type_, exc_info=True)
+    finally:
+        try:
+            await client.aclose()
+        except Exception:
+            pass
+
+
 def publish(topic: str, type_: str, data: dict[str, Any]) -> None:
     """Sync entrypoint for callers outside an event loop (worker, BackgroundTasks).
 
-    Best-effort: never raises. If no loop, runs a fresh one. If a loop is
-    already running in the calling thread, schedules the coroutine on it.
+    Best-effort: never raises. If a loop is already running in this thread,
+    schedules the coroutine on it (reusing the cached pool via `publish_async`).
+    Otherwise spins up a fresh loop AND a fresh Redis client per call, so a
+    closed loop never references a stale connection.
     """
     if not settings.WEBSOCKETS_ENABLED:
         return
@@ -79,7 +108,7 @@ def publish(topic: str, type_: str, data: dict[str, Any]) -> None:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            asyncio.run(publish_async(topic, type_, data))
+            asyncio.run(_publish_with_fresh_client(topic, type_, data))
             return
         loop.create_task(publish_async(topic, type_, data))
     except Exception:

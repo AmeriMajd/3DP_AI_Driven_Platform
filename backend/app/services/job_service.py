@@ -111,6 +111,7 @@ def submit_job(db: Session, current_user: dict, payload: JobCreate) -> PrintJob:
         user_id=user_id,
         stl_file_id=payload.stl_file_id,
         recommendation_id=payload.recommendation_id,
+        printer_id=payload.printer_id,
         priority=payload.priority,
         parameters_override=payload.parameters_override,
         status="queued",

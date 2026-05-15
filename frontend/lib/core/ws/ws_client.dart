@@ -2,10 +2,17 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as ws_status;
 
 import 'ws_protocol.dart';
+
+void _wsLog(String msg) {
+  // Plain print so it shows up unconditionally in logcat / debug console.
+  // ignore: avoid_print
+  if (kDebugMode) print('[ws] $msg');
+}
 
 /// Auto-reconnecting WebSocket client with exponential backoff + jitter.
 ///
@@ -33,6 +40,7 @@ class ReconnectingWebSocket {
   StreamSubscription? _channelSub;
   Timer? _reconnectTimer;
   Timer? _pongDeadline;
+  Timer? _pingTimer;
   bool _disposed = false;
   bool _starting = false;
   int _failedConnects = 0; // consecutive failed connect attempts
@@ -66,6 +74,7 @@ class ReconnectingWebSocket {
 
   Future<void> subscribe(String topic) async {
     _refCounts[topic] = (_refCounts[topic] ?? 0) + 1;
+    _wsLog('subscribe topic=$topic refCount=${_refCounts[topic]} channel=${_channel != null}');
     if (_refCounts[topic] == 1) {
       _sendRaw({'op': 'subscribe', 'topic': topic});
     }
@@ -73,6 +82,7 @@ class ReconnectingWebSocket {
 
   Future<void> unsubscribe(String topic) async {
     final cur = _refCounts[topic] ?? 0;
+    _wsLog('unsubscribe topic=$topic refCount=$cur');
     if (cur <= 1) {
       _refCounts.remove(topic);
       _sendRaw({'op': 'unsubscribe', 'topic': topic});
@@ -124,12 +134,14 @@ class ReconnectingWebSocket {
         .replaceFirst(RegExp(r'^https://'), 'wss://');
     final uri = Uri.parse('$wsBase/ws?token=$token');
 
+    _wsLog('connecting to $uri');
     _setState(WsConnectionState.connecting);
     final ch = WebSocketChannel.connect(uri);
     await ch.ready;
     _channel = ch;
     _failedConnects = 0;
     _setState(WsConnectionState.connected);
+    _wsLog('connected; resubscribing ${_refCounts.length} topics: ${_refCounts.keys}');
 
     // Resubscribe everything on reconnect
     for (final topic in _refCounts.keys) {
@@ -148,10 +160,13 @@ class ReconnectingWebSocket {
       cancelOnError: true,
     );
     _armPongDeadline();
+    _startPingTimer();
     await completer.future;
     _channelSub = null;
     _channel = null;
     _pongDeadline?.cancel();
+    _pingTimer?.cancel();
+    _pingTimer = null;
     if (!_disposed) {
       _setState(WsConnectionState.disconnected);
     }
@@ -178,16 +193,24 @@ class ReconnectingWebSocket {
     final op = parseServerOp(json['op'] as String?);
     switch (op) {
       case WsServerOp.event:
-        if (!_events.isClosed) _events.add(WsEvent.fromJson(json));
+        final ev = WsEvent.fromJson(json);
+        _wsLog('event topic=${ev.topic} type=${ev.type} data=${ev.data}');
+        if (!_events.isClosed) _events.add(ev);
         break;
       case WsServerOp.pong:
         _armPongDeadline();
         break;
       case WsServerOp.error:
-        if (!_errors.isClosed) _errors.add(WsError.fromJson(json));
+        final err = WsError.fromJson(json);
+        _wsLog('error code=${err.code} topic=${err.topic} msg=${err.message}');
+        if (!_errors.isClosed) _errors.add(err);
         break;
       case WsServerOp.subscribed:
+        _wsLog('ack subscribed topic=${json['topic']}');
+        break;
       case WsServerOp.unsubscribed:
+        _wsLog('ack unsubscribed topic=${json['topic']}');
+        break;
       case null:
         break;
     }
@@ -196,10 +219,18 @@ class ReconnectingWebSocket {
   void _armPongDeadline() {
     _pongDeadline?.cancel();
     _pongDeadline = Timer(const Duration(seconds: 90), () {
-      // Server didn't ping in 90s; force-close to trigger reconnect.
+      _wsLog('pong deadline expired; force-closing socket');
+      // RFC 6455: clients must use 1000 (normal) or 3000-4999. 1001 is reserved.
       try {
-        _channel?.sink.close(ws_status.goingAway);
+        _channel?.sink.close(ws_status.normalClosure);
       } catch (_) {}
+    });
+  }
+
+  void _startPingTimer() {
+    _pingTimer?.cancel();
+    _pingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _sendRaw({'op': 'ping'});
     });
   }
 
@@ -207,6 +238,7 @@ class ReconnectingWebSocket {
     _disposed = true;
     _reconnectTimer?.cancel();
     _pongDeadline?.cancel();
+    _pingTimer?.cancel();
     await _channelSub?.cancel();
     try {
       await _channel?.sink.close(ws_status.normalClosure);
