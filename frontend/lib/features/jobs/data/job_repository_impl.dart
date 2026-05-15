@@ -20,6 +20,7 @@ class JobRepositoryImpl implements JobRepository {
         'stl_file_id': stlFileId,
         'recommendation_id': recommendationId,
         'priority': priority,
+        if (printerId != null) 'printer_id': printerId,
       });
       return Job.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/ws/ws_protocol.dart';
+import '../../../../core/ws/ws_providers.dart';
 import '../../domain/job.dart';
 import '../providers/job_providers.dart';
 import '../widgets/job_card.dart';
@@ -33,6 +35,11 @@ class _JobAdminScreenState extends ConsumerState<JobAdminScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Subscribe to admin:jobs WS topic; invalidate list on each event.
+    ref.listen(wsTopicEventsProvider(WsTopics.adminJobs), (_, next) {
+      next.whenData((_) => ref.invalidate(allJobsProvider(_filter)));
+    });
+
     final jobsAsync = ref.watch(allJobsProvider(_filter));
 
     return Scaffold(

@@ -19,6 +19,7 @@ from app.services.geometry_service import (
     load_mesh,
 )
 from app.services import orientation_service
+from app.ws.emit import emit_stl_status
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,7 @@ async def save_stl_file(file: UploadFile, user_id: uuid.UUID, db: Session, backg
         db.rollback()
         raise HTTPException(status_code=500, detail="Database error while saving file.") from exc
 
+    emit_stl_status(stl_record.id, status=stl_record.status)
     background_tasks.add_task(
         run_analysis_pipeline,
         stl_id=stl_record.id,
@@ -357,6 +359,7 @@ def queue_reprocess(
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to queue reprocessing.") from exc
 
+    emit_stl_status(record.id, status=record.status)
     background_tasks.add_task(
         run_analysis_pipeline,
         stl_id=record.id,
@@ -406,6 +409,7 @@ def run_analysis_pipeline(stl_id: uuid.UUID, file_path: str) -> None:
 
         record.status = "analyzing"
         db.commit()
+        emit_stl_status(stl_id, status="analyzing")
 
         # ── Step 1: load mesh once ────────────────────────────────────────────
         mesh = load_mesh(Path(file_path))
@@ -454,14 +458,16 @@ def run_analysis_pipeline(stl_id: uuid.UUID, file_path: str) -> None:
         # ── Step 5: mark ready ────────────────────────────────────────────────
         record.status = "ready"
         db.commit()
+        emit_stl_status(stl_id, status="ready")
 
-    except Exception:
+    except Exception as exc:
         db.rollback()
         error_record = db.query(STLFile).filter(STLFile.id == stl_id).first()
         if error_record:
             try:
                 error_record.status = "error"
                 db.commit()
+                emit_stl_status(stl_id, status="error", error_message=str(exc)[:500])
             except Exception:
                 db.rollback()
         logger.exception("Background STL analysis failed", extra={"stl_id": str(stl_id)})

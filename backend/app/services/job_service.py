@@ -33,6 +33,7 @@ from app.schemas.job import JobCreate
 from app.schemas.slicing import JobSlicingRead
 from app.services.printer_service import get_decrypted_api_key
 from app.services.scheduling_service import assign_pending_jobs, free_printer
+from app.ws.emit import emit_job_status
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +111,7 @@ def submit_job(db: Session, current_user: dict, payload: JobCreate) -> PrintJob:
         user_id=user_id,
         stl_file_id=payload.stl_file_id,
         recommendation_id=payload.recommendation_id,
+        printer_id=payload.printer_id,
         priority=payload.priority,
         parameters_override=payload.parameters_override,
         status="queued",
@@ -118,9 +120,12 @@ def submit_job(db: Session, current_user: dict, payload: JobCreate) -> PrintJob:
     db.commit()
     db.refresh(job)
 
+    emit_job_status(job.id, status=job.status, printer_id=job.printer_id)
+
     # Try to schedule it immediately (and any other jobs that were waiting).
     assign_pending_jobs(db)
     db.refresh(job)
+    emit_job_status(job.id, status=job.status, printer_id=job.printer_id)
 
     # Auto-slice (Gap 1). Fail loudly via log — DO NOT swallow silently.
     if getattr(payload, "auto_slice", True) and settings.IN_APP_SLICING_ENABLED:
@@ -248,6 +253,12 @@ def cancel_job(db: Session, current_user: dict, job_id: UUID) -> PrintJob:
 
     db.commit()
     db.refresh(job)
+    emit_job_status(
+        job.id,
+        status=job.status,
+        printer_id=job.printer_id,
+        error_message=job.error_message,
+    )
 
     # If we freed a printer, see if any waiting job can now use it.
     if was_assigned:
@@ -283,6 +294,7 @@ def suspend_job(db: Session, job_id: UUID) -> PrintJob:
 
     db.commit()
     db.refresh(job)
+    emit_job_status(job.id, status=job.status, printer_id=job.printer_id)
 
     if was_scheduled:
         assign_pending_jobs(db)
@@ -308,7 +320,9 @@ def resume_job(db: Session, job_id: UUID) -> PrintJob:
     job.status = "queued"
     db.commit()
     db.refresh(job)
+    emit_job_status(job.id, status=job.status, printer_id=job.printer_id)
 
     assign_pending_jobs(db)
     db.refresh(job)
+    emit_job_status(job.id, status=job.status, printer_id=job.printer_id)
     return job

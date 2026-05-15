@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/job_repository.dart';
 import '../../data/mock_job_repository.dart';
@@ -25,14 +23,11 @@ final jobDetailProvider =
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
+// Polling removed — WS `slicing.*` events invalidate this provider via
+// JobDetailScreen's `ref.listen(wsTopicEventsProvider(job:{id}))`.
 final jobSlicingProvider =
     FutureProvider.autoDispose.family<JobSlicing, String>((ref, id) async {
-  final slicing = await ref.watch(jobRepositoryProvider).getJobSlicing(id);
-  if (slicing.isActive) {
-    final timer = Timer(const Duration(seconds: 4), ref.invalidateSelf);
-    ref.onDispose(timer.cancel);
-  }
-  return slicing;
+  return ref.watch(jobRepositoryProvider).getJobSlicing(id);
 });
 
 class AdminJobsFilter {

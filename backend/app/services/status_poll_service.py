@@ -28,6 +28,7 @@ from app.models.print_job import PrintJob
 from app.models.printer import Printer
 from app.services.printer_service import get_decrypted_api_key
 from app.services.scheduling_service import assign_pending_jobs, free_printer
+from app.ws.emit import emit_job_progress, emit_job_status, emit_printer_status
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +110,17 @@ def _poll_one(db: Session, job: PrintJob) -> bool:
 
     # PRINTING / PAUSED / UNKNOWN — just save the progress snapshot.
     db.commit()
+    emit_job_progress(
+        job.id,
+        progress_pct=job.progress_pct,
+        time_left_seconds=job.time_left_seconds,
+    )
+    if printer is not None:
+        emit_printer_status(
+            printer.id,
+            status=printer.status,
+            current_job_id=job.id,
+        )
     return False
 
 
@@ -123,6 +135,11 @@ def _mark_completed(db: Session, job: PrintJob, printer: Printer | None) -> None
     if printer is not None:
         free_printer(db, printer.id)
     db.commit()
+    emit_job_status(
+        job.id, status="completed", printer_id=job.printer_id, progress_pct=100.0
+    )
+    if printer is not None:
+        emit_printer_status(printer.id, status=printer.status)
     logger.info("status_poll: PrintJob %s completed", job.id)
 
 
@@ -132,6 +149,14 @@ def _mark_failed(db: Session, job: PrintJob, printer: Printer | None, reason: st
     job.ended_at = datetime.now(timezone.utc)
     if printer is not None:
         free_printer(db, printer.id)
+    emit_job_status(
+        job.id,
+        status="failed",
+        printer_id=job.printer_id,
+        error_message=job.error_message,
+    )
+    if printer is not None:
+        emit_printer_status(printer.id, status=printer.status)
     elif job.printer_id is not None:
         free_printer(db, job.printer_id)
     db.commit()
