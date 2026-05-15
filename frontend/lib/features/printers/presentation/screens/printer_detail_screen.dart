@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/ws/ws_protocol.dart';
+import '../../../../core/ws/ws_providers.dart';
 import '../../../../shared/widgets/responsive_wrapper.dart';
 import '../../../jobs/domain/job.dart';
 import '../../../jobs/presentation/providers/job_providers.dart';
@@ -20,6 +22,15 @@ class PrinterDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Subscribe to printer:{id} WS topic; invalidate detail on each event.
+    ref.listen(wsTopicEventsProvider(WsTopics.printer(printerId)), (_, next) {
+      next.whenData((event) {
+        if (event.type == 'printer.status') {
+          ref.invalidate(printerDetailProvider(printerId));
+        }
+      });
+    });
+
     final printerAsync = ref.watch(printerDetailProvider(printerId));
     final isAdmin = ref.watch(isAdminProvider).value ?? false;
 

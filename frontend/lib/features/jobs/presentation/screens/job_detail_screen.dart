@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/ws/ws_protocol.dart';
+import '../../../../core/ws/ws_providers.dart';
 import '../../../../features/printers/providers/printer_providers.dart';
 import '../../domain/job.dart';
 import '../../domain/job_slicing.dart';
@@ -36,6 +38,19 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Subscribe to job:{id} WS topic; invalidate HTTP providers on each event.
+    final topic = WsTopics.job(widget.jobId);
+    ref.listen(wsTopicEventsProvider(topic), (_, next) {
+      next.whenData((event) {
+        if (event.type == 'job.status' || event.type == 'job.progress') {
+          ref.invalidate(jobDetailProvider(widget.jobId));
+        }
+        if (event.type.startsWith('slicing.')) {
+          ref.invalidate(jobSlicingProvider(widget.jobId));
+        }
+      });
+    });
+
     final jobAsync = ref.watch(jobDetailProvider(widget.jobId));
     final effectiveJobAsync = jobAsync.isLoading && widget.initialJob != null
         ? AsyncValue<Job>.data(widget.initialJob!)

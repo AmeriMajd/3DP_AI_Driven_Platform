@@ -161,6 +161,19 @@ class UploadViewModel extends StateNotifier<UploadState> {
     state = state.copyWith(clearPollingFileId: true);
   }
 
+  /// One-shot refresh — called by the WS listener on `stl.status` events.
+  Future<void> refreshFile(String fileId) async {
+    try {
+      final updated = await _repo.getFile(id: fileId);
+      _replaceFile(updated);
+      if (updated.status == 'ready' || updated.status == 'error') {
+        if (state.pollingFileId == fileId) stopPolling();
+      }
+    } catch (_) {
+      // Best-effort: ignore. Polling fallback still active.
+    }
+  }
+
   void reset() {
     state = state.copyWith(
       status: UploadStatus.initial,
