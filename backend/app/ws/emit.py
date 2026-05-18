@@ -34,6 +34,10 @@ def _printer_topic(printer_id: UUID | str) -> str:
     return f"printer:{printer_id}"
 
 
+def _user_topic(user_id: UUID | str) -> str:
+    return f"user:{user_id}"
+
+
 # ── Emit helpers ──────────────────────────────────────────────────────────────
 
 
@@ -117,6 +121,40 @@ def emit_stl_status(
     if error_message is not None:
         data["error_message"] = error_message
     publish(_stl_topic(stl_id), "stl.status", data)
+
+
+def emit_notification(
+    user_id: UUID | str,
+    *,
+    notification_id: UUID | str,
+    category: str,
+    type_: str,
+    severity: str,
+    title: str,
+    body: Optional[str] = None,
+    data: Optional[dict[str, Any]] = None,
+    collapse_key: Optional[str] = None,
+    created_at: Optional[str] = None,
+) -> None:
+    """Push a freshly persisted notification to the owning user's WS channel.
+
+    Frontend subscribes to topic `user:{user_id}` after login. Event type is
+    `notification.new` — a flat shape mirroring the REST list response so the
+    client can append directly to its local store without an extra fetch.
+    """
+    payload: dict[str, Any] = {
+        "id": str(notification_id),
+        "user_id": str(user_id),
+        "category": category,
+        "type": type_,
+        "severity": severity,
+        "title": title,
+        "body": body,
+        "data": data,
+        "collapse_key": collapse_key,
+        "created_at": created_at,
+    }
+    publish(_user_topic(user_id), "notification.new", payload)
 
 
 def emit_printer_status(
