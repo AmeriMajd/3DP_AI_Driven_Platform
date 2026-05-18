@@ -13,6 +13,8 @@ import app.models.recommendation
 import app.models.printer  
 import app.models.print_job
 import app.models.slicing_job
+import app.models.notification
+import app.models.user_device
 
 # ── Import routers ─────────────────────────────────────────────────────────────
 from app.routers import auth, admin, invitations
@@ -26,6 +28,7 @@ from app.routers.estimate import router as estimate_router
 from app.services import stl_service
 from app.routers import jobs
 from app.routers import slicing
+from app.routers import notifications as notifications_router
 from app.routers import ws as ws_router
 from app.ws import events as ws_events
 from app.services import printer_poll_service
@@ -188,6 +191,7 @@ app.include_router(printers_router)
 app.include_router(estimate_router)
 app.include_router(jobs.router)
 app.include_router(slicing.router)
+app.include_router(notifications_router.router)
 app.include_router(ws_router.router)
 
 @app.on_event("startup")
