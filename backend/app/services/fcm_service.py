@@ -74,6 +74,22 @@ _DEAD_TOKEN_ERRORS = {
 }
 
 
+def _channel_for_severity(severity: str) -> str:
+    """Map severity → Android notification channel id.
+
+    Separate channels let the OS apply different importance + sound +
+    vibration. The Flutter client registers all four in
+    `FcmService._setupLocalChannels`.
+    """
+    if severity == "error":
+        return settings.FCM_ERRORS_ANDROID_CHANNEL
+    if severity == "warning":
+        return settings.FCM_WARNINGS_ANDROID_CHANNEL
+    if severity == "success":
+        return settings.FCM_SUCCESS_ANDROID_CHANNEL
+    return settings.FCM_DEFAULT_ANDROID_CHANNEL
+
+
 def send_to_user(
     db: Session,
     *,
@@ -113,6 +129,7 @@ def send_to_user(
             str_data[k] = str(v)
 
     android_priority = "high" if severity in ("warning", "error") else "normal"
+    channel_id = _channel_for_severity(severity)
 
     success = 0
     for device in devices:
@@ -121,12 +138,13 @@ def send_to_user(
                 priority=android_priority,
                 collapse_key=collapse_key,
                 notification=_messaging.AndroidNotification(
-                    channel_id=settings.FCM_DEFAULT_ANDROID_CHANNEL,
+                    channel_id=channel_id,
                     tag=collapse_key,  # replaces prior notif with same tag
                 ),
             )
             apns_headers: dict[str, str] = {
                 "apns-priority": "10" if severity in ("warning", "error") else "5",
+                "apns-push-type": "alert",
             }
             if collapse_key:
                 apns_headers["apns-collapse-id"] = collapse_key

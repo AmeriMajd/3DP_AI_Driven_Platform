@@ -53,9 +53,12 @@ class Settings(BaseSettings):
     # Absolute path to the Firebase service-account JSON key. Required when
     # FCM_ENABLED is true. Mount the file as a secret in production.
     FCM_CREDENTIALS_PATH: str = ""
-    # Default high-priority Android channel id (must match the channel
-    # registered on the client side).
+    # Android channel ids — must match what the Flutter client registers
+    # in FcmService._setupLocalChannels. Mapping is by severity (Phase 4).
     FCM_DEFAULT_ANDROID_CHANNEL: str = "notifications_default"
+    FCM_ERRORS_ANDROID_CHANNEL: str = "notifications_errors"
+    FCM_WARNINGS_ANDROID_CHANNEL: str = "notifications_warnings"
+    FCM_SUCCESS_ANDROID_CHANNEL: str = "notifications_success"
 
     class Config:
         env_file = ".env"

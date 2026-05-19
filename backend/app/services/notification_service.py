@@ -5,11 +5,10 @@ Responsibilities:
 - Best-effort dedupe via `collapse_key` within a short window so a burst
   of identical events (e.g. rapid progress ticks) doesn't fan out a stream
   of identical rows.
+- Per-trigger rate limiting via Redis (`rate_limit_key` + window) so
+  noisy event sources (e.g. defect detection) can't spam the user.
 - Publish a `notification.new` event to the owning user's WS channel.
-
-Out of scope for Phase 1 (added later):
-- FCM push delivery — wired in Phase 3.
-- Rate limiting via Redis — added in Phase 4.
+- Best-effort FCM push delivery.
 
 The public surface is intentionally small: `emit(...)`. Domain code wires
 its own helpers on top (e.g. `emit_print_failed`) in Phase 5.
@@ -27,13 +26,12 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.notification import Notification
-from app.services import fcm_service
+from app.services import fcm_service, rate_limit
 from app.ws.emit import emit_notification
 
 logger = logging.getLogger(__name__)
 
 # Window during which a duplicate (same user + collapse_key) is suppressed.
-# Conservative default — Phase 4 will make this configurable per trigger.
 _DEDUPE_WINDOW_SECONDS = 5
 
 
@@ -74,15 +72,34 @@ def emit(
     data: Optional[dict[str, Any]] = None,
     collapse_key: Optional[str] = None,
     dedupe_window_seconds: int = _DEDUPE_WINDOW_SECONDS,
+    rate_limit_key: Optional[str] = None,
+    rate_limit_seconds: int = 0,
 ) -> Optional[Notification]:
     """Persist + publish a notification.
 
-    Returns the created `Notification`, or `None` if dropped by dedupe.
+    Returns the created `Notification`, or `None` if dropped by dedupe /
+    rate limit.
+
+    Anti-spam ordering (cheap → expensive):
+    1. Rate-limit gate (Redis SET NX EX, single round-trip, no DB hit).
+    2. Collapse-key dedupe (DB query within a short window).
+    3. Persist + WS publish + FCM push.
 
     The caller owns the transaction — this function calls `db.flush()` to
     obtain an id but does NOT commit. That matches the rest of this codebase
     (see job_service, slicing_service).
     """
+    # ── 1. Rate limit ────────────────────────────────────────────────────────
+    if rate_limit_key and rate_limit_seconds > 0:
+        if not rate_limit.acquire(rate_limit_key, rate_limit_seconds):
+            logger.debug(
+                "notification dropped by rate-limit (key=%s window=%ss)",
+                rate_limit_key,
+                rate_limit_seconds,
+            )
+            return None
+
+    # ── 2. Collapse-key dedupe ───────────────────────────────────────────────
     if collapse_key and _is_duplicate(
         db,
         user_id=user_id,

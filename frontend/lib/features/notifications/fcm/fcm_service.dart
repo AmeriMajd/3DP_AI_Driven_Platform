@@ -106,18 +106,71 @@ class FcmService {
       },
     );
 
-    // Default Android channel — id MUST match backend
-    // `Settings.FCM_DEFAULT_ANDROID_CHANNEL`.
-    const defaultChannel = AndroidNotificationChannel(
-      'notifications_default',
-      'General notifications',
-      description: 'Operational alerts from the 3DP platform',
-      importance: Importance.high,
-    );
-    await _local
+    // Severity-based Android channels — ids MUST match the backend constants
+    // in `Settings.FCM_*_ANDROID_CHANNEL`. Importance + sound differ per
+    // channel so the OS gives errors a different treatment than progress
+    // updates.
+    const channels = <AndroidNotificationChannel>[
+      AndroidNotificationChannel(
+        'notifications_default',
+        'General notifications',
+        description: 'Operational info from the 3DP platform',
+        importance: Importance.defaultImportance,
+      ),
+      AndroidNotificationChannel(
+        'notifications_success',
+        'Completed actions',
+        description: 'Print done, slicing complete, recommendation ready',
+        importance: Importance.defaultImportance,
+      ),
+      AndroidNotificationChannel(
+        'notifications_warnings',
+        'Warnings',
+        description: 'Filament low, printer offline, ML defect alerts',
+        importance: Importance.high,
+        enableVibration: true,
+      ),
+      AndroidNotificationChannel(
+        'notifications_errors',
+        'Errors',
+        description: 'Print failed, thermal runaway, account security',
+        importance: Importance.max,
+        enableVibration: true,
+        playSound: true,
+      ),
+    ];
+
+    final androidPlugin = _local
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(defaultChannel);
+            AndroidFlutterLocalNotificationsPlugin>();
+    for (final ch in channels) {
+      await androidPlugin?.createNotificationChannel(ch);
+    }
+  }
+
+  /// Match backend `_channel_for_severity` exactly.
+  String _channelForSeverity(String severity) {
+    switch (severity) {
+      case 'error':
+        return 'notifications_errors';
+      case 'warning':
+        return 'notifications_warnings';
+      case 'success':
+        return 'notifications_success';
+      default:
+        return 'notifications_default';
+    }
+  }
+
+  Importance _importanceForSeverity(String severity) {
+    switch (severity) {
+      case 'error':
+        return Importance.max;
+      case 'warning':
+        return Importance.high;
+      default:
+        return Importance.defaultImportance;
+    }
   }
 
   Future<void> _registerCurrentToken() async {
@@ -150,21 +203,27 @@ class FcmService {
   void _onForegroundMessage(RemoteMessage message) {
     // When the app is in the foreground iOS/Android do not auto-display the
     // notification. Render it via flutter_local_notifications using the
-    // same Android channel so the user still gets a banner.
+    // channel matching the severity sent by the backend.
     final n = message.notification;
     final tag = message.collapseKey;
     if (n == null) return;
+    final severity = message.data['severity']?.toString() ?? 'info';
+    final channelId = _channelForSeverity(severity);
+    final importance = _importanceForSeverity(severity);
+    final priority = severity == 'error' || severity == 'warning'
+        ? Priority.high
+        : Priority.defaultPriority;
+
     _local.show(
       message.hashCode,
       n.title,
       n.body,
       NotificationDetails(
         android: AndroidNotificationDetails(
-          'notifications_default',
-          'General notifications',
-          channelDescription: 'Operational alerts from the 3DP platform',
-          importance: Importance.high,
-          priority: Priority.high,
+          channelId,
+          channelId,
+          importance: importance,
+          priority: priority,
           tag: tag,
         ),
         iOS: const DarwinNotificationDetails(),
