@@ -32,6 +32,9 @@ class AppRoutes {
   static const String jobDetail = '/jobs/:id';
   static const String jobAdmin = '/jobs/admin';
 
+  // ── History (operator summary) ──
+  static const String history = '/history';
+
   // ── Notifications ──
   static const String notifications = '/notifications';
 
