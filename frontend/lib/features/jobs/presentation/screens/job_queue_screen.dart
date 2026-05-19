@@ -105,16 +105,24 @@ class _JobQueueScreenState extends ConsumerState<JobQueueScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Subscribe to admin:jobs (admin only) — backend mirrors job.status +
-    // job.progress to that topic so the list ticks live without per-card subs.
     final isAdminForWs = ref.watch(isAdminProvider).value ?? false;
+    final jobsAsync = ref.watch(myJobsProvider);
+
+    // Admin: single `admin:jobs` topic mirrors all events.
+    // Operator: backend gates `admin:jobs` (admin-only). Subscribe per active
+    // `job:{id}` instead so the list ticks live without backend changes.
     if (isAdminForWs) {
       ref.listen(wsTopicEventsProvider(WsTopics.adminJobs), (_, next) {
         next.whenData((_) => ref.invalidate(myJobsProvider));
       });
+    } else {
+      for (final j in jobsAsync.valueOrNull ?? const <Job>[]) {
+        if (j.isFinished) continue;
+        ref.listen(wsTopicEventsProvider('job:${j.id}'), (_, next) {
+          next.whenData((_) => ref.invalidate(myJobsProvider));
+        });
+      }
     }
-
-    final jobsAsync = ref.watch(myJobsProvider);
     final printers =
         ref.watch(printersListProvider(const PrinterFilter())).valueOrNull ??
             const <Printer>[];

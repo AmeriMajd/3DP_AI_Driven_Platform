@@ -19,6 +19,7 @@ const _noAppBarRoutes = [
   AppRoutes.profile,
   AppRoutes.adminUsers, // UsersScreen has its own inline header
   AppRoutes.monitoring, // AdminDashboardScreen has its own inline header
+  AppRoutes.history, // HistoryScreen has its own AppBar
   AppRoutes.notifications, // NotificationHistoryScreen has its own AppBar
 ];
 
@@ -47,12 +48,16 @@ class MainShell extends ConsumerWidget {
     if (location.startsWith(AppRoutes.upload)) return 0;
     if (location.startsWith(AppRoutes.fleet)) return 1;
     if (location.startsWith(AppRoutes.jobQueue)) return 2;
-    if (location.startsWith(AppRoutes.monitoring)) return 3;
-    if (isAdmin && location.startsWith(AppRoutes.adminUsers)) return 4;
+    if (isAdmin) {
+      if (location.startsWith(AppRoutes.monitoring)) return 3;
+      if (location.startsWith(AppRoutes.adminUsers)) return 4;
+    } else {
+      if (location.startsWith(AppRoutes.history)) return 3;
+    }
     return 0;
   }
 
-  _SectionMeta _meta(int index) {
+  _SectionMeta _meta(int index, {bool isAdmin = false}) {
     switch (index) {
       case 0:
         return const _SectionMeta('New model');
@@ -61,7 +66,9 @@ class MainShell extends ConsumerWidget {
       case 2:
         return const _SectionMeta('Queue');
       case 3:
-        return const _SectionMeta('Insights');
+        return isAdmin
+            ? const _SectionMeta('Insights')
+            : const _SectionMeta('History');
       case 4:
         return const _SectionMeta('Users');
       default:
@@ -83,7 +90,7 @@ class MainShell extends ConsumerWidget {
     final fullName = fullNameAsync.valueOrNull ?? 'User';
     final isAdmin = ref.watch(userRoleProvider).valueOrNull == 'admin';
     final currentIndex = _currentIndex(context, isAdmin: isAdmin);
-    final meta = _meta(currentIndex);
+    final meta = _meta(currentIndex, isAdmin: isAdmin);
     final showAppBar = _showAppBar(context);
     final extraActions = ref.watch(shellActionsProvider);
     final unread = ref.watch(unreadNotificationCountProvider);
@@ -141,16 +148,16 @@ class MainShell extends ConsumerWidget {
                     onTap: () => context.go(AppRoutes.jobQueue),
                   ),
                 ),
-                Expanded(
-                  child: _NavItem(
-                    icon: Icons.monitor_heart_outlined,
-                    activeIcon: Icons.monitor_heart_rounded,
-                    label: 'Monitoring',
-                    isActive: currentIndex == 3,
-                    onTap: () => context.go(AppRoutes.monitoring),
+                if (isAdmin) ...[
+                  Expanded(
+                    child: _NavItem(
+                      icon: Icons.monitor_heart_outlined,
+                      activeIcon: Icons.monitor_heart_rounded,
+                      label: 'Monitoring',
+                      isActive: currentIndex == 3,
+                      onTap: () => context.go(AppRoutes.monitoring),
+                    ),
                   ),
-                ),
-                if (isAdmin)
                   Expanded(
                     child: _NavItem(
                       icon: Icons.group_outlined,
@@ -158,6 +165,16 @@ class MainShell extends ConsumerWidget {
                       label: 'Users',
                       isActive: currentIndex == 4,
                       onTap: () => context.go(AppRoutes.adminUsers),
+                    ),
+                  ),
+                ] else
+                  Expanded(
+                    child: _NavItem(
+                      icon: Icons.history,
+                      activeIcon: Icons.history_rounded,
+                      label: 'History',
+                      isActive: currentIndex == 3,
+                      onTap: () => context.go(AppRoutes.history),
                     ),
                   ),
               ],

@@ -15,6 +15,7 @@ import '../../features/jobs/presentation/screens/job_queue_screen.dart';
 import '../../features/jobs/presentation/screens/job_detail_screen.dart';
 import '../../features/jobs/presentation/screens/job_admin_screen.dart';
 import '../../features/jobs/domain/job.dart';
+import '../../features/history/presentation/screens/history_screen.dart';
 import '../../features/notifications/presentation/screens/notification_history_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/users/presentation/screens/users_screen.dart';
@@ -167,6 +168,11 @@ final appRouter = GoRouter(
           path: AppRoutes.recommendHistory,
           name: AppRoutes.recommendHistory,
           builder: (context, state) => const RecommendationHistoryScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.history,
+          name: AppRoutes.history,
+          builder: (_, _) => const HistoryScreen(),
         ),
         GoRoute(
           path: AppRoutes.notifications,
