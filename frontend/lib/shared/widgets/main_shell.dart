@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_colors.dart';
+import '../../features/notifications/fcm/fcm_service.dart';
+import '../../features/notifications/presentation/providers/notification_providers.dart';
 import '../services/storage_service.dart';
 
 // Routes that keep the navbar but hide the shared AppBar.
@@ -16,13 +18,11 @@ const _noAppBarRoutes = [
   '/jobs/',             // JobDetailScreen has its own nav bar
   AppRoutes.profile,
   AppRoutes.adminUsers, // UsersScreen has its own inline header
+  AppRoutes.notifications, // NotificationHistoryScreen has its own AppBar
 ];
 
 // Per-screen action slot. Screens push widgets via shellActionsProvider.
 final shellActionsProvider = StateProvider<List<Widget>>((_) => const []);
-
-// Unread notification count — wire to real source later.
-final unreadNotificationsProvider = StateProvider<int>((_) => 0);
 
 final userFullNameProvider = FutureProvider<String?>((ref) async {
   return await StorageService.getFullName();
@@ -85,7 +85,9 @@ class MainShell extends ConsumerWidget {
     final meta = _meta(currentIndex);
     final showAppBar = _showAppBar(context);
     final extraActions = ref.watch(shellActionsProvider);
-    final unread = ref.watch(unreadNotificationsProvider);
+    final unread = ref.watch(unreadNotificationCountProvider);
+    // Activate the WS notification listener for the lifetime of the shell.
+    ref.watch(notificationWsListenerProvider);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -228,7 +230,7 @@ class _BellButton extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
             onTap: () {
-              // TODO: notifications route
+              appRouter.push(AppRoutes.notifications);
             },
             child: Container(
               width: 36,
@@ -304,6 +306,9 @@ class _AvatarMenu extends ConsumerWidget {
           // TODO → SettingsScreen
         }
         if (value == 'logout') {
+          try {
+            await FcmService.instance.unregister();
+          } catch (_) {}
           await StorageService.clearAll();
           appRouter.go(AppRoutes.login);
         }

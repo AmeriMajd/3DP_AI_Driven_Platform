@@ -32,6 +32,9 @@ class AppRoutes {
   static const String jobDetail = '/jobs/:id';
   static const String jobAdmin = '/jobs/admin';
 
+  // ── Notifications ──
+  static const String notifications = '/notifications';
+
   // ── Profile ──
   static const String profile = '/profile';
 

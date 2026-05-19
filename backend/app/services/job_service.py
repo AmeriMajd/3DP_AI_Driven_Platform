@@ -31,6 +31,7 @@ from app.models.slicing_job import SlicingJob
 from app.models.stl_file import STLFile
 from app.schemas.job import JobCreate
 from app.schemas.slicing import JobSlicingRead
+from app.services import notification_triggers
 from app.services.printer_service import get_decrypted_api_key
 from app.services.scheduling_service import assign_pending_jobs, free_printer
 from app.ws.emit import emit_job_status
@@ -121,6 +122,17 @@ def submit_job(db: Session, current_user: dict, payload: JobCreate) -> PrintJob:
     db.refresh(job)
 
     emit_job_status(job.id, status=job.status, printer_id=job.printer_id)
+    try:
+        notification_triggers.emit_job_submitted(
+            db,
+            user_id=job.user_id,
+            job_id=job.id,
+            job_name=f"Job #{str(job.id)[:8]}",
+        )
+        db.commit()
+    except Exception:
+        logger.warning("submit notif failed job=%s", job.id, exc_info=True)
+        db.rollback()
 
     # Try to schedule it immediately (and any other jobs that were waiting).
     assign_pending_jobs(db)

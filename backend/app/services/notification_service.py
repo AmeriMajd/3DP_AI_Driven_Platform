@@ -5,11 +5,10 @@ Responsibilities:
 - Best-effort dedupe via `collapse_key` within a short window so a burst
   of identical events (e.g. rapid progress ticks) doesn't fan out a stream
   of identical rows.
+- Per-trigger rate limiting via Redis (`rate_limit_key` + window) so
+  noisy event sources (e.g. defect detection) can't spam the user.
 - Publish a `notification.new` event to the owning user's WS channel.
-
-Out of scope for Phase 1 (added later):
-- FCM push delivery — wired in Phase 3.
-- Rate limiting via Redis — added in Phase 4.
+- Best-effort FCM push delivery.
 
 The public surface is intentionally small: `emit(...)`. Domain code wires
 its own helpers on top (e.g. `emit_print_failed`) in Phase 5.
@@ -25,13 +24,14 @@ from uuid import UUID
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.notification import Notification
+from app.services import fcm_service, rate_limit
 from app.ws.emit import emit_notification
 
 logger = logging.getLogger(__name__)
 
 # Window during which a duplicate (same user + collapse_key) is suppressed.
-# Conservative default — Phase 4 will make this configurable per trigger.
 _DEDUPE_WINDOW_SECONDS = 5
 
 
@@ -72,15 +72,34 @@ def emit(
     data: Optional[dict[str, Any]] = None,
     collapse_key: Optional[str] = None,
     dedupe_window_seconds: int = _DEDUPE_WINDOW_SECONDS,
+    rate_limit_key: Optional[str] = None,
+    rate_limit_seconds: int = 0,
 ) -> Optional[Notification]:
     """Persist + publish a notification.
 
-    Returns the created `Notification`, or `None` if dropped by dedupe.
+    Returns the created `Notification`, or `None` if dropped by dedupe /
+    rate limit.
+
+    Anti-spam ordering (cheap → expensive):
+    1. Rate-limit gate (Redis SET NX EX, single round-trip, no DB hit).
+    2. Collapse-key dedupe (DB query within a short window).
+    3. Persist + WS publish + FCM push.
 
     The caller owns the transaction — this function calls `db.flush()` to
     obtain an id but does NOT commit. That matches the rest of this codebase
     (see job_service, slicing_service).
     """
+    # ── 1. Rate limit ────────────────────────────────────────────────────────
+    if rate_limit_key and rate_limit_seconds > 0:
+        if not rate_limit.acquire(rate_limit_key, rate_limit_seconds):
+            logger.debug(
+                "notification dropped by rate-limit (key=%s window=%ss)",
+                rate_limit_key,
+                rate_limit_seconds,
+            )
+            return None
+
+    # ── 2. Collapse-key dedupe ───────────────────────────────────────────────
     if collapse_key and _is_duplicate(
         db,
         user_id=user_id,
@@ -94,6 +113,8 @@ def emit(
         )
         return None
 
+    channels: list[str] = ["in_app"]
+
     row = Notification(
         user_id=user_id,
         category=category,
@@ -103,7 +124,7 @@ def emit(
         body=body,
         data=data,
         collapse_key=collapse_key,
-        delivered_channels=["in_app"],
+        delivered_channels=channels,
     )
     db.add(row)
     db.flush()  # populate row.id + row.created_at for the WS payload
@@ -124,6 +145,33 @@ def emit(
     except Exception:
         # WS is best-effort — never block persistence.
         logger.warning("ws emit failed for notification %s", row.id, exc_info=True)
+
+    # ── FCM push (best-effort) ────────────────────────────────────────────────
+    if settings.FCM_ENABLED:
+        # Inject category + type into the payload so the mobile client can
+        # route the tap to the right screen without re-fetching.
+        fcm_data: dict[str, Any] = dict(data or {})
+        fcm_data.setdefault("notification_id", str(row.id))
+        fcm_data.setdefault("category", category)
+        fcm_data.setdefault("type", type_)
+        try:
+            sent = fcm_service.send_to_user(
+                db,
+                user_id=user_id,
+                title=title,
+                body=body,
+                data=fcm_data,
+                collapse_key=collapse_key,
+                severity=severity,
+            )
+            if sent > 0:
+                channels.append("fcm")
+                row.delivered_channels = channels
+                db.flush()
+        except Exception:
+            logger.warning(
+                "fcm push failed for notification %s", row.id, exc_info=True
+            )
 
     return row
 

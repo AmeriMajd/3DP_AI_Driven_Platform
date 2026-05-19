@@ -18,7 +18,7 @@ from app.services.geometry_service import (
     extract_features_from_mesh,
     load_mesh,
 )
-from app.services import orientation_service
+from app.services import notification_triggers, orientation_service
 from app.ws.emit import emit_stl_status
 
 logger = logging.getLogger(__name__)
@@ -459,6 +459,19 @@ def run_analysis_pipeline(stl_id: uuid.UUID, file_path: str) -> None:
         record.status = "ready"
         db.commit()
         emit_stl_status(stl_id, status="ready")
+        try:
+            notification_triggers.emit_stl_processed(
+                db,
+                user_id=record.user_id,
+                stl_id=stl_id,
+                file_name=record.original_filename or "Model",
+            )
+            db.commit()
+        except Exception:
+            logger.warning(
+                "stl-ready notif failed stl=%s", stl_id, exc_info=True
+            )
+            db.rollback()
 
     except Exception as exc:
         db.rollback()

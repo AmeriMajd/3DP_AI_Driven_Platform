@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../domain/auth_state.dart';
 import '../providers/auth_providers.dart';
-import '../../../../../main.dart' show initialWebRoute;
+import '../../../../../main.dart' as app_main show initialWebRoute, pendingPushRoute;
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -39,17 +39,22 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           _go(AppRoutes.adminSignup);
         case SessionStatus.unauthenticated:
           // Honour invite / reset-password links even when not logged in
-          if (initialWebRoute.startsWith(AppRoutes.register) ||
-              initialWebRoute.startsWith(AppRoutes.resetPassword)) {
-            _go(initialWebRoute);
+          if (app_main.initialWebRoute.startsWith(AppRoutes.register) ||
+              app_main.initialWebRoute.startsWith(AppRoutes.resetPassword)) {
+            _go(app_main.initialWebRoute);
           } else {
             _go(AppRoutes.login);
           }
         case SessionStatus.authenticated:
           // Don't override public token-based routes (invite, reset-password)
-          if (initialWebRoute.startsWith(AppRoutes.register) ||
-              initialWebRoute.startsWith(AppRoutes.resetPassword)) {
-            _go(initialWebRoute);
+          if (app_main.initialWebRoute.startsWith(AppRoutes.register) ||
+              app_main.initialWebRoute.startsWith(AppRoutes.resetPassword)) {
+            _go(app_main.initialWebRoute);
+          } else if (app_main.pendingPushRoute.isNotEmpty) {
+            // Cold-start push tap — deep-link instead of the default landing.
+            final target = app_main.pendingPushRoute;
+            app_main.pendingPushRoute = '';
+            _go(target);
           } else {
             _go(AppRoutes.upload);
           }
