@@ -25,7 +25,9 @@ from uuid import UUID
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.notification import Notification
+from app.services import fcm_service
 from app.ws.emit import emit_notification
 
 logger = logging.getLogger(__name__)
@@ -94,6 +96,8 @@ def emit(
         )
         return None
 
+    channels: list[str] = ["in_app"]
+
     row = Notification(
         user_id=user_id,
         category=category,
@@ -103,7 +107,7 @@ def emit(
         body=body,
         data=data,
         collapse_key=collapse_key,
-        delivered_channels=["in_app"],
+        delivered_channels=channels,
     )
     db.add(row)
     db.flush()  # populate row.id + row.created_at for the WS payload
@@ -124,6 +128,33 @@ def emit(
     except Exception:
         # WS is best-effort — never block persistence.
         logger.warning("ws emit failed for notification %s", row.id, exc_info=True)
+
+    # ── FCM push (best-effort) ────────────────────────────────────────────────
+    if settings.FCM_ENABLED:
+        # Inject category + type into the payload so the mobile client can
+        # route the tap to the right screen without re-fetching.
+        fcm_data: dict[str, Any] = dict(data or {})
+        fcm_data.setdefault("notification_id", str(row.id))
+        fcm_data.setdefault("category", category)
+        fcm_data.setdefault("type", type_)
+        try:
+            sent = fcm_service.send_to_user(
+                db,
+                user_id=user_id,
+                title=title,
+                body=body,
+                data=fcm_data,
+                collapse_key=collapse_key,
+                severity=severity,
+            )
+            if sent > 0:
+                channels.append("fcm")
+                row.delivered_channels = channels
+                db.flush()
+        except Exception:
+            logger.warning(
+                "fcm push failed for notification %s", row.id, exc_info=True
+            )
 
     return row
 

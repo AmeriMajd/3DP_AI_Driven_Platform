@@ -45,6 +45,18 @@ class Settings(BaseSettings):
     WS_MAX_SOCKETS_PER_USER: int = 5
     PRINTER_POLL_INTERVAL_S: int = 5
 
+    # FCM push (Phase 3)
+    # Master switch — when false, NotificationService still persists + publishes
+    # WS, but never calls firebase-admin (useful in tests / local dev without
+    # a Firebase project).
+    FCM_ENABLED: bool = False
+    # Absolute path to the Firebase service-account JSON key. Required when
+    # FCM_ENABLED is true. Mount the file as a secret in production.
+    FCM_CREDENTIALS_PATH: str = ""
+    # Default high-priority Android channel id (must match the channel
+    # registered on the client side).
+    FCM_DEFAULT_ANDROID_CHANNEL: str = "notifications_default"
+
     class Config:
         env_file = ".env"
 

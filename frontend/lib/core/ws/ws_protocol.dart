@@ -73,5 +73,6 @@ class WsTopics {
   static String job(String id) => 'job:$id';
   static String stl(String id) => 'stl:$id';
   static String printer(String id) => 'printer:$id';
+  static String user(String id) => 'user:$id';
   static const adminJobs = 'admin:jobs';
 }

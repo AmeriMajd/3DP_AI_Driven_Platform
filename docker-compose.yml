@@ -41,6 +41,8 @@ services:
       GCODE_UPLOAD_DIR: /app/uploads/gcode
       SLICER_TIMEOUT_SECONDS: 600
       IN_APP_SLICING_ENABLED: "true"
+      FCM_ENABLED: "true"
+      FCM_CREDENTIALS_PATH: /app/secrets/firebase-adminsdk.json
     depends_on:
       - db
       - redis
@@ -49,6 +51,7 @@ services:
       - stl_uploads:/app/uploads/stl
       - glb_uploads:/app/uploads/glb
       - gcode_uploads:/app/uploads/gcode
+      - ./backend/secrets:/app/secrets:ro
 
   worker:
     build:
