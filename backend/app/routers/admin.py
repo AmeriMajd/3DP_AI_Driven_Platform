@@ -14,7 +14,16 @@ from app.schemas.invitation import (
     InvitationHistoryItem,
     InvitationResponse,
 )
+from app.schemas.admin_dashboard import (
+    ActiveJobItem,
+    DashboardKpis,
+    JobsByStatusPoint,
+    RecentJobItem,
+    RevenuePoint,
+    TopUserItem,
+)
 from app.schemas.user import UserListItem
+from app.services.admin_dashboard_service import AdminDashboardService
 from app.services.invitation_service import InvitationService
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -137,3 +146,61 @@ def delete_user(
         raise HTTPException(status_code=404, detail="User not found")
     user.is_active = False
     db.commit()
+
+
+# ── Dashboard ───────────────────────────────────────────────
+
+
+@router.get("/dashboard/kpis", response_model=DashboardKpis)
+def dashboard_kpis(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_role("admin")),
+):
+    return AdminDashboardService(db).kpis()
+
+
+@router.get("/dashboard/revenue", response_model=list[RevenuePoint])
+def dashboard_revenue(
+    range: str = "30d",
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_role("admin")),
+):
+    return AdminDashboardService(db).revenue_series(range)
+
+
+@router.get("/dashboard/jobs-by-status", response_model=list[JobsByStatusPoint])
+def dashboard_jobs_by_status(
+    range: str = "30d",
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_role("admin")),
+):
+    return AdminDashboardService(db).jobs_by_status_series(range)
+
+
+@router.get("/dashboard/active-jobs", response_model=list[ActiveJobItem])
+def dashboard_active_jobs(
+    limit: int = 12,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_role("admin")),
+):
+    return AdminDashboardService(db).active_jobs(limit=limit)
+
+
+@router.get("/dashboard/recent-jobs", response_model=list[RecentJobItem])
+def dashboard_recent_jobs(
+    filter: str | None = None,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_role("admin")),
+):
+    return AdminDashboardService(db).recent_jobs(filter, limit=limit)
+
+
+@router.get("/dashboard/top-users", response_model=list[TopUserItem])
+def dashboard_top_users(
+    range: str = "30d",
+    limit: int = 5,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_role("admin")),
+):
+    return AdminDashboardService(db).top_users(range, limit=limit)

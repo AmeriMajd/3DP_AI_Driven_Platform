@@ -18,10 +18,10 @@ import '../../features/jobs/domain/job.dart';
 import '../../features/notifications/presentation/screens/notification_history_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/users/presentation/screens/users_screen.dart';
+import '../../features/admin_dashboard/presentation/screens/admin_dashboard_screen.dart';
 import '../../features/printers/presentation/screens/printer_detail_screen.dart';
 import '../../features/printers/presentation/screens/printer_form_screen.dart';
 import '../../features/printers/presentation/screens/printer_list_screen.dart';
-import '../../shared/widgets/placeholder_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 
@@ -129,7 +129,7 @@ final appRouter = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.monitoring,
-          builder: (_, _) => const PlaceholderScreen(title: 'Monitoring'),
+          builder: (_, _) => const AdminDashboardScreen(),
         ),
 
         // ── File detail & recommendation — navbar visible, no AppBar ──

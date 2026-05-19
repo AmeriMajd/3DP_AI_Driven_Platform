@@ -18,6 +18,7 @@ const _noAppBarRoutes = [
   '/jobs/',             // JobDetailScreen has its own nav bar
   AppRoutes.profile,
   AppRoutes.adminUsers, // UsersScreen has its own inline header
+  AppRoutes.monitoring, // AdminDashboardScreen has its own inline header
   AppRoutes.notifications, // NotificationHistoryScreen has its own AppBar
 ];
 
@@ -112,43 +113,52 @@ class MainShell extends ConsumerWidget {
           child: SizedBox(
             height: 60,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _NavItem(
-                  icon: Icons.upload_file_outlined,
-                  activeIcon: Icons.upload_file_rounded,
-                  label: 'Upload',
-                  isActive: currentIndex == 0,
-                  onTap: () => context.go(AppRoutes.upload),
+                Expanded(
+                  child: _NavItem(
+                    icon: Icons.upload_file_outlined,
+                    activeIcon: Icons.upload_file_rounded,
+                    label: 'Upload',
+                    isActive: currentIndex == 0,
+                    onTap: () => context.go(AppRoutes.upload),
+                  ),
                 ),
-                _NavItem(
-                  icon: Icons.precision_manufacturing_outlined,
-                  activeIcon: Icons.precision_manufacturing,
-                  label: 'Fleet',
-                  isActive: currentIndex == 1,
-                  onTap: () => context.go(AppRoutes.fleet),
+                Expanded(
+                  child: _NavItem(
+                    icon: Icons.precision_manufacturing_outlined,
+                    activeIcon: Icons.precision_manufacturing,
+                    label: 'Fleet',
+                    isActive: currentIndex == 1,
+                    onTap: () => context.go(AppRoutes.fleet),
+                  ),
                 ),
-                _NavItem(
-                  icon: Icons.assignment_outlined,
-                  activeIcon: Icons.assignment_rounded,
-                  label: 'Jobs',
-                  isActive: currentIndex == 2,
-                  onTap: () => context.go(AppRoutes.jobQueue),
+                Expanded(
+                  child: _NavItem(
+                    icon: Icons.assignment_outlined,
+                    activeIcon: Icons.assignment_rounded,
+                    label: 'Jobs',
+                    isActive: currentIndex == 2,
+                    onTap: () => context.go(AppRoutes.jobQueue),
+                  ),
                 ),
-                _NavItem(
-                  icon: Icons.monitor_heart_outlined,
-                  activeIcon: Icons.monitor_heart_rounded,
-                  label: 'Monitoring',
-                  isActive: currentIndex == 3,
-                  onTap: () => context.go(AppRoutes.monitoring),
+                Expanded(
+                  child: _NavItem(
+                    icon: Icons.monitor_heart_outlined,
+                    activeIcon: Icons.monitor_heart_rounded,
+                    label: 'Monitoring',
+                    isActive: currentIndex == 3,
+                    onTap: () => context.go(AppRoutes.monitoring),
+                  ),
                 ),
                 if (isAdmin)
-                  _NavItem(
-                    icon: Icons.group_outlined,
-                    activeIcon: Icons.group_rounded,
-                    label: 'Users',
-                    isActive: currentIndex == 4,
-                    onTap: () => context.go(AppRoutes.adminUsers),
+                  Expanded(
+                    child: _NavItem(
+                      icon: Icons.group_outlined,
+                      activeIcon: Icons.group_rounded,
+                      label: 'Users',
+                      isActive: currentIndex == 4,
+                      onTap: () => context.go(AppRoutes.adminUsers),
+                    ),
                   ),
               ],
             ),
@@ -439,9 +449,7 @@ class _NavItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 72,
-        child: Column(
+      child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
@@ -452,6 +460,8 @@ class _NavItem extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
@@ -460,7 +470,6 @@ class _NavItem extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }
