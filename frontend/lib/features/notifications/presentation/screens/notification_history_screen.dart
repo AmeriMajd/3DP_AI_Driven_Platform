@@ -207,43 +207,42 @@ class _NotificationRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final unread = !notification.isRead;
     final (iconData, iconColor) = _severityIcon(notification.severity);
-    return Material(
+    final body = notification.body;
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
       color: AppColors.cardLight,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFE5E7EB), width: 0.5),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
         onTap: onTap,
-        child: Container(
+        child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border(
-              left: BorderSide(color: iconColor, width: 3),
-              top: const BorderSide(color: Color(0xFFE5E7EB), width: 0.5),
-              right: const BorderSide(color: Color(0xFFE5E7EB), width: 0.5),
-              bottom: const BorderSide(color: Color(0xFFE5E7EB), width: 0.5),
-            ),
-          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(iconData, size: 20, color: iconColor),
+              Icon(iconData, size: 22, color: iconColor),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(
                       children: [
                         Expanded(
                           child: Text(
                             notification.title,
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 14,
-                              fontWeight:
-                                  unread ? FontWeight.w700 : FontWeight.w500,
+                              fontWeight: unread
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                               color: AppColors.textPrimary,
                             ),
                           ),
@@ -252,7 +251,7 @@ class _NotificationRow extends StatelessWidget {
                           Container(
                             width: 8,
                             height: 8,
-                            margin: const EdgeInsets.only(left: 6),
+                            margin: const EdgeInsets.only(left: 6, top: 4),
                             decoration: const BoxDecoration(
                               color: AppColors.primary,
                               shape: BoxShape.circle,
@@ -260,11 +259,11 @@ class _NotificationRow extends StatelessWidget {
                           ),
                       ],
                     ),
-                    if (notification.body != null) ...[
-                      const SizedBox(height: 2),
+                    if (body != null && body.isNotEmpty) ...[
+                      const SizedBox(height: 4),
                       Text(
-                        notification.body!,
-                        maxLines: 2,
+                        body,
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
@@ -272,7 +271,7 @@ class _NotificationRow extends StatelessWidget {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
                       _relativeTime(notification.createdAt),
                       style: const TextStyle(

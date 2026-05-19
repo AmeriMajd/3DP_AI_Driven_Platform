@@ -21,8 +21,15 @@ from app.models.recommendation import Recommendation
 from app.models.slicing_job import SlicingJob
 from app.models.stl_file import STLFile
 from app.models.user import User
+from app.services import notification_triggers
 from app.services.slicer_profile_builder import build_prusaslicer_ini
 from app.ws.emit import emit_slicing_progress, emit_slicing_status
+
+
+def _slicing_job_label(pj: PrintJob | None) -> str:
+    if pj is None:
+        return "Job"
+    return f"Job #{str(pj.id)[:8]}"
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +182,22 @@ def run_slice(db: Session, slicing_job_id: UUID, *, worker_id: str) -> None:
         emit_slicing_status(
             sj.print_job_id, status=sj.status, slicing_job_id=sj.id
         )
+        try:
+            pj = db.query(PrintJob).filter(PrintJob.id == sj.print_job_id).first()
+            if pj is not None:
+                notification_triggers.emit_slicing_status(
+                    db,
+                    user_id=pj.user_id,
+                    job_id=pj.id,
+                    job_name=_slicing_job_label(pj),
+                    status="finished",
+                )
+                db.commit()
+        except Exception:
+            logger.warning(
+                "slicing done notif failed sj=%s", sj.id, exc_info=True
+            )
+            db.rollback()
         logger.info(
             "run_slice: %s done, %d bytes at %s",
             slicing_job_id,
@@ -209,6 +232,23 @@ def run_slice(db: Session, slicing_job_id: UUID, *, worker_id: str) -> None:
             slicing_job_id=sj.id,
             error_message=sj.error_message,
         )
+        try:
+            pj = db.query(PrintJob).filter(PrintJob.id == sj.print_job_id).first()
+            if pj is not None:
+                notification_triggers.emit_slicing_status(
+                    db,
+                    user_id=pj.user_id,
+                    job_id=pj.id,
+                    job_name=_slicing_job_label(pj),
+                    status="failed",
+                    error=sj.error_message,
+                )
+                db.commit()
+        except Exception:
+            logger.warning(
+                "slicing fail notif failed sj=%s", sj.id, exc_info=True
+            )
+            db.rollback()
         logger.exception("run_slice: %s failed", slicing_job_id)
 
 

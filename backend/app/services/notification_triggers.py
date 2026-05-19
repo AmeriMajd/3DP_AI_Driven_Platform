@@ -36,6 +36,30 @@ CATEGORY_ACCOUNT = "account_security"
 # ── Print job lifecycle ──────────────────────────────────────────────────────
 
 
+def emit_job_submitted(
+    db: Session,
+    *,
+    user_id: UUID,
+    job_id: UUID,
+    job_name: str,
+) -> None:
+    """Immediate feedback after the user submits a job. Uses the same
+    lifecycle collapse_key as `print.completed` / `print.failed`, so any of
+    the later events replaces this one in the FCM tray.
+    """
+    notification_service.emit(
+        db,
+        user_id=user_id,
+        category=CATEGORY_PRINT,
+        type_="job.submitted",
+        severity="info",
+        title="Job submitted",
+        body=job_name,
+        data={"job_id": str(job_id)},
+        collapse_key=f"job_{job_id}_lifecycle",
+    )
+
+
 def emit_print_progress(
     db: Session,
     *,
