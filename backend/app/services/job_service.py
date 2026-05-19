@@ -50,6 +50,27 @@ def _user_uuid(current_user: dict) -> UUID:
     return UUID(current_user["user_id"])
 
 
+def _attach_stl_names(db: Session, jobs: list[PrintJob]) -> None:
+    """Batch-load STL filenames and set as transient attribute on each job.
+    Pydantic JobRead (from_attributes=True) reads `stl_file_name` from this attr.
+    """
+    if not jobs:
+        return
+    stl_ids = {j.stl_file_id for j in jobs}
+    rows = (
+        db.query(STLFile.id, STLFile.original_filename)
+        .filter(STLFile.id.in_(stl_ids))
+        .all()
+    )
+    by_id = {row.id: row.original_filename for row in rows}
+    for j in jobs:
+        j.stl_file_name = by_id.get(j.stl_file_id)
+
+
+def _attach_stl_name(db: Session, job: PrintJob) -> None:
+    _attach_stl_names(db, [job])
+
+
 def _get_owned_job_or_404(
     db: Session, current_user: dict, job_id: UUID
 ) -> PrintJob:
@@ -140,6 +161,8 @@ def submit_job(db: Session, current_user: dict, payload: JobCreate) -> PrintJob:
     emit_job_status(job.id, status=job.status, printer_id=job.printer_id)
 
     # Auto-slice (Gap 1). Fail loudly via log — DO NOT swallow silently.
+    _attach_stl_name(db, job)
+
     if getattr(payload, "auto_slice", True) and settings.IN_APP_SLICING_ENABLED:
         from app.models.user import User as UserModel
         from app.services import slicing_service
@@ -180,11 +203,15 @@ def list_jobs(
     if printer_id is not None:
         query = query.filter(PrintJob.printer_id == printer_id)
 
-    return query.order_by(PrintJob.submitted_at.desc()).all()
+    jobs = query.order_by(PrintJob.submitted_at.desc()).all()
+    _attach_stl_names(db, jobs)
+    return jobs
 
 
 def get_job(db: Session, current_user: dict, job_id: UUID) -> PrintJob:
-    return _get_owned_job_or_404(db, current_user, job_id)
+    job = _get_owned_job_or_404(db, current_user, job_id)
+    _attach_stl_name(db, job)
+    return job
 
 
 def get_job_slicing(db: Session, current_user: dict, job_id: UUID) -> JobSlicingRead:
@@ -277,6 +304,7 @@ def cancel_job(db: Session, current_user: dict, job_id: UUID) -> PrintJob:
         assign_pending_jobs(db)
         db.refresh(job)
 
+    _attach_stl_name(db, job)
     return job
 
 
@@ -312,6 +340,7 @@ def suspend_job(db: Session, job_id: UUID) -> PrintJob:
         assign_pending_jobs(db)
         db.refresh(job)
 
+    _attach_stl_name(db, job)
     return job
 
 
@@ -337,4 +366,5 @@ def resume_job(db: Session, job_id: UUID) -> PrintJob:
     assign_pending_jobs(db)
     db.refresh(job)
     emit_job_status(job.id, status=job.status, printer_id=job.printer_id)
+    _attach_stl_name(db, job)
     return job

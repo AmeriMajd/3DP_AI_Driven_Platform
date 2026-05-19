@@ -54,6 +54,7 @@ class JobRead(BaseModel):
     id: UUID
     user_id: UUID
     stl_file_id: UUID
+    stl_file_name: Optional[str] = None
     recommendation_id: Optional[UUID] = None
     printer_id: Optional[UUID] = None
 
