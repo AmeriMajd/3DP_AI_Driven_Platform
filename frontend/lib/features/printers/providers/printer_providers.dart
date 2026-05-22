@@ -3,12 +3,19 @@ import '../data/printer_repository_impl.dart';
 import '../domain/printer.dart';
 import '../domain/printer_filter.dart';
 import '../domain/printer_repository.dart';
+import '../domain/printer_state.dart';
 import '../domain/printer_status.dart';
+import '../presentation/viewmodels/printer_viewmodel.dart';
 import '../../../shared/services/storage_service.dart';
 
 final printerRepositoryProvider = Provider<PrinterRepository>((ref) {
   return PrinterRepositoryImpl();
 });
+
+final printerViewModelProvider =
+    StateNotifierProvider<PrinterViewModel, PrinterState>(
+  (ref) => PrinterViewModel(ref.read(printerRepositoryProvider)),
+);
 
 final isAdminProvider = FutureProvider<bool>((ref) async {
   final role = await StorageService.getUserRole();

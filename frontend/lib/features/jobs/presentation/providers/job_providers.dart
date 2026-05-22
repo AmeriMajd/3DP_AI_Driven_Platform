@@ -4,6 +4,8 @@ import '../../data/mock_job_repository.dart';
 import '../../data/job_repository_impl.dart';
 import '../../domain/job.dart';
 import '../../domain/job_slicing.dart';
+import '../../domain/job_state.dart';
+import '../viewmodels/job_viewmodel.dart';
 
 final jobRepositoryProvider = Provider<JobRepository>((ref) {
   // flutter run --dart-define=USE_MOCK_JOBS=false  →  switches to real API
@@ -11,6 +13,11 @@ final jobRepositoryProvider = Provider<JobRepository>((ref) {
       String.fromEnvironment('USE_MOCK_JOBS', defaultValue: 'false') != 'false';
   return useMock ? MockJobRepository() : JobRepositoryImpl();
 });
+
+final jobViewModelProvider =
+    StateNotifierProvider<JobViewModel, JobState>(
+  (ref) => JobViewModel(ref.read(jobRepositoryProvider)),
+);
 
 final myJobsProvider = FutureProvider<List<Job>>((ref) {
   return ref.watch(jobRepositoryProvider).getMyJobs();

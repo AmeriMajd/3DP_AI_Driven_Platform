@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/profile_user.dart';
 import '../../domain/profile_state.dart';
@@ -268,7 +267,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           },
           onChangePwd: () => _goTo(_SubScreen.changePwd),
           onRevokeAll: () => setState(() => _confirmRevokeVisible = true),
-          onInvite: () => context.push(AppRoutes.adminUsers),
         );
     }
   }
@@ -284,7 +282,6 @@ class _MainView extends StatelessWidget {
   final VoidCallback onEditEmail;
   final VoidCallback onChangePwd;
   final VoidCallback onRevokeAll;
-  final VoidCallback onInvite;
 
   const _MainView({
     required this.user,
@@ -292,7 +289,6 @@ class _MainView extends StatelessWidget {
     required this.onEditEmail,
     required this.onChangePwd,
     required this.onRevokeAll,
-    required this.onInvite,
   });
 
   String get _initials {
@@ -321,8 +317,6 @@ class _MainView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isAdmin = user?.role == 'admin';
-
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       children: [
@@ -502,65 +496,6 @@ class _MainView extends StatelessWidget {
         ),
 
         const SizedBox(height: 10),
-
-        // ── Invite operators (admin only) ──────────────────────────────────
-        if (isAdmin) ...[
-          GestureDetector(
-            onTap: onInvite,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF3D35D9), Color(0xFF6C63FF)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(13),
-                    ),
-                    child: const Icon(Icons.person_add_outlined,
-                        size: 20, color: Colors.white),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Invite Operators',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Send an invitation to new team members',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: Color(0xBFFFFFFF),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.arrow_forward_rounded,
-                      size: 18, color: Color(0xCCFFFFFF)),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-        ],
 
         // ── Sign out everywhere ────────────────────────────────────────────
         _Card(
