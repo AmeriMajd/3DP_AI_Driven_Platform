@@ -17,8 +17,8 @@ class Recommendation(Base):
     )
     stl_file_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("stl_files.id", ondelete="CASCADE"),
-        nullable=False,
+        ForeignKey("stl_files.id", ondelete="SET NULL"),
+        nullable=True,
     )
 
     # ── User intent inputs ────────────────────────────────────────────────────

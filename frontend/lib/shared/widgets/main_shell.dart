@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_colors.dart';
+import '../../features/notifications/fcm/fcm_service.dart';
+import '../../features/notifications/presentation/providers/notification_providers.dart';
 import '../services/storage_service.dart';
 
 // Routes that keep the navbar but hide the shared AppBar.
@@ -16,13 +18,13 @@ const _noAppBarRoutes = [
   '/jobs/',             // JobDetailScreen has its own nav bar
   AppRoutes.profile,
   AppRoutes.adminUsers, // UsersScreen has its own inline header
+  AppRoutes.monitoring, // AdminDashboardScreen has its own inline header
+  AppRoutes.history, // HistoryScreen has its own AppBar
+  AppRoutes.notifications, // NotificationHistoryScreen has its own AppBar
 ];
 
 // Per-screen action slot. Screens push widgets via shellActionsProvider.
 final shellActionsProvider = StateProvider<List<Widget>>((_) => const []);
-
-// Unread notification count — wire to real source later.
-final unreadNotificationsProvider = StateProvider<int>((_) => 0);
 
 final userFullNameProvider = FutureProvider<String?>((ref) async {
   return await StorageService.getFullName();
@@ -46,12 +48,16 @@ class MainShell extends ConsumerWidget {
     if (location.startsWith(AppRoutes.upload)) return 0;
     if (location.startsWith(AppRoutes.fleet)) return 1;
     if (location.startsWith(AppRoutes.jobQueue)) return 2;
-    if (location.startsWith(AppRoutes.monitoring)) return 3;
-    if (isAdmin && location.startsWith(AppRoutes.adminUsers)) return 4;
+    if (isAdmin) {
+      if (location.startsWith(AppRoutes.monitoring)) return 3;
+      if (location.startsWith(AppRoutes.adminUsers)) return 4;
+    } else {
+      if (location.startsWith(AppRoutes.history)) return 3;
+    }
     return 0;
   }
 
-  _SectionMeta _meta(int index) {
+  _SectionMeta _meta(int index, {bool isAdmin = false}) {
     switch (index) {
       case 0:
         return const _SectionMeta('New model');
@@ -60,7 +66,9 @@ class MainShell extends ConsumerWidget {
       case 2:
         return const _SectionMeta('Queue');
       case 3:
-        return const _SectionMeta('Insights');
+        return isAdmin
+            ? const _SectionMeta('Insights')
+            : const _SectionMeta('History');
       case 4:
         return const _SectionMeta('Users');
       default:
@@ -82,10 +90,12 @@ class MainShell extends ConsumerWidget {
     final fullName = fullNameAsync.valueOrNull ?? 'User';
     final isAdmin = ref.watch(userRoleProvider).valueOrNull == 'admin';
     final currentIndex = _currentIndex(context, isAdmin: isAdmin);
-    final meta = _meta(currentIndex);
+    final meta = _meta(currentIndex, isAdmin: isAdmin);
     final showAppBar = _showAppBar(context);
     final extraActions = ref.watch(shellActionsProvider);
-    final unread = ref.watch(unreadNotificationsProvider);
+    final unread = ref.watch(unreadNotificationCountProvider);
+    // Activate the WS notification listener for the lifetime of the shell.
+    ref.watch(notificationWsListenerProvider);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -110,43 +120,62 @@ class MainShell extends ConsumerWidget {
           child: SizedBox(
             height: 60,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _NavItem(
-                  icon: Icons.upload_file_outlined,
-                  activeIcon: Icons.upload_file_rounded,
-                  label: 'Upload',
-                  isActive: currentIndex == 0,
-                  onTap: () => context.go(AppRoutes.upload),
+                Expanded(
+                  child: _NavItem(
+                    icon: Icons.upload_file_outlined,
+                    activeIcon: Icons.upload_file_rounded,
+                    label: 'Upload',
+                    isActive: currentIndex == 0,
+                    onTap: () => context.go(AppRoutes.upload),
+                  ),
                 ),
-                _NavItem(
-                  icon: Icons.precision_manufacturing_outlined,
-                  activeIcon: Icons.precision_manufacturing,
-                  label: 'Fleet',
-                  isActive: currentIndex == 1,
-                  onTap: () => context.go(AppRoutes.fleet),
+                Expanded(
+                  child: _NavItem(
+                    icon: Icons.precision_manufacturing_outlined,
+                    activeIcon: Icons.precision_manufacturing,
+                    label: 'Fleet',
+                    isActive: currentIndex == 1,
+                    onTap: () => context.go(AppRoutes.fleet),
+                  ),
                 ),
-                _NavItem(
-                  icon: Icons.assignment_outlined,
-                  activeIcon: Icons.assignment_rounded,
-                  label: 'Jobs',
-                  isActive: currentIndex == 2,
-                  onTap: () => context.go(AppRoutes.jobQueue),
+                Expanded(
+                  child: _NavItem(
+                    icon: Icons.assignment_outlined,
+                    activeIcon: Icons.assignment_rounded,
+                    label: 'Jobs',
+                    isActive: currentIndex == 2,
+                    onTap: () => context.go(AppRoutes.jobQueue),
+                  ),
                 ),
-                _NavItem(
-                  icon: Icons.monitor_heart_outlined,
-                  activeIcon: Icons.monitor_heart_rounded,
-                  label: 'Monitoring',
-                  isActive: currentIndex == 3,
-                  onTap: () => context.go(AppRoutes.monitoring),
-                ),
-                if (isAdmin)
-                  _NavItem(
-                    icon: Icons.group_outlined,
-                    activeIcon: Icons.group_rounded,
-                    label: 'Users',
-                    isActive: currentIndex == 4,
-                    onTap: () => context.go(AppRoutes.adminUsers),
+                if (isAdmin) ...[
+                  Expanded(
+                    child: _NavItem(
+                      icon: Icons.monitor_heart_outlined,
+                      activeIcon: Icons.monitor_heart_rounded,
+                      label: 'Monitoring',
+                      isActive: currentIndex == 3,
+                      onTap: () => context.go(AppRoutes.monitoring),
+                    ),
+                  ),
+                  Expanded(
+                    child: _NavItem(
+                      icon: Icons.group_outlined,
+                      activeIcon: Icons.group_rounded,
+                      label: 'Users',
+                      isActive: currentIndex == 4,
+                      onTap: () => context.go(AppRoutes.adminUsers),
+                    ),
+                  ),
+                ] else
+                  Expanded(
+                    child: _NavItem(
+                      icon: Icons.history,
+                      activeIcon: Icons.history_rounded,
+                      label: 'History',
+                      isActive: currentIndex == 3,
+                      onTap: () => context.go(AppRoutes.history),
+                    ),
                   ),
               ],
             ),
@@ -228,7 +257,7 @@ class _BellButton extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
             onTap: () {
-              // TODO: notifications route
+              appRouter.push(AppRoutes.notifications);
             },
             child: Container(
               width: 36,
@@ -304,6 +333,9 @@ class _AvatarMenu extends ConsumerWidget {
           // TODO → SettingsScreen
         }
         if (value == 'logout') {
+          try {
+            await FcmService.instance.unregister();
+          } catch (_) {}
           await StorageService.clearAll();
           appRouter.go(AppRoutes.login);
         }
@@ -434,9 +466,7 @@ class _NavItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 72,
-        child: Column(
+      child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
@@ -447,6 +477,8 @@ class _NavItem extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
@@ -455,7 +487,6 @@ class _NavItem extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }

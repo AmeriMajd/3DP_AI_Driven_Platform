@@ -2,7 +2,7 @@ import 'alternative_recommendation.dart';
 
 class RecommendationResult {
   final String id;
-  final String stlFileId;
+  final String? stlFileId;
 
   // Input snapshot
   final int? orientationRank;
@@ -58,7 +58,7 @@ class RecommendationResult {
 
   const RecommendationResult({
     required this.id,
-    required this.stlFileId,
+    this.stlFileId,
     this.orientationRank,
     required this.intendedUse,
     required this.surfaceFinish,
@@ -171,7 +171,7 @@ class RecommendationResult {
 
     return RecommendationResult(
       id: json['id'].toString(),
-      stlFileId: json['stl_file_id'].toString(),
+      stlFileId: json['stl_file_id']?.toString(),
       orientationRank: json['orientation_rank'] as int?,
       intendedUse: json['intended_use'] as String,
       surfaceFinish: json['surface_finish'] as String,

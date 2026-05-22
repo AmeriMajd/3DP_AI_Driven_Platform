@@ -4,6 +4,7 @@ Topic grammar:
 - `job:{uuid}`     — owner of PrintJob OR admin
 - `stl:{uuid}`     — owner of STLFile OR admin
 - `printer:{uuid}` — any authenticated user (shared fleet)
+- `user:{uuid}`    — that user only (admin may subscribe to any)
 - `admin:jobs`     — admin only
 """
 
@@ -109,5 +110,12 @@ def authorize_topic(principal: WSPrincipal, topic: str, db: Session) -> bool:
     printer_id = _parse_uuid_suffix(topic, "printer:")
     if printer_id is not None:
         return True
+
+    # user:{uuid} — only that user (admin may subscribe to any)
+    target_user_id = _parse_uuid_suffix(topic, "user:")
+    if target_user_id is not None:
+        if principal.role == "admin":
+            return True
+        return str(target_user_id) == principal.user_id
 
     return False

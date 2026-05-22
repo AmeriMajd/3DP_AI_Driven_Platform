@@ -1,7 +1,7 @@
 class Job {
   final String id;
   final String userId;
-  final String stlFileId;
+  final String? stlFileId;
   final String? stlFileName;
   final String? recommendationId;
   final String? printerId;
@@ -21,7 +21,7 @@ class Job {
   const Job({
     required this.id,
     required this.userId,
-    required this.stlFileId,
+    this.stlFileId,
     this.stlFileName,
     this.recommendationId,
     this.printerId,
@@ -78,7 +78,7 @@ class Job {
     return Job(
       id: json['id'].toString(),
       userId: json['user_id'].toString(),
-      stlFileId: json['stl_file_id'].toString(),
+      stlFileId: json['stl_file_id']?.toString(),
       stlFileName: json['stl_file_name'] as String?,
       recommendationId: json['recommendation_id']?.toString(),
       printerId: json['printer_id']?.toString(),
