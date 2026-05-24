@@ -3,7 +3,8 @@ import '../../data/job_repository.dart';
 import '../../data/mock_job_repository.dart';
 import '../../data/job_repository_impl.dart';
 import '../../domain/job.dart';
-import '../../domain/job_slicing.dart';
+import '../../domain/job_detail_state.dart';
+import '../viewmodels/job_detail_viewmodel.dart';
 
 final jobRepositoryProvider = Provider<JobRepository>((ref) {
   // flutter run --dart-define=USE_MOCK_JOBS=false  →  switches to real API
@@ -16,19 +17,15 @@ final myJobsProvider = FutureProvider<List<Job>>((ref) {
   return ref.watch(jobRepositoryProvider).getMyJobs();
 });
 
-final jobDetailProvider =
-    FutureProvider.family<Job, String>((ref, id) {
-  return ref.watch(jobRepositoryProvider).getJobById(id);
+/// Job detail + slicing + cancel/suspend/resume actions for a single job.
+/// Replaces the old `jobDetailProvider` / `jobSlicingProvider` FutureProviders
+/// — the ViewModel also owns the `job:{id}` WS subscription internally.
+final jobDetailViewModelProvider = StateNotifierProvider.autoDispose
+    .family<JobDetailViewModel, JobDetailState, String>((ref, id) {
+  return JobDetailViewModel(ref.watch(jobRepositoryProvider), ref, id);
 });
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
-
-// Polling removed — WS `slicing.*` events invalidate this provider via
-// JobDetailScreen's `ref.listen(wsTopicEventsProvider(job:{id}))`.
-final jobSlicingProvider =
-    FutureProvider.autoDispose.family<JobSlicing, String>((ref, id) async {
-  return ref.watch(jobRepositoryProvider).getJobSlicing(id);
-});
 
 class AdminJobsFilter {
   final String? status;

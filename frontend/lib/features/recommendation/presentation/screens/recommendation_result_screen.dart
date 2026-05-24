@@ -164,12 +164,12 @@ class _RecommendationResultScreenState
 
   Future<void> _resubmitWithClarification() async {
     final r = _r;
-    if (r == null) return;
+    if (r == null || r.stlFileId == null) return;
     setState(() => _isResubmitting = true);
     try {
       await ref.read(recommendationViewModelProvider.notifier).submit(
             RecommendRequest(
-              fileId: r.stlFileId,
+              fileId: r.stlFileId!,
               orientationRank: r.orientationRank,
               intendedUse: r.intendedUse,
               surfaceFinish: r.surfaceFinish,
@@ -1862,20 +1862,21 @@ class _RecommendationResultScreenState
   Widget _buildActionButtons(BuildContext context) {
     if (_isEditing) return _buildEditBottomBar(context);
     final r = _r;
-    final stlFileName = r == null
+    final stlFileId = r?.stlFileId;
+    final stlFileName = stlFileId == null
         ? null
-        : ref.watch(stlFileProvider(r.stlFileId)).valueOrNull?.originalFilename;
+        : ref.watch(stlFileProvider(stlFileId)).valueOrNull?.originalFilename;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(
           height: 54,
           child: FilledButton.icon(
-            onPressed: r == null
+            onPressed: (r == null || stlFileId == null)
                 ? null
                 : () => SubmitJobDialog.show(
                       context,
-                      stlFileId: r.stlFileId,
+                      stlFileId: stlFileId,
                       recommendationId: r.id,
                       stlFileName: stlFileName,
                       technology: r.technology,
