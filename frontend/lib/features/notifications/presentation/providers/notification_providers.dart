@@ -8,6 +8,9 @@ import '../../../../shared/services/storage_service.dart';
 import '../../data/notification_repository.dart';
 import '../../data/notification_repository_impl.dart';
 import '../../domain/app_notification.dart';
+import '../viewmodels/notification_viewmodel.dart';
+
+export '../viewmodels/notification_viewmodel.dart' show NotificationState;
 
 /// Repository singleton.
 final notificationRepositoryProvider = Provider<NotificationRepository>(
@@ -26,139 +29,10 @@ final currentUserIdProvider = FutureProvider<String?>(
 
 // ── Notification store ───────────────────────────────────────────────────────
 
-class NotificationListState {
-  final List<AppNotification> items;
-  final DateTime? nextCursor;
-  final bool isLoading;
-  final bool isLoadingMore;
-  final String? error;
-  final bool hasMore;
-
-  const NotificationListState({
-    this.items = const [],
-    this.nextCursor,
-    this.isLoading = false,
-    this.isLoadingMore = false,
-    this.error,
-    this.hasMore = true,
-  });
-
-  NotificationListState copyWith({
-    List<AppNotification>? items,
-    DateTime? nextCursor,
-    bool? isLoading,
-    bool? isLoadingMore,
-    String? error,
-    bool? hasMore,
-    bool clearError = false,
-    bool clearCursor = false,
-  }) {
-    return NotificationListState(
-      items: items ?? this.items,
-      nextCursor: clearCursor ? null : (nextCursor ?? this.nextCursor),
-      isLoading: isLoading ?? this.isLoading,
-      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
-      error: clearError ? null : (error ?? this.error),
-      hasMore: hasMore ?? this.hasMore,
-    );
-  }
-}
-
-class NotificationListNotifier extends StateNotifier<NotificationListState> {
-  NotificationListNotifier(this._repo) : super(const NotificationListState());
-
-  final NotificationRepository _repo;
-  static const _pageSize = 30;
-
-  Future<void> refresh() async {
-    state = state.copyWith(
-      isLoading: true,
-      clearError: true,
-      clearCursor: true,
-    );
-    try {
-      final page = await _repo.list(limit: _pageSize);
-      state = NotificationListState(
-        items: page.items,
-        nextCursor: page.nextCursor,
-        hasMore: page.nextCursor != null,
-      );
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-    }
-  }
-
-  Future<void> loadMore() async {
-    if (state.isLoadingMore || !state.hasMore || state.nextCursor == null) return;
-    state = state.copyWith(isLoadingMore: true);
-    try {
-      final page = await _repo.list(
-        cursor: state.nextCursor,
-        limit: _pageSize,
-      );
-      state = state.copyWith(
-        items: [...state.items, ...page.items],
-        nextCursor: page.nextCursor,
-        isLoadingMore: false,
-        hasMore: page.nextCursor != null,
-      );
-    } catch (e) {
-      state = state.copyWith(isLoadingMore: false, error: e.toString());
-    }
-  }
-
-  /// Prepend a freshly received WS notification. Dedupe by id in case the
-  /// REST list and WS event race (e.g. open screen during a print finish).
-  void prepend(AppNotification n) {
-    if (state.items.any((x) => x.id == n.id)) return;
-    state = state.copyWith(items: [n, ...state.items]);
-  }
-
-  Future<void> markRead(String id) async {
-    final idx = state.items.indexWhere((n) => n.id == id);
-    if (idx == -1) return;
-    final original = state.items[idx];
-    if (original.isRead) return;
-
-    // Optimistic update.
-    final optimistic = [...state.items];
-    optimistic[idx] = original.copyWith(readAt: DateTime.now().toUtc());
-    state = state.copyWith(items: optimistic);
-
-    try {
-      final updated = await _repo.markRead(id);
-      final next = [...state.items];
-      final i = next.indexWhere((n) => n.id == id);
-      if (i != -1) next[i] = updated;
-      state = state.copyWith(items: next);
-    } catch (_) {
-      // Rollback on failure.
-      final rolled = [...state.items];
-      final i = rolled.indexWhere((n) => n.id == id);
-      if (i != -1) rolled[i] = original;
-      state = state.copyWith(items: rolled);
-    }
-  }
-
-  Future<void> markAllRead() async {
-    final now = DateTime.now().toUtc();
-    final original = state.items;
-    final optimistic = original
-        .map((n) => n.isRead ? n : n.copyWith(readAt: now))
-        .toList();
-    state = state.copyWith(items: optimistic);
-    try {
-      await _repo.markAllRead();
-    } catch (_) {
-      state = state.copyWith(items: original);
-    }
-  }
-}
-
 final notificationListProvider =
-    StateNotifierProvider<NotificationListNotifier, NotificationListState>(
+    StateNotifierProvider<NotificationViewModel, NotificationState>(
   (ref) {
-    final notifier = NotificationListNotifier(
+    final notifier = NotificationViewModel(
       ref.watch(notificationRepositoryProvider),
     );
     // First load.
@@ -193,9 +67,8 @@ final _unreadCountFallbackProvider = FutureProvider<int>((ref) async {
   }
 });
 
-Future<void> refreshUnreadCount(WidgetRef ref) async {
-  // ignore: unused_result
-  ref.refresh(_unreadCountFallbackProvider);
+void refreshUnreadCount(WidgetRef ref) {
+  ref.invalidate(_unreadCountFallbackProvider);
 }
 
 // ── WS listener — connects user:{id} topic to the store ──────────────────────

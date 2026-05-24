@@ -164,12 +164,14 @@ class _RecommendationResultScreenState
 
   Future<void> _resubmitWithClarification() async {
     final r = _r;
-    if (r == null || r.stlFileId == null) return;
+    if (r == null) return;
+    final stlFileId = r.stlFileId;
+    if (stlFileId == null) return;
     setState(() => _isResubmitting = true);
     try {
       await ref.read(recommendationViewModelProvider.notifier).submit(
             RecommendRequest(
-              fileId: r.stlFileId!,
+              fileId: stlFileId,
               orientationRank: r.orientationRank,
               intendedUse: r.intendedUse,
               surfaceFinish: r.surfaceFinish,

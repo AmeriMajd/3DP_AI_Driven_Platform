@@ -6,6 +6,7 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/responsive_wrapper.dart';
 import '../../domain/printer.dart';
+import '../../domain/printer_state.dart';
 import '../../providers/printer_providers.dart';
 
 class PrinterFormScreen extends ConsumerStatefulWidget {
@@ -34,7 +35,6 @@ class _PrinterFormScreenState extends ConsumerState<PrinterFormScreen> {
   PrinterConnectorType _connectorType = PrinterConnectorType.mock;
   PrinterStatusValue _status = PrinterStatusValue.offline;
 
-  bool _saving = false;
   bool _initialized = false;
 
   @override
@@ -312,8 +312,12 @@ class _PrinterFormScreenState extends ConsumerState<PrinterFormScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _saving ? null : _submit,
-                      child: _saving
+                      onPressed: ref.watch(printerViewModelProvider).status ==
+                              PrinterStateStatus.loading
+                          ? null
+                          : _submit,
+                      child: ref.watch(printerViewModelProvider).status ==
+                              PrinterStateStatus.loading
                           ? const SizedBox(
                               width: 20,
                               height: 20,
@@ -354,40 +358,35 @@ class _PrinterFormScreenState extends ConsumerState<PrinterFormScreen> {
   }
 
   Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      return;
-    }
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    setState(() => _saving = true);
+    final vm = ref.read(printerViewModelProvider.notifier);
 
-    try {
-      final repo = ref.read(printerRepositoryProvider);
-      if (widget.isEdit) {
-        await repo.updatePrinter(
-          id: widget.printerId!,
-          payload: _buildUpdatePayload(),
-        );
+    if (widget.isEdit) {
+      await vm.updatePrinter(
+        id: widget.printerId!,
+        payload: _buildUpdatePayload(),
+      );
+      if (!mounted) return;
+      final state = ref.read(printerViewModelProvider);
+      if (state.status == PrinterStateStatus.error) {
+        _showSnack(state.errorMessage ?? 'Update failed', AppColors.error);
+      } else {
         ref.invalidate(printersListProvider);
         ref.invalidate(printerDetailProvider(widget.printerId!));
-        if (mounted) {
-          _showSnack('Printer updated', AppColors.success);
-          context.go('${AppRoutes.fleet}/${widget.printerId}');
-        }
+        _showSnack('Printer updated', AppColors.success);
+        context.go('${AppRoutes.fleet}/${widget.printerId}');
+      }
+    } else {
+      await vm.createPrinter(_buildCreatePayload());
+      if (!mounted) return;
+      final state = ref.read(printerViewModelProvider);
+      if (state.status == PrinterStateStatus.error) {
+        _showSnack(state.errorMessage ?? 'Create failed', AppColors.error);
       } else {
-        final created = await repo.createPrinter(_buildCreatePayload());
         ref.invalidate(printersListProvider);
-        if (mounted) {
-          _showSnack('Printer created', AppColors.success);
-          context.go('${AppRoutes.fleet}/${created.id}');
-        }
-      }
-    } catch (error) {
-      if (mounted) {
-        _showSnack(_readableError(error), AppColors.error);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
+        _showSnack('Printer created', AppColors.success);
+        context.go('${AppRoutes.fleet}/${state.selectedPrinter?.id}');
       }
     }
   }
@@ -516,8 +515,4 @@ class _PrinterFormScreenState extends ConsumerState<PrinterFormScreen> {
     );
   }
 
-  String _readableError(Object error) {
-    final text = error.toString();
-    return text.replaceFirst('Exception: ', '');
-  }
 }

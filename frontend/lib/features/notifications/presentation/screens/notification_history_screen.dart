@@ -98,7 +98,7 @@ class _NotificationHistoryScreenState
     );
   }
 
-  Widget _buildBody(NotificationListState state, List<AppNotification> rows) {
+  Widget _buildBody(NotificationState state, List<AppNotification> rows) {
     if (state.isLoading && state.items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
