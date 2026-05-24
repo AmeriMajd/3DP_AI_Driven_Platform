@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/ws/ws_protocol.dart';
+import '../../../../core/ws/ws_providers.dart';
 import '../../../../features/printers/providers/printer_providers.dart';
 import '../../domain/job.dart';
-import '../../domain/job_detail_state.dart';
 import '../../domain/job_slicing.dart';
 import '../providers/job_providers.dart';
 import '../widgets/job_status_badge.dart';
@@ -18,7 +19,10 @@ class JobDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
+  bool _cancelLoading = false;
   bool _showConfirm = false;
+  bool _suspendLoading = false;
+  bool _resumeLoading = false;
 
   String _formatDuration(int seconds) {
     final h = seconds ~/ 3600;
@@ -34,51 +38,43 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final jobId = widget.jobId;
-    final state = ref.watch(jobDetailViewModelProvider(jobId));
-
-    // Surface action failures (cancel/suspend/resume) as a snackbar.
-    ref.listen(
-      jobDetailViewModelProvider(jobId).select((s) => s.actionError),
-      (_, err) {
-        if (err != null && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed: $err'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+    // Subscribe to job:{id} WS topic; invalidate HTTP providers on each event.
+    final topic = WsTopics.job(widget.jobId);
+    ref.listen(wsTopicEventsProvider(topic), (_, next) {
+      next.whenData((event) {
+        if (event.type == 'job.status' || event.type == 'job.progress') {
+          ref.invalidate(jobDetailProvider(widget.jobId));
         }
-      },
-    );
+        if (event.type.startsWith('slicing.')) {
+          ref.invalidate(jobSlicingProvider(widget.jobId));
+        }
+      });
+    });
 
-    return state.job.when(
-      // While loading / on error, fall back to the job passed in by the
-      // caller (if any) so the screen paints instantly without a spinner.
-      loading: () => widget.initialJob != null
-          ? _buildScreen(context, widget.initialJob!, state)
-          : const Scaffold(
-              backgroundColor: Color(0xFFF2F2F7),
-              body: Center(child: CircularProgressIndicator()),
-            ),
-      error: (e, _) => widget.initialJob != null
-          ? _buildScreen(context, widget.initialJob!, state)
-          : Scaffold(
-              backgroundColor: const Color(0xFFF2F2F7),
-              appBar:
-                  AppBar(backgroundColor: const Color(0xFFF2F2F7), elevation: 0),
-              body: Center(child: Text('Error: $e')),
-            ),
-      data: (job) => _buildScreen(context, job, state),
+    final jobAsync = ref.watch(jobDetailProvider(widget.jobId));
+    final effectiveJobAsync = jobAsync.isLoading && widget.initialJob != null
+        ? AsyncValue<Job>.data(widget.initialJob!)
+        : jobAsync;
+
+    return effectiveJobAsync.when(
+      loading: () => const Scaffold(
+        backgroundColor: Color(0xFFF2F2F7),
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => Scaffold(
+        backgroundColor: const Color(0xFFF2F2F7),
+        appBar: AppBar(backgroundColor: const Color(0xFFF2F2F7), elevation: 0),
+        body: Center(child: Text('Error: $e')),
+      ),
+      data: (job) => _buildScreen(context, job),
     );
   }
 
-  Widget _buildScreen(BuildContext context, Job job, JobDetailState state) {
+  Widget _buildScreen(BuildContext context, Job job) {
     final isPrinting = job.status == Job.printing;
     final isCompleted = job.status == Job.completed;
     final isCanceled = job.status == Job.canceled || job.status == Job.failed;
     final isAdmin = ref.watch(isAdminProvider).value ?? false;
-    final vm = ref.read(jobDetailViewModelProvider(widget.jobId).notifier);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F7),
@@ -108,7 +104,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                         // Slicing
                         const _SectionLabel('Preparation'),
                         _SlicingCard(
-                          slicingAsync: state.slicing,
+                          slicingAsync: ref.watch(jobSlicingProvider(job.id)),
                           formatTime: _formatTime,
                         ),
                         const SizedBox(height: 20),
@@ -147,15 +143,15 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                                 job.status == Job.scheduled)) ...[
                           const SizedBox(height: 10),
                           _SuspendButton(
-                            loading: state.suspendLoading,
-                            onTap: () => vm.suspend(),
+                            loading: _suspendLoading,
+                            onTap: () => _suspendJob(job),
                           ),
                         ],
                         if (isAdmin && job.status == Job.paused) ...[
                           const SizedBox(height: 10),
                           _ResumeButton(
-                            loading: state.resumeLoading,
-                            onTap: () => vm.resume(),
+                            loading: _resumeLoading,
+                            onTap: () => _resumeJob(job),
                           ),
                         ],
                       ],
@@ -168,8 +164,8 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
           // Confirm sheet overlay
           if (_showConfirm) _ConfirmSheet(
             jobId: job.id,
-            loading: state.cancelLoading,
-            onConfirm: _confirmCancel,
+            loading: _cancelLoading,
+            onConfirm: () => _cancelJob(job),
             onDismiss: () => setState(() => _showConfirm = false),
           ),
         ],
@@ -177,11 +173,57 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     );
   }
 
-  /// Cancel via the ViewModel, then close the confirm sheet. Failures
-  /// surface through the `actionError` listener in `build`.
-  Future<void> _confirmCancel() async {
-    await ref.read(jobDetailViewModelProvider(widget.jobId).notifier).cancel();
-    if (mounted) setState(() => _showConfirm = false);
+  Future<void> _cancelJob(Job job) async {
+    setState(() => _cancelLoading = true);
+    try {
+      await ref.read(jobRepositoryProvider).cancelJob(job.id);
+      ref.invalidate(myJobsProvider);
+      ref.invalidate(jobDetailProvider(job.id));
+      ref.invalidate(jobSlicingProvider(job.id));
+      if (mounted) setState(() => _showConfirm = false);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e'), behavior: SnackBarBehavior.floating),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cancelLoading = false);
+    }
+  }
+
+  Future<void> _suspendJob(Job job) async {
+    setState(() => _suspendLoading = true);
+    try {
+      await ref.read(jobRepositoryProvider).suspendJob(job.id);
+      ref.invalidate(myJobsProvider);
+      ref.invalidate(jobDetailProvider(job.id));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e'), behavior: SnackBarBehavior.floating),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _suspendLoading = false);
+    }
+  }
+
+  Future<void> _resumeJob(Job job) async {
+    setState(() => _resumeLoading = true);
+    try {
+      await ref.read(jobRepositoryProvider).resumeJob(job.id);
+      ref.invalidate(myJobsProvider);
+      ref.invalidate(jobDetailProvider(job.id));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e'), behavior: SnackBarBehavior.floating),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _resumeLoading = false);
+    }
   }
 }
 
