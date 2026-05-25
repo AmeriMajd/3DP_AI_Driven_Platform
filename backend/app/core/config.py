@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     STATUS_POLL_COMPLETION_THRESHOLD: float = 0.99
     STATUS_POLL_ENABLED: bool = True
 
+    # Anomaly detection (Sprint 4 / US-21)
+    ANOMALY_DETECTION_ENABLED: bool = True
+    ANOMALY_TEMP_DRIFT_C: float = 15.0
+    ANOMALY_TEMP_DRIFT_POLLS: int = 3
+    ANOMALY_PROGRESS_STALL_MINUTES: int = 20
+    ANOMALY_DURATION_OVERRUN_FACTOR: float = 1.3
+
     # WebSockets (PRD §6.4)
     WEBSOCKETS_ENABLED: bool = True
     WS_PING_INTERVAL_S: int = 30

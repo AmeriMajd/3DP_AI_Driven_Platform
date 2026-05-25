@@ -268,6 +268,33 @@ def emit_printer_status_change(
     )
 
 
+def emit_job_anomaly(
+    db: Session,
+    *,
+    user_id: UUID,
+    job_id: UUID,
+    job_name: str,
+    anomaly_type: str,
+    message: str,
+    severity: str = "warning",
+) -> None:
+    """One alert per (job, anomaly_type) — anti-spam via collapse_key.
+
+    `anomaly_type` ∈ {thermal_drift, progress_stall, duration_overrun, unreachable}.
+    """
+    notification_service.emit(
+        db,
+        user_id=user_id,
+        category=CATEGORY_PRINTER,
+        type_=f"anomaly.{anomaly_type}",
+        severity=severity,
+        title=f"Anomalie détectée — {job_name}",
+        body=message,
+        data={"job_id": str(job_id), "anomaly_type": anomaly_type},
+        collapse_key=f"job_{job_id}_anomaly_{anomaly_type}",
+    )
+
+
 def emit_filament_low(
     db: Session,
     *,

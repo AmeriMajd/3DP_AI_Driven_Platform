@@ -22,6 +22,7 @@ from app.connectors.factory import get_connector
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models.printer import Printer
+from app.services import activity_log_service
 from app.services.printer_service import get_decrypted_api_key
 from app.ws.emit import emit_printer_status
 
@@ -65,6 +66,15 @@ async def _poll_one(printer_id, prev_status: str) -> None:
             if printer.status != new_db_status:
                 printer.status = new_db_status
                 printer.last_seen_at = datetime.now(timezone.utc)
+                activity_log_service.log(
+                    db,
+                    event_type="printer",
+                    message=f"Imprimante passée hors ligne: {printer.name}",
+                    severity="warning",
+                    target_type="printer",
+                    target_id=printer.id,
+                    metadata={"prev_status": prev_status, "new_status": new_db_status},
+                )
                 db.commit()
                 emit_printer_status(printer.id, status=new_db_status, online=False)
             return
@@ -76,6 +86,15 @@ async def _poll_one(printer_id, prev_status: str) -> None:
         printer.last_seen_at = now
         if changed:
             printer.status = new_db_status
+            activity_log_service.log(
+                db,
+                event_type="printer",
+                message=f"Statut imprimante: {prev_status} → {new_db_status}",
+                severity="warning" if new_db_status in ("offline", "error") else "info",
+                target_type="printer",
+                target_id=printer.id,
+                metadata={"prev_status": prev_status, "new_status": new_db_status},
+            )
         db.commit()
 
         emit_printer_status(

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="3DP — Voxel Stair (mono)">
+  <title>3DP Voxel Stair Mark · Mono</title>
+  
+  <g fill="#3F37C9" stroke="#3F37C9" stroke-width="1" stroke-linejoin="round">
+    
+    <polygon points="100.08,316 204,376 204,256 100.08,196"></polygon>
+    <polygon points="307.92,316 307.92,196 204,256 204,376"></polygon>
+    <polygon points="204,136 307.92,196 204,256 100.08,196"></polygon>
+    
+    <polygon points="204,376 307.92,436 307.92,316 204,256"></polygon>
+    <polygon points="411.84,376 411.84,256 307.92,316 307.92,436"></polygon>
+    <polygon points="307.92,196 411.84,256 307.92,316 204,256"></polygon>
+    
+  </g>
+  <g fill="#3F37C9" stroke="#3F37C9" stroke-width="1" stroke-linejoin="round" id="accent-voxel">
+    <polygon points="204,256 307.92,316 307.92,196 204,136"></polygon>
+    <polygon points="411.84,256 411.84,136 307.92,196 307.92,316"></polygon>
+    <polygon points="307.92,76 411.84,136 307.92,196 204,136"></polygon>
+  </g>
+</svg>

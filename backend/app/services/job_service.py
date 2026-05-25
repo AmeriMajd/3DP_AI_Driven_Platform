@@ -31,7 +31,7 @@ from app.models.slicing_job import SlicingJob
 from app.models.stl_file import STLFile
 from app.schemas.job import JobCreate
 from app.schemas.slicing import JobSlicingRead
-from app.services import notification_triggers
+from app.services import activity_log_service, notification_triggers
 from app.services.printer_service import get_decrypted_api_key
 from app.services.scheduling_service import assign_pending_jobs, free_printer
 from app.ws.emit import emit_job_status
@@ -149,6 +149,16 @@ def submit_job(db: Session, current_user: dict, payload: JobCreate) -> PrintJob:
             user_id=job.user_id,
             job_id=job.id,
             job_name=f"Job #{str(job.id)[:8]}",
+        )
+        activity_log_service.log(
+            db,
+            event_type="job",
+            message="Job soumis",
+            actor_user_id=user_id,
+            severity="info",
+            target_type="job",
+            target_id=job.id,
+            metadata={"printer_id": str(job.printer_id) if job.printer_id else None},
         )
         db.commit()
     except Exception:

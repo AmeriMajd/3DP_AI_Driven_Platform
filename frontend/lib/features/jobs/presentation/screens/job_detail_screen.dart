@@ -23,6 +23,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   bool _showConfirm = false;
   bool _suspendLoading = false;
   bool _resumeLoading = false;
+  _AnomalyAlert? _lastAnomaly;
 
   String _formatDuration(int seconds) {
     final h = seconds ~/ 3600;
@@ -47,6 +48,16 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
         }
         if (event.type.startsWith('slicing.')) {
           ref.invalidate(jobSlicingProvider(widget.jobId));
+        }
+        if (event.type == 'job.anomaly') {
+          setState(() {
+            _lastAnomaly = _AnomalyAlert(
+              anomalyType: event.data['anomaly_type'] as String? ?? 'unknown',
+              severity: event.data['severity'] as String? ?? 'warning',
+              message: event.data['message'] as String? ?? 'Anomaly detected',
+              receivedAt: DateTime.now(),
+            );
+          });
         }
       });
     });
@@ -90,6 +101,13 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (_lastAnomaly != null) ...[
+                          _AnomalyBanner(
+                            alert: _lastAnomaly!,
+                            onDismiss: () => setState(() => _lastAnomaly = null),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         // Hero card
                         _HeroCard(job: job, isPrinting: isPrinting,
                             isCompleted: isCompleted, isCanceled: isCanceled,
@@ -998,6 +1016,82 @@ class _ConfirmSheet extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AnomalyAlert {
+  final String anomalyType;
+  final String severity;
+  final String message;
+  final DateTime receivedAt;
+  const _AnomalyAlert({
+    required this.anomalyType,
+    required this.severity,
+    required this.message,
+    required this.receivedAt,
+  });
+}
+
+class _AnomalyBanner extends StatelessWidget {
+  final _AnomalyAlert alert;
+  final VoidCallback onDismiss;
+  const _AnomalyBanner({required this.alert, required this.onDismiss});
+
+  Color get _color {
+    switch (alert.severity) {
+      case 'error':
+        return const Color(0xFFFF3B30);
+      case 'warning':
+        return const Color(0xFFFF9500);
+      default:
+        return const Color(0xFF007AFF);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded, color: _color, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Anomalie: ${alert.anomalyType}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _color,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  alert.message,
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF1C1C1E)),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onDismiss,
+            icon: const Icon(Icons.close, size: 18),
+            color: _color,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
       ),
     );
   }

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="3DP — Voxel Stair mark">
+  <title>3DP Voxel Stair Mark</title>
+  
+
+  
+  <g id="voxel-a">
+    
+    <polygon points="100.08,316 204,376 204,256 100.08,196" fill="#2A24A0" stroke="#1F1A8A" stroke-width="1" stroke-linejoin="round"></polygon>
+    
+    <polygon points="307.92,316 307.92,196 204,256 204,376" fill="#3F37C9" stroke="#1F1A8A" stroke-width="1" stroke-linejoin="round"></polygon>
+    
+    <polygon points="204,136 307.92,196 204,256 100.08,196" fill="#5A52DA" stroke="#1F1A8A" stroke-width="1" stroke-linejoin="round"></polygon>
+  </g>
+
+  
+  <g id="voxel-b">
+    <polygon points="204,376 307.92,436 307.92,316 204,256" fill="#2A24A0" stroke="#1F1A8A" stroke-width="1" stroke-linejoin="round"></polygon>
+    <polygon points="411.84,376 411.84,256 307.92,316 307.92,436" fill="#3F37C9" stroke="#1F1A8A" stroke-width="1" stroke-linejoin="round"></polygon>
+    <polygon points="307.92,196 411.84,256 307.92,316 204,256" fill="#5A52DA" stroke="#1F1A8A" stroke-width="1" stroke-linejoin="round"></polygon>
+  </g>
+
+  
+  <g id="voxel-c">
+    <polygon points="204,256 307.92,316 307.92,196 204,136" fill="#A8CC00" stroke="#9CBE00" stroke-width="1" stroke-linejoin="round"></polygon>
+    <polygon points="411.84,256 411.84,136 307.92,196 307.92,316" fill="#C7F000" stroke="#9CBE00" stroke-width="1" stroke-linejoin="round"></polygon>
+    <polygon points="307.92,76 411.84,136 307.92,196 204,136" fill="#E2FF6B" stroke="#9CBE00" stroke-width="1" stroke-linejoin="round"></polygon>
+  </g>
+</svg>

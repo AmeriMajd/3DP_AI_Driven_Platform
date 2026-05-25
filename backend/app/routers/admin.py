@@ -1,6 +1,8 @@
 import uuid as uuid_lib
+from datetime import datetime
+from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status  # BackgroundTasks used by resend
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status  # BackgroundTasks used by resend
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -9,6 +11,7 @@ from app.core.security import require_role
 from app.models.invitation import Invitation
 from app.models.print_job import PrintJob
 from app.models.user import User
+from app.schemas.activity_log import ActivityLogPage, ActivityLogResponse
 from app.schemas.invitation import (
     CreateInvitationSchema,
     InvitationHistoryItem,
@@ -23,6 +26,7 @@ from app.schemas.admin_dashboard import (
     TopUserItem,
 )
 from app.schemas.user import UserListItem
+from app.services import activity_log_service
 from app.services.admin_dashboard_service import AdminDashboardService
 from app.services.invitation_service import InvitationService
 
@@ -37,6 +41,17 @@ def create_invitation(
 ):
     creator_id = uuid_lib.UUID(current_user["user_id"])
     invitation = InvitationService(db).create_invitation(data, created_by=creator_id)
+    activity_log_service.log(
+        db,
+        event_type="admin",
+        message=f"Invitation envoyée à {invitation.email}",
+        actor_user_id=creator_id,
+        severity="info",
+        target_type="user",
+        target_id=None,
+        metadata={"email": invitation.email, "role": invitation.role},
+    )
+    db.commit()
 
     return InvitationResponse(
         id=invitation.id,
@@ -145,7 +160,59 @@ def delete_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user.is_active = False
+    activity_log_service.log(
+        db,
+        event_type="admin",
+        message=f"Utilisateur désactivé: {user.email}",
+        actor_user_id=uuid_lib.UUID(current_user["user_id"]),
+        severity="warning",
+        target_type="user",
+        target_id=user.id,
+    )
     db.commit()
+
+
+# ── Activity log ────────────────────────────────────────────────
+
+
+@router.get("/activity", response_model=ActivityLogPage)
+def list_activity(
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    event_type: Optional[str] = Query(None),
+    severity: Optional[str] = Query(None),
+    actor_user_id: Optional[str] = Query(None),
+    target_type: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_role("admin")),
+):
+    actor_uuid = uuid_lib.UUID(actor_user_id) if actor_user_id else None
+    rows, total = activity_log_service.query(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        event_type=event_type,
+        severity=severity,
+        actor_user_id=actor_uuid,
+        target_type=target_type,
+        limit=limit,
+        offset=offset,
+    )
+
+    actor_ids = {r.actor_user_id for r in rows if r.actor_user_id is not None}
+    name_by_id: dict = {}
+    if actor_ids:
+        users = db.query(User.id, User.full_name).filter(User.id.in_(actor_ids)).all()
+        name_by_id = {u.id: u.full_name for u in users}
+
+    items = []
+    for r in rows:
+        item = ActivityLogResponse.model_validate(r)
+        item.actor_name = name_by_id.get(r.actor_user_id)
+        items.append(item)
+    return ActivityLogPage(items=items, total=total, limit=limit, offset=offset)
 
 
 # ── Dashboard ───────────────────────────────────────────────

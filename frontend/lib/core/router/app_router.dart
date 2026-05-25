@@ -19,6 +19,7 @@ import '../../features/history/presentation/screens/history_screen.dart';
 import '../../features/notifications/presentation/screens/notification_history_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/users/presentation/screens/users_screen.dart';
+import '../../features/activity/presentation/screens/activity_screen.dart';
 import '../../features/admin_dashboard/presentation/screens/admin_dashboard_screen.dart';
 import '../../features/printers/presentation/screens/printer_detail_screen.dart';
 import '../../features/printers/presentation/screens/printer_form_screen.dart';
@@ -188,6 +189,11 @@ final appRouter = GoRouter(
           path: AppRoutes.adminUsers,
           name: AppRoutes.adminUsers,
           builder: (_, _) => const UsersScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.adminActivity,
+          name: AppRoutes.adminActivity,
+          builder: (_, _) => const ActivityScreen(),
         ),
       ],
     ),

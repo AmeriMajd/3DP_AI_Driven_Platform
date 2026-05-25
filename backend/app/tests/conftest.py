@@ -13,8 +13,23 @@ Key design decisions:
 import uuid
 from sqlalchemy import create_engine, pool
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.types import ARRAY as CoreARRAY
+from sqlalchemy.dialects.postgresql import ARRAY as PgARRAY
+from sqlalchemy.ext.compiler import compiles
 from fastapi.testclient import TestClient
 import pytest
+
+
+# Postgres ARRAY → JSON on SQLite (notification.delivered_channels uses ARRAY).
+@compiles(CoreARRAY, "sqlite")
+def _core_array_sqlite(type_, compiler, **_kw):
+    return "JSON"
+
+
+@compiles(PgARRAY, "sqlite")
+def _pg_array_sqlite(type_, compiler, **_kw):
+    return "JSON"
+
 
 # ── 1. Create the test engine FIRST ──────────────────────────────────────────
 engine = create_engine(
@@ -38,8 +53,9 @@ import app.models.refresh_token
 import app.models.password_reset_token
 import app.models.stl_file
 import app.models.printer
-import app.models.print_job    
-import app.models.recommendation  
+import app.models.print_job
+import app.models.recommendation
+import app.models.activity_log
 
 from app.main import app
 from app.core.database import get_db, Base

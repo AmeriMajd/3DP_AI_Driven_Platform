@@ -157,6 +157,27 @@ def emit_notification(
     publish(_user_topic(user_id), "notification.new", payload)
 
 
+def emit_job_anomaly(
+    print_job_id: UUID | str,
+    *,
+    anomaly_type: str,
+    severity: str,
+    message: str,
+) -> None:
+    """Broadcast a detected print anomaly. Published to the job topic so the
+    job-detail screen can show a banner, and mirrored to `admin:jobs` so the
+    admin fleet view ticks too.
+    """
+    data: dict[str, Any] = {
+        "id": str(print_job_id),
+        "anomaly_type": anomaly_type,
+        "severity": severity,
+        "message": message,
+    }
+    publish(_job_topic(print_job_id), "job.anomaly", data)
+    publish("admin:jobs", "job.anomaly", data)
+
+
 def emit_printer_status(
     printer_id: UUID | str,
     *,

@@ -15,6 +15,7 @@ import app.models.print_job
 import app.models.slicing_job
 import app.models.notification
 import app.models.user_device
+import app.models.activity_log
 
 # ── Import routers ─────────────────────────────────────────────────────────────
 from app.routers import auth, admin, invitations
@@ -148,6 +149,7 @@ def _sync_print_jobs_schema() -> None:
         "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS remote_job_id VARCHAR",
         "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS time_left_seconds INTEGER",
         "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS last_polled_at TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS progress_updated_at TIMESTAMP WITH TIME ZONE",
     ]
     try:
         with engine.begin() as connection:

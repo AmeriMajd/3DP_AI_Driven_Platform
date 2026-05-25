@@ -254,8 +254,8 @@ class _Cube3D extends StatelessWidget {
     return Transform(
       alignment: Alignment.center,
       transform: Matrix4.identity()
-        ..setEntry(3, 2, 0.0012) // perspective
-        ..rotateX(-22 * pi / 180)
+        ..setEntry(3, 2, 0.0006) // perspective — gentle, keeps faces near-equal
+        ..rotateX(-20 * pi / 180)
         ..rotateY(spin * pi / 180),
       child: Stack(
         alignment: Alignment.center,
@@ -306,7 +306,7 @@ class _Cube3D extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: colors,
           ),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(6),
         ),
       ),
     );

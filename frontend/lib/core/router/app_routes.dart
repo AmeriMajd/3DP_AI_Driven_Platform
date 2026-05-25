@@ -43,4 +43,5 @@ class AppRoutes {
 
   // ── Admin ──
   static const String adminUsers = '/admin/users';
+  static const String adminActivity = '/admin/activity';
 }
