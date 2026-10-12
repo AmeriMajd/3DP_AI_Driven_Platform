@@ -13,6 +13,9 @@ import app.models.recommendation
 import app.models.printer  
 import app.models.print_job
 import app.models.slicing_job
+import app.models.notification
+import app.models.user_device
+import app.models.activity_log
 
 # ── Import routers ─────────────────────────────────────────────────────────────
 from app.routers import auth, admin, invitations
@@ -26,6 +29,10 @@ from app.routers.estimate import router as estimate_router
 from app.services import stl_service
 from app.routers import jobs
 from app.routers import slicing
+from app.routers import notifications as notifications_router
+from app.routers import ws as ws_router
+from app.ws import events as ws_events
+from app.services import printer_poll_service
 
 
 # ── Create all tables ──────────────────────────────────────────────────────────
@@ -142,6 +149,7 @@ def _sync_print_jobs_schema() -> None:
         "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS remote_job_id VARCHAR",
         "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS time_left_seconds INTEGER",
         "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS last_polled_at TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS progress_updated_at TIMESTAMP WITH TIME ZONE",
     ]
     try:
         with engine.begin() as connection:
@@ -185,10 +193,32 @@ app.include_router(printers_router)
 app.include_router(estimate_router)
 app.include_router(jobs.router)
 app.include_router(slicing.router)
+app.include_router(notifications_router.router)
+app.include_router(ws_router.router)
 
 @app.on_event("startup")
 def recover_stl_jobs() -> None:
     stl_service.recover_pending_files()
+
+
+@app.on_event("startup")
+async def start_ws_subscriber() -> None:
+    await ws_events.start_subscriber()
+
+
+@app.on_event("startup")
+async def start_printer_poll_loop() -> None:
+    await printer_poll_service.start()
+
+
+@app.on_event("shutdown")
+async def stop_ws_subscriber() -> None:
+    await ws_events.stop_subscriber()
+
+
+@app.on_event("shutdown")
+async def stop_printer_poll_loop() -> None:
+    await printer_poll_service.stop()
 
 
 @app.on_event("startup")

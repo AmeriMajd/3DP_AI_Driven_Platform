@@ -15,7 +15,7 @@ from app.schemas.printer import (
     PrinterUpdate,
     Technology,
 )
-from app.services import printer_service
+from app.services import activity_log_service, printer_service
 
 router = APIRouter(prefix="/printers", tags=["Printers"])
 
@@ -62,7 +62,18 @@ def create_printer(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_role("admin")),
 ):
-    return printer_service.create_printer(db, payload)
+    printer = printer_service.create_printer(db, payload)
+    activity_log_service.log(
+        db,
+        event_type="printer",
+        message=f"Imprimante ajoutée: {printer.name}",
+        actor_user_id=UUID(current_user["user_id"]),
+        severity="info",
+        target_type="printer",
+        target_id=printer.id,
+    )
+    db.commit()
+    return printer
 
 
 @router.put(
@@ -77,7 +88,18 @@ def update_printer(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_role("admin")),
 ):
-    return printer_service.update_printer(db, printer_id, payload)
+    printer = printer_service.update_printer(db, printer_id, payload)
+    activity_log_service.log(
+        db,
+        event_type="printer",
+        message=f"Imprimante modifiée: {printer.name}",
+        actor_user_id=UUID(current_user["user_id"]),
+        severity="info",
+        target_type="printer",
+        target_id=printer.id,
+    )
+    db.commit()
+    return printer
 
 
 @router.delete(
@@ -91,6 +113,16 @@ def delete_printer(
     current_user: dict = Depends(require_role("admin")),
 ):
     printer_service.delete_printer(db, printer_id)
+    activity_log_service.log(
+        db,
+        event_type="printer",
+        message="Imprimante supprimée",
+        actor_user_id=UUID(current_user["user_id"]),
+        severity="warning",
+        target_type="printer",
+        target_id=printer_id,
+    )
+    db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

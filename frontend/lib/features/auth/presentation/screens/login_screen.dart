@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/utils/validators.dart';
@@ -231,46 +232,49 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget _buildLogo() {
     return Column(
       children: [
-        // Icône dans container arrondi
         Container(
-          width: 72,
-          height: 72,
+          width: 88,
+          height: 88,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.15),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
+                color: AppColors.primary.withValues(alpha: 0.18),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
-          child: const Icon(
-            Icons.view_in_ar_outlined, // icône 3D printing
-            color: AppColors.primary,
-            size: 36,
+          clipBehavior: Clip.antiAlias,
+          child: SvgPicture.asset(
+            'assets/logo/3dp-mark-voxel.svg',
+            width: 88,
+            height: 88,
+            fit: BoxFit.contain,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
 
-        // App name
         const Text(
-          'Print AI',
+          '3DP',
           style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            fontSize: 40,
+            fontWeight: FontWeight.bold,
+            letterSpacing: -2,
+            color: Color(0xFF1A1A2E),
+            height: 0.9,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
 
-        // Subtitle
         const Text(
-          'AI-Powered Additive Manufacturing',
+          'AI DRIVEN PLATFORM',
           style: TextStyle(
-            fontSize: 13,
-            color: AppColors.textSecondary,
+            fontSize: 11,
+            letterSpacing: 4,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF6E6E80),
           ),
         ),
       ],

@@ -13,6 +13,7 @@ from app.schemas.auth import (
     UserMeResponse,
     UserResponse,
 )
+from app.services import activity_log_service
 from app.services.auth_service import AuthService
 from app.services.session_service import SessionService
 from app.services.user_service import UserService
@@ -38,7 +39,18 @@ def register(data: RegisterSchema, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=LoginResponse, status_code=200)
 def login(data: LoginSchema, db: Session = Depends(get_db)):
-    return AuthService(db).login(data)
+    response = AuthService(db).login(data)
+    activity_log_service.log(
+        db,
+        event_type="auth",
+        message="Connexion réussie",
+        actor_user_id=response.user.id,
+        severity="info",
+        target_type="user",
+        target_id=response.user.id,
+    )
+    db.commit()
+    return response
 
 
 @router.get("/me", response_model=UserMeResponse)

@@ -5,7 +5,6 @@ class AppRoutes {
 
   // ── Auth ──
   static const String adminSignup = '/admin-signup';
-  static const String inviteUser = '/invite';
   static const String register = '/register';
   static const String login = '/login';
   static const String forgotPassword = '/forgot-password';
@@ -33,6 +32,16 @@ class AppRoutes {
   static const String jobDetail = '/jobs/:id';
   static const String jobAdmin = '/jobs/admin';
 
+  // ── History (operator summary) ──
+  static const String history = '/history';
+
+  // ── Notifications ──
+  static const String notifications = '/notifications';
+
   // ── Profile ──
   static const String profile = '/profile';
+
+  // ── Admin ──
+  static const String adminUsers = '/admin/users';
+  static const String adminActivity = '/admin/activity';
 }

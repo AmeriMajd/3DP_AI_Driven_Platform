@@ -6,12 +6,16 @@ import '../../../printers/domain/printer.dart';
 import '../../../printers/domain/printer_filter.dart';
 import '../../../printers/providers/printer_providers.dart';
 import '../providers/job_providers.dart';
+import '../../domain/job_state.dart';
 
 class SubmitJobDialog extends ConsumerStatefulWidget {
   final String stlFileId;
   final String? recommendationId;
   final String? stlFileName;
   final String? technology; // 'FDM' | 'SLA' | null → show all
+  final double? estimatedCost;
+  final int? estimatedTimeMinutes;
+  final String? currency;
 
   const SubmitJobDialog({
     super.key,
@@ -19,6 +23,9 @@ class SubmitJobDialog extends ConsumerStatefulWidget {
     this.recommendationId,
     this.stlFileName,
     this.technology,
+    this.estimatedCost,
+    this.estimatedTimeMinutes,
+    this.currency,
   });
 
   static Future<void> show(
@@ -27,6 +34,9 @@ class SubmitJobDialog extends ConsumerStatefulWidget {
     String? recommendationId,
     String? stlFileName,
     String? technology,
+    double? estimatedCost,
+    int? estimatedTimeMinutes,
+    String? currency,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -37,6 +47,9 @@ class SubmitJobDialog extends ConsumerStatefulWidget {
         recommendationId: recommendationId,
         stlFileName: stlFileName,
         technology: technology,
+        estimatedCost: estimatedCost,
+        estimatedTimeMinutes: estimatedTimeMinutes,
+        currency: currency,
       ),
     );
   }
@@ -47,7 +60,6 @@ class SubmitJobDialog extends ConsumerStatefulWidget {
 
 class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
   int _priority = 3;
-  bool _loading = false;
   String? _selectedPrinterId; // null = auto-assign
 
   static const _priorityLabels = ['', 'Low', 'Low', 'Normal', 'High', 'Urgent'];
@@ -65,6 +77,7 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = ref.watch(jobViewModelProvider).status == JobStatus.loading;
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -244,12 +257,12 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
                   padding: EdgeInsets.symmetric(vertical: 9),
                   child: Divider(height: 0.5, color: Color(0x1A3C3C43)),
                 ),
-                _SummaryRow(label: 'Est. time', value: '~2h 30m'),
+                _SummaryRow(label: 'Est. time', value: _formatTime(widget.estimatedTimeMinutes)),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 9),
                   child: Divider(height: 0.5, color: Color(0x1A3C3C43)),
                 ),
-                _SummaryRow(label: 'Est. cost', value: '3.50 TND'),
+                _SummaryRow(label: 'Est. cost', value: _formatCost(widget.estimatedCost, widget.currency)),
               ],
             ),
           ),
@@ -271,7 +284,7 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _loading ? null : () => Navigator.of(context).pop(),
+                  onPressed: isLoading ? null : () => Navigator.of(context).pop(),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -287,7 +300,7 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
               Expanded(
                 flex: 2,
                 child: FilledButton(
-                  onPressed: (_loading || widget.recommendationId == null) ? null : _submit,
+                  onPressed: (isLoading || widget.recommendationId == null) ? null : _submit,
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF4B6BFB),
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -297,7 +310,7 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
                         const Color(0xFF4B6BFB).withValues(alpha: 0.38),
                     elevation: 8,
                   ),
-                  child: _loading
+                  child: isLoading
                       ? const SizedBox(
                           width: 20,
                           height: 20,
@@ -313,6 +326,20 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
         ],
       ),
     );
+  }
+
+  String _formatTime(int? minutes) {
+    if (minutes == null) return '—';
+    if (minutes < 60) return '~${minutes}m';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    return m == 0 ? '~${h}h' : '~${h}h ${m}m';
+  }
+
+  String _formatCost(double? cost, String? currency) {
+    if (cost == null) return '—';
+    final cur = currency ?? 'TND';
+    return '${cost.toStringAsFixed(2)} $cur';
   }
 
   PrinterTechnology? get _printerTechnology {
@@ -364,39 +391,34 @@ class _SubmitJobDialogState extends ConsumerState<SubmitJobDialog> {
   }
 
   Future<void> _submit() async {
-    setState(() => _loading = true);
-    try {
-      await ref.read(jobRepositoryProvider).submitJob(
-            stlFileId: widget.stlFileId,
-            recommendationId: widget.recommendationId,
-            stlFileName: widget.stlFileName,
-            priority: _priority,
-            printerId: _selectedPrinterId,
-          );
-      if (mounted) {
-        Navigator.of(context).pop();
-        ref.invalidate(myJobsProvider);
-        context.go(AppRoutes.jobQueue);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Job submitted successfully'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Color(0xFF34C759),
-          ),
+    await ref.read(jobViewModelProvider.notifier).submitJob(
+          stlFileId: widget.stlFileId,
+          recommendationId: widget.recommendationId,
+          stlFileName: widget.stlFileName,
+          priority: _priority,
+          printerId: _selectedPrinterId,
         );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to submit job: $e'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFFFF3B30),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
+    if (!mounted) return;
+    final jobState = ref.read(jobViewModelProvider);
+    if (jobState.status == JobStatus.error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(jobState.errorMessage ?? 'Failed to submit job'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFFFF3B30),
+        ),
+      );
+    } else {
+      Navigator.of(context).pop();
+      ref.invalidate(myJobsProvider);
+      context.go(AppRoutes.jobQueue);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Job submitted successfully'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFF34C759),
+        ),
+      );
     }
   }
 }

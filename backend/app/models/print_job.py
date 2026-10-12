@@ -41,8 +41,8 @@ class PrintJob(Base):
     )
     stl_file_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("stl_files.id", ondelete="CASCADE"),
-        nullable=False,
+        ForeignKey("stl_files.id", ondelete="SET NULL"),
+        nullable=True,
     )
     recommendation_id = Column(
         UUID(as_uuid=True),
@@ -94,3 +94,4 @@ class PrintJob(Base):
     remote_job_id = Column(String, nullable=True)
     time_left_seconds = Column(Integer, nullable=True)
     last_polled_at = Column(DateTime(timezone=True), nullable=True)
+    progress_updated_at = Column(DateTime(timezone=True), nullable=True)

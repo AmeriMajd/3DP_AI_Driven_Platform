@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/ws/ws_protocol.dart';
+import '../../../../core/ws/ws_providers.dart';
 import '../../domain/stl_file.dart';
 import '../../domain/orientation_result.dart';
 import '../providers/upload_providers.dart';
@@ -104,6 +106,15 @@ class _FileDetailScreenState extends ConsumerState<FileDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Subscribe to stl:{id} WS topic; refresh ViewModel on each event.
+    ref.listen(wsTopicEventsProvider(WsTopics.stl(widget.fileId)), (_, next) {
+      next.whenData((event) {
+        if (event.type == 'stl.status') {
+          _uploadNotifier.refreshFile(widget.fileId);
+        }
+      });
+    });
+
     final files = ref.watch(uploadViewModelProvider).files;
     final STLFile? file = _findFile(files);
 

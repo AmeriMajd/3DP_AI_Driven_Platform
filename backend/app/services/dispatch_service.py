@@ -24,6 +24,7 @@ from app.models.slicing_job import SlicingJob
 from app.models.stl_file import STLFile
 from app.services.printer_service import get_decrypted_api_key
 from app.services.scheduling_service import free_printer
+from app.ws.emit import emit_job_status
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +111,7 @@ def dispatch_to_printer(db: Session, print_job_id: UUID) -> None:
     pj.remote_job_id = result.remote_job_id
     db.commit()
     db.refresh(pj)
+    emit_job_status(pj.id, status=pj.status, printer_id=pj.printer_id)
     logger.info(
         "dispatch: PrintJob %s sent to printer %s (remote_job_id=%s)",
         pj.id,
@@ -126,4 +128,10 @@ def _mark_failed(
     pj.ended_at = datetime.now(timezone.utc)
     free_printer(db, printer.id)
     db.commit()
+    emit_job_status(
+        pj.id,
+        status=pj.status,
+        printer_id=pj.printer_id,
+        error_message=pj.error_message,
+    )
     logger.error("dispatch: PrintJob %s marked failed: %s", pj.id, reason)

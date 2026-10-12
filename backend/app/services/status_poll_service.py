@@ -26,8 +26,23 @@ from app.connectors.factory import get_connector
 from app.core.config import settings
 from app.models.print_job import PrintJob
 from app.models.printer import Printer
+from app.services import activity_log_service, notification_triggers
 from app.services.printer_service import get_decrypted_api_key
 from app.services.scheduling_service import assign_pending_jobs, free_printer
+from app.ws.emit import emit_job_anomaly, emit_job_progress, emit_job_status, emit_printer_status
+
+_PROGRESS_MILESTONES = (25, 50, 75, 100)
+
+# Per-job thermal-drift streak counter. Module-level so it survives across
+# poll iterations within the worker process. Reset on normal reading or
+# job terminal transition.
+_drift_streak: dict = {}
+
+
+def _job_label(job: PrintJob) -> str:
+    """Short human label for notifications. Real STL filename lookup is
+    deferred to keep poll fast — the bell row's deep link carries job_id."""
+    return f"Job #{str(job.id)[:8]}"
 
 logger = logging.getLogger(__name__)
 
@@ -87,11 +102,37 @@ def _poll_one(db: Session, job: PrintJob) -> bool:
         # Transient — do not bump last_polled_at; watchdog will catch if it persists.
         return False
 
+    prior_progress = job.progress_pct or 0
+
     job.last_polled_at = now
     if status.progress is not None:
-        job.progress_pct = round(status.progress * 100.0, 2)
+        new_pct = round(status.progress * 100.0, 2)
+        if new_pct != (job.progress_pct or 0):
+            job.progress_pct = new_pct
+            job.progress_updated_at = now
+        else:
+            job.progress_pct = new_pct
     if status.time_left_seconds is not None:
         job.time_left_seconds = int(status.time_left_seconds)
+
+    # Progress-milestone notifications (25/50/75). The 100% milestone fires
+    # from _mark_completed instead to avoid a duplicate at the boundary.
+    new_progress = job.progress_pct or 0
+    for ms in (25, 50, 75):
+        if prior_progress < ms <= new_progress:
+            try:
+                notification_triggers.emit_print_progress(
+                    db,
+                    user_id=job.user_id,
+                    job_id=job.id,
+                    job_name=_job_label(job),
+                    percent=ms,
+                )
+            except Exception:
+                logger.warning(
+                    "progress notif failed job=%s pct=%s", job.id, ms,
+                    exc_info=True,
+                )
 
     if status.state == PrinterState.ERROR:
         _mark_failed(db, job, printer, f"printer reported ERROR state")
@@ -107,13 +148,163 @@ def _poll_one(db: Session, job: PrintJob) -> bool:
         db.commit()
         return False
 
+    # Anomaly detection — best-effort, never break poll loop.
+    if settings.ANOMALY_DETECTION_ENABLED:
+        try:
+            _check_anomalies(db, job, status)
+        except Exception:
+            logger.exception("anomaly check failed job=%s", job.id)
+
     # PRINTING / PAUSED / UNKNOWN — just save the progress snapshot.
     db.commit()
+    emit_job_progress(
+        job.id,
+        progress_pct=job.progress_pct,
+        time_left_seconds=job.time_left_seconds,
+    )
+    if printer is not None:
+        emit_printer_status(
+            printer.id,
+            status=printer.status,
+            current_job_id=job.id,
+        )
     return False
+
+
+def _check_anomalies(db: Session, job: PrintJob, status) -> None:
+    """Evaluate the 3 polling-driven anomaly rules. Rule 4 (unreachable) is
+    handled by the existing watchdog. Each rule, on trigger, calls
+    `_raise_anomaly` which fans out to notification + WS + activity log.
+    """
+    now = datetime.now(timezone.utc)
+    job_key = str(job.id)
+
+    # ── Rule 1: thermal drift (sustained N polls over threshold) ──
+    nozzle_drift = (
+        status.nozzle_temp_actual is not None
+        and status.nozzle_temp_target is not None
+        and status.nozzle_temp_target > 0
+        and abs(status.nozzle_temp_actual - status.nozzle_temp_target)
+        > settings.ANOMALY_TEMP_DRIFT_C
+    )
+    bed_drift = (
+        status.bed_temp_actual is not None
+        and status.bed_temp_target is not None
+        and status.bed_temp_target > 0
+        and abs(status.bed_temp_actual - status.bed_temp_target)
+        > settings.ANOMALY_TEMP_DRIFT_C
+    )
+    if nozzle_drift or bed_drift:
+        _drift_streak[job_key] = _drift_streak.get(job_key, 0) + 1
+        if _drift_streak[job_key] == settings.ANOMALY_TEMP_DRIFT_POLLS:
+            which = "buse" if nozzle_drift else "plateau"
+            actual = status.nozzle_temp_actual if nozzle_drift else status.bed_temp_actual
+            target = status.nozzle_temp_target if nozzle_drift else status.bed_temp_target
+            _raise_anomaly(
+                db,
+                job,
+                anomaly_type="thermal_drift",
+                message=f"Dérive thermique {which}: {actual:.1f}°C vs cible {target:.1f}°C",
+                severity="warning",
+            )
+    else:
+        _drift_streak.pop(job_key, None)
+
+    # ── Rule 2: progress stall ──
+    if (
+        job.status == "printing"
+        and job.progress_updated_at is not None
+    ):
+        stall_threshold = timedelta(minutes=settings.ANOMALY_PROGRESS_STALL_MINUTES)
+        updated = job.progress_updated_at
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        if now - updated > stall_threshold:
+            _raise_anomaly(
+                db,
+                job,
+                anomaly_type="progress_stall",
+                message=f"Progression bloquée depuis plus de {settings.ANOMALY_PROGRESS_STALL_MINUTES} min",
+                severity="warning",
+            )
+
+    # ── Rule 3: duration overrun ──
+    if (
+        job.estimated_duration_s is not None
+        and job.started_at is not None
+        and job.estimated_duration_s > 0
+    ):
+        started = job.started_at
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        elapsed = (now - started).total_seconds()
+        limit = job.estimated_duration_s * settings.ANOMALY_DURATION_OVERRUN_FACTOR
+        if elapsed > limit:
+            _raise_anomaly(
+                db,
+                job,
+                anomaly_type="duration_overrun",
+                message=(
+                    f"Dépassement durée: {int(elapsed)}s écoulés "
+                    f"vs estimation {job.estimated_duration_s}s"
+                ),
+                severity="warning",
+            )
+
+
+def _raise_anomaly(
+    db: Session,
+    job: PrintJob,
+    *,
+    anomaly_type: str,
+    message: str,
+    severity: str,
+) -> None:
+    """Notification + WS + ActivityLog. All three best-effort."""
+    try:
+        notification_triggers.emit_job_anomaly(
+            db,
+            user_id=job.user_id,
+            job_id=job.id,
+            job_name=_job_label(job),
+            anomaly_type=anomaly_type,
+            message=message,
+            severity=severity,
+        )
+    except Exception:
+        logger.warning("anomaly notif failed job=%s type=%s", job.id, anomaly_type, exc_info=True)
+
+    try:
+        emit_job_anomaly(
+            job.id,
+            anomaly_type=anomaly_type,
+            severity=severity,
+            message=message,
+        )
+    except Exception:
+        logger.warning("anomaly ws emit failed job=%s type=%s", job.id, anomaly_type, exc_info=True)
+
+    try:
+        activity_log_service.log(
+            db,
+            event_type="anomaly",
+            message=message,
+            actor_user_id=job.user_id,
+            severity=severity,
+            target_type="job",
+            target_id=job.id,
+            metadata={
+                "anomaly_type": anomaly_type,
+                "printer_id": str(job.printer_id) if job.printer_id else None,
+            },
+        )
+    except Exception:
+        logger.warning("anomaly activity log failed job=%s type=%s", job.id, anomaly_type, exc_info=True)
 
 
 def _mark_completed(db: Session, job: PrintJob, printer: Printer | None) -> None:
     now = datetime.now(timezone.utc)
+    _drift_streak.pop(str(job.id), None)
     job.status = "completed"
     job.progress_pct = 100.0
     job.ended_at = now
@@ -123,18 +314,76 @@ def _mark_completed(db: Session, job: PrintJob, printer: Printer | None) -> None
     if printer is not None:
         free_printer(db, printer.id)
     db.commit()
+    emit_job_status(
+        job.id, status="completed", printer_id=job.printer_id, progress_pct=100.0
+    )
+    if printer is not None:
+        emit_printer_status(printer.id, status=printer.status)
+    try:
+        notification_triggers.emit_print_done(
+            db,
+            user_id=job.user_id,
+            job_id=job.id,
+            job_name=_job_label(job),
+        )
+        activity_log_service.log(
+            db,
+            event_type="job",
+            message="Job terminé",
+            actor_user_id=job.user_id,
+            severity="success",
+            target_type="job",
+            target_id=job.id,
+            metadata={"printer_id": str(job.printer_id) if job.printer_id else None},
+        )
+        db.commit()
+    except Exception:
+        logger.warning("done notif failed job=%s", job.id, exc_info=True)
+        db.rollback()
     logger.info("status_poll: PrintJob %s completed", job.id)
 
 
 def _mark_failed(db: Session, job: PrintJob, printer: Printer | None, reason: str) -> None:
+    _drift_streak.pop(str(job.id), None)
     job.status = "failed"
     job.error_message = reason[:1000]
     job.ended_at = datetime.now(timezone.utc)
     if printer is not None:
         free_printer(db, printer.id)
+    emit_job_status(
+        job.id,
+        status="failed",
+        printer_id=job.printer_id,
+        error_message=job.error_message,
+    )
+    if printer is not None:
+        emit_printer_status(printer.id, status=printer.status)
     elif job.printer_id is not None:
         free_printer(db, job.printer_id)
     db.commit()
+    try:
+        notification_triggers.emit_print_failed(
+            db,
+            user_id=job.user_id,
+            job_id=job.id,
+            job_name=_job_label(job),
+            reason=reason,
+        )
+        activity_log_service.log(
+            db,
+            event_type="job",
+            message=f"Job échoué: {reason}",
+            actor_user_id=job.user_id,
+            severity="error",
+            target_type="job",
+            target_id=job.id,
+            metadata={"printer_id": str(job.printer_id) if job.printer_id else None,
+                      "reason": reason},
+        )
+        db.commit()
+    except Exception:
+        logger.warning("failed notif failed job=%s", job.id, exc_info=True)
+        db.rollback()
     logger.error("status_poll: PrintJob %s marked failed: %s", job.id, reason)
 
 
@@ -157,6 +406,17 @@ def _run_watchdog(db: Session) -> int:
             if job.printer_id is not None
             else None
         )
+        if settings.ANOMALY_DETECTION_ENABLED:
+            try:
+                _raise_anomaly(
+                    db,
+                    job,
+                    anomaly_type="unreachable",
+                    message=f"Imprimante injoignable depuis >{settings.STATUS_POLL_STALE_SECONDS}s",
+                    severity="error",
+                )
+            except Exception:
+                logger.exception("unreachable anomaly emit failed job=%s", job.id)
         _mark_failed(
             db,
             job,

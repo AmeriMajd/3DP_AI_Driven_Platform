@@ -117,7 +117,14 @@ def test_register_creates_user_from_invitation_service_flow(
         json={"email": "invited-operator@test.com", "role": "operator"},
         headers=_auth_header(test_user_token),
     )
-    token = invitation_response.json()["token"]
+    assert invitation_response.status_code == 201
+    from app.models.invitation import Invitation
+    invitation = (
+        db_session.query(Invitation)
+        .filter(Invitation.email == "invited-operator@test.com")
+        .first()
+    )
+    token = invitation.token
 
     register_response = client.post(
         "/auth/register",

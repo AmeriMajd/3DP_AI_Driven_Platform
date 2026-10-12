@@ -21,3 +21,4 @@ backend/models_ml/*.joblib
 CLAUDE.md
 .codegraph
 .mcp
+backend/secrets/

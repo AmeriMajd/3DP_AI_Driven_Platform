@@ -24,15 +24,15 @@ class CreateInvitationSchema(BaseModel):
 
 class InvitationResponse(BaseModel):
     """
-    Returned after a successful invitation creation.
-    Contains the token and the shareable link the admin
-    can copy and send to the invited user.
+    Returned after a successful invitation creation or resend.
+    token is included so the admin can copy/share the registration link directly.
     """
-    token: str
-    link: str
+    id: UUID
     email: str
     role: str
     expires_at: datetime
+    email_sent: bool
+    token: str
 
     model_config = {"from_attributes": True}
 

@@ -31,12 +31,17 @@ class JobCreate(BaseModel):
 
     `recommendation_id` is REQUIRED in this sprint — the matcher needs
     technology + material to find a compatible printer.
+
+    `printer_id` (optional) pins the job to a specific printer. Scheduler
+    only schedules it when that printer is idle + compatible; otherwise
+    job stays queued (no fallback to other printers).
     """
 
     stl_file_id: UUID
     recommendation_id: UUID
     priority: int = Field(default=3, ge=1, le=5)
     parameters_override: Optional[dict[str, Any]] = None
+    printer_id: Optional[UUID] = None
     auto_slice: bool = True
 
 
@@ -48,7 +53,8 @@ class JobRead(BaseModel):
 
     id: UUID
     user_id: UUID
-    stl_file_id: UUID
+    stl_file_id: Optional[UUID] = None
+    stl_file_name: Optional[str] = None
     recommendation_id: Optional[UUID] = None
     printer_id: Optional[UUID] = None
 

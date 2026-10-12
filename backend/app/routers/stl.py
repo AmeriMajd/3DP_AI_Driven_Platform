@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.schemas.stl import STLFileResponse, STLListResponse, STLStatusUpdate, OrientationResult
-from app.services import stl_service
+from app.services import activity_log_service, stl_service
 from fastapi import BackgroundTasks
 
 router = APIRouter(prefix="/stl", tags=["STL Files"])
@@ -24,12 +24,23 @@ async def upload_stl(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return await stl_service.save_stl_file(
+    saved = await stl_service.save_stl_file(
         file=file,
         user_id=current_user["user_id"],
         db=db,
         background_tasks=background_tasks,
     )
+    activity_log_service.log(
+        db,
+        event_type="file",
+        message=f"Fichier STL importé: {saved.original_filename}",
+        actor_user_id=UUID(current_user["user_id"]),
+        severity="info",
+        target_type="stl",
+        target_id=saved.id,
+    )
+    db.commit()
+    return saved
 
 
 @router.get(
@@ -122,6 +133,16 @@ def delete_file(
         user_id=current_user["user_id"],
         db=db,
     )
+    activity_log_service.log(
+        db,
+        event_type="file",
+        message="Fichier STL supprimé",
+        actor_user_id=UUID(current_user["user_id"]),
+        severity="warning",
+        target_type="stl",
+        target_id=stl_id,
+    )
+    db.commit()
 
 
 @router.get(

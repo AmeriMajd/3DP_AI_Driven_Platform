@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/screens/admin_signup_screen.dart';
-import '../../features/auth/presentation/screens/invite_user_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
@@ -16,11 +15,15 @@ import '../../features/jobs/presentation/screens/job_queue_screen.dart';
 import '../../features/jobs/presentation/screens/job_detail_screen.dart';
 import '../../features/jobs/presentation/screens/job_admin_screen.dart';
 import '../../features/jobs/domain/job.dart';
+import '../../features/history/presentation/screens/history_screen.dart';
+import '../../features/notifications/presentation/screens/notification_history_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/users/presentation/screens/users_screen.dart';
+import '../../features/activity/presentation/screens/activity_screen.dart';
+import '../../features/admin_dashboard/presentation/screens/admin_dashboard_screen.dart';
 import '../../features/printers/presentation/screens/printer_detail_screen.dart';
 import '../../features/printers/presentation/screens/printer_form_screen.dart';
 import '../../features/printers/presentation/screens/printer_list_screen.dart';
-import '../../shared/widgets/placeholder_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 
@@ -42,13 +45,6 @@ final appRouter = GoRouter(
       path: AppRoutes.adminSignup,
       name: AppRoutes.adminSignup,
       builder: (context, state) => const AdminSignupScreen(),
-    ),
-
-    // ── Invite User ──
-    GoRoute(
-      path: AppRoutes.inviteUser,
-      name: AppRoutes.inviteUser,
-      builder: (context, state) => const InviteUserScreen(),
     ),
 
     // ── Register — reçoit le token via query param ──
@@ -135,7 +131,7 @@ final appRouter = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.monitoring,
-          builder: (_, _) => const PlaceholderScreen(title: 'Monitoring'),
+          builder: (_, _) => const AdminDashboardScreen(),
         ),
 
         // ── File detail & recommendation — navbar visible, no AppBar ──
@@ -175,9 +171,29 @@ final appRouter = GoRouter(
           builder: (context, state) => const RecommendationHistoryScreen(),
         ),
         GoRoute(
+          path: AppRoutes.history,
+          name: AppRoutes.history,
+          builder: (_, _) => const HistoryScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.notifications,
+          name: AppRoutes.notifications,
+          builder: (_, _) => const NotificationHistoryScreen(),
+        ),
+        GoRoute(
           path: AppRoutes.profile,
           name: AppRoutes.profile,
           builder: (context, state) => const ProfileScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.adminUsers,
+          name: AppRoutes.adminUsers,
+          builder: (_, _) => const UsersScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.adminActivity,
+          name: AppRoutes.adminActivity,
+          builder: (_, _) => const ActivityScreen(),
         ),
       ],
     ),

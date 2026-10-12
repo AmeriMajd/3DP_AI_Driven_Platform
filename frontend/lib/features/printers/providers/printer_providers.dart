@@ -1,16 +1,21 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/printer_repository_impl.dart';
 import '../domain/printer.dart';
 import '../domain/printer_filter.dart';
 import '../domain/printer_repository.dart';
+import '../domain/printer_state.dart';
 import '../domain/printer_status.dart';
+import '../presentation/viewmodels/printer_viewmodel.dart';
 import '../../../shared/services/storage_service.dart';
 
 final printerRepositoryProvider = Provider<PrinterRepository>((ref) {
   return PrinterRepositoryImpl();
 });
+
+final printerViewModelProvider =
+    StateNotifierProvider<PrinterViewModel, PrinterState>(
+  (ref) => PrinterViewModel(ref.read(printerRepositoryProvider)),
+);
 
 final isAdminProvider = FutureProvider<bool>((ref) async {
   final role = await StorageService.getUserRole();
@@ -34,16 +39,12 @@ final printerDetailProvider = FutureProvider.family<Printer, String>((
   return repo.getPrinter(id: id);
 });
 
+// Polling removed — WS `printer.status` events invalidate this provider via
+// PrinterDetailScreen's `ref.listen(wsTopicEventsProvider(printer:{id}))`.
 final printerStatusProvider = FutureProvider.family<PrinterStatus, String>((
   ref,
   id,
 ) async {
-  final timer = Timer.periodic(
-    const Duration(seconds: 10),
-    (_) => ref.invalidateSelf(),
-  );
-  ref.onDispose(timer.cancel);
-
   final repo = ref.read(printerRepositoryProvider);
   return repo.getPrinterStatus(id: id);
 });

@@ -52,7 +52,7 @@ class ParameterUpdateRequest(BaseModel):
 
 class RecommendationResponse(BaseModel):
     id: UUID
-    stl_file_id: UUID
+    stl_file_id: Optional[UUID] = None
 
     # Input snapshot
     orientation_rank: Optional[int] = None

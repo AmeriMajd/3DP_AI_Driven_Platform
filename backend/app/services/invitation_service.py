@@ -31,6 +31,21 @@ class InvitationService:
                 detail="This email already has an account",
             )
 
+        pending_invitation = (
+            self.db.query(Invitation)
+            .filter(
+                Invitation.email == data.email,
+                Invitation.used == False,
+                Invitation.expires_at > datetime.utcnow(),
+            )
+            .first()
+        )
+        if pending_invitation:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A pending invitation already exists for this email",
+            )
+
         invitation = Invitation(
             email=data.email,
             role=data.role,
@@ -62,6 +77,29 @@ class InvitationService:
     def consume_invitation(self, token: str) -> Invitation:
         invitation = self.validate_invitation_token(token)
         invitation.used = True
+        return invitation
+
+    def send_invitation_email(self, invitation_id: UUID) -> Invitation:
+        invitation = (
+            self.db.query(Invitation)
+            .filter(Invitation.id == invitation_id)
+            .first()
+        )
+        if invitation is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invitation not found",
+            )
+        if invitation.used:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invitation already used",
+            )
+
+        invitation.token = secrets.token_urlsafe(32)
+        invitation.expires_at = datetime.utcnow() + timedelta(hours=48)
+        self.db.commit()
+        self.db.refresh(invitation)
         return invitation
 
     def list_invitations(self) -> list[InvitationHistoryItem]:
