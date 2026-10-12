@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../../core/theme/app_colors.dart';
-import '../../../../../core/utils/validators.dart';
-import '../../../../../core/router/app_routes.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/validators.dart';
+import '../../../../core/router/app_routes.dart';
 import '../providers/auth_providers.dart';
 import '../../domain/auth_state.dart';
 import '../widgets/auth_primary_button.dart';

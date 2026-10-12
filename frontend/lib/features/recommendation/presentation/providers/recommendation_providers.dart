@@ -1,12 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/config/demo_mode.dart';
 import '../../data/recommendation_repository_impl.dart';
+import '../../data/recommendation_repository_mock.dart';
 import '../../domain/estimate_payload.dart';
 import '../../domain/recommendation_repository.dart';
 import '../../domain/recommendation_state.dart';
 import '../viewmodels/recommendation_viewmodel.dart';
 
 final recommendationRepositoryProvider = Provider<RecommendationRepository>(
-  (ref) => RecommendationRepositoryImpl(),
+  (ref) => isDemoMode
+      ? RecommendationRepositoryMock()
+      : RecommendationRepositoryImpl(),
 );
 
 final recommendationViewModelProvider =

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../../core/theme/app_colors.dart';
-import '../../../../../core/utils/validators.dart';
-import '../../../../../core/router/app_routes.dart';
+import '../../../../core/config/demo_mode.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/validators.dart';
+import '../../../../core/router/app_routes.dart';
 import '../providers/auth_providers.dart';
 import '../../domain/auth_state.dart';
 import '../widgets/auth_primary_button.dart';
@@ -171,6 +172,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             isLoading: authState.isLoading,
                             onPressed: _submit,
                           ),
+                          if (isDemoMode) ...[
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () => ref
+                                    .read(authViewModelProvider.notifier)
+                                    .login(
+                                      email: 'demo@printai.dev',
+                                      password: 'portfolio-demo',
+                                    ),
+                                icon: const Icon(Icons.play_circle_outline),
+                                label: const Text('Explore interactive demo'),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'Sample data only — no account or 3D printer is required.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

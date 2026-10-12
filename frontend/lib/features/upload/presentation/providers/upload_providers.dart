@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/config/demo_mode.dart';
 import '../../data/stl_repository_impl.dart';
+import '../../data/stl_repository_mock.dart';
 import '../../domain/stl_file.dart';
 import '../../domain/stl_repository.dart';
 import '../../domain/upload_state.dart';
@@ -7,7 +9,7 @@ import '../../domain/orientation_result.dart';
 import '../viewmodels/upload_viewmodel.dart';
 
 final stlRepositoryProvider = Provider<StlRepository>((ref) {
-  return StlRepositoryImpl();
+  return isDemoMode ? StlRepositoryMock() : StlRepositoryImpl();
 });
 
 final uploadViewModelProvider =

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/config/demo_mode.dart';
 import '../../data/job_repository.dart';
 import '../../data/mock_job_repository.dart';
 import '../../data/job_repository_impl.dart';
@@ -9,7 +10,7 @@ import '../../domain/job_slicing.dart';
 
 final jobRepositoryProvider = Provider<JobRepository>((ref) {
   // flutter run --dart-define=USE_MOCK_JOBS=false  →  switches to real API
-  const useMock =
+  const useMock = isDemoMode ||
       String.fromEnvironment('USE_MOCK_JOBS', defaultValue: 'false') != 'false';
   return useMock ? MockJobRepository() : JobRepositoryImpl();
 });

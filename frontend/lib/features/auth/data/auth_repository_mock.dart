@@ -1,4 +1,5 @@
 import '../domain/auth_repository.dart';
+import '../../../shared/services/storage_service.dart';
 
 /// Mock utilisé pour tester l'UI sans backend.
 ///
@@ -61,6 +62,8 @@ class AuthRepositoryMock implements AuthRepository {
   @override
   Future<void> login({required String email, required String password}) async {
     await Future.delayed(const Duration(seconds: 2));
+    await StorageService.saveFullName('Demo Operator');
+    await StorageService.saveUserRole('admin');
     // throw Exception('Invalid email or password'); // tester erreur
   }
 
@@ -106,6 +109,7 @@ class AuthRepositoryMock implements AuthRepository {
   @override
   Future<void> logout() async {
     await Future.delayed(const Duration(milliseconds: 500));
+    await StorageService.clearAll();
   }
 
   @override

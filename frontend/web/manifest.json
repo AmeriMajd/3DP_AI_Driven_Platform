@@ -1,11 +1,11 @@
 {
-    "name": "frontend",
-    "short_name": "frontend",
+    "name": "Print AI — 3D Printing Intelligence",
+    "short_name": "Print AI",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Interactive portfolio demo for an AI-driven additive manufacturing platform.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

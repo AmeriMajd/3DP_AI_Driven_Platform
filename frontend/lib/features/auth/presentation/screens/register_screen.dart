@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../../core/theme/app_colors.dart';
-import '../../../../../core/utils/validators.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/validators.dart';
 import '../providers/auth_providers.dart';
 import '../../domain/auth_state.dart';
 import '../widgets/auth_card.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_primary_button.dart';
 import '../widgets/auth_text_field.dart';
-import '../../../../../shared/widgets/responsive_wrapper.dart';
+import '../../../../shared/widgets/responsive_wrapper.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../../core/router/app_routes.dart';
+import '../../../../core/router/app_routes.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   /// Token reçu depuis l'URL — /register?token=abc123

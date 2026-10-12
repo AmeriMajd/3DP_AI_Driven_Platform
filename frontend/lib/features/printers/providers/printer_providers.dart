@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/config/demo_mode.dart';
 import '../data/printer_repository_impl.dart';
+import '../data/printer_repository_mock.dart';
 import '../domain/printer.dart';
 import '../domain/printer_filter.dart';
 import '../domain/printer_repository.dart';
@@ -9,7 +11,7 @@ import '../domain/printer_status.dart';
 import '../../../shared/services/storage_service.dart';
 
 final printerRepositoryProvider = Provider<PrinterRepository>((ref) {
-  return PrinterRepositoryImpl();
+  return isDemoMode ? PrinterRepositoryMock() : PrinterRepositoryImpl();
 });
 
 final isAdminProvider = FutureProvider<bool>((ref) async {

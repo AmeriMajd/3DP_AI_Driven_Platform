@@ -16,6 +16,10 @@ void main() async{
     initialWebRoute = uri.hasQuery ? '${uri.path}?${uri.query}' : uri.path;
   }
 
-  await dotenv.load(fileName: '.env');
+  // `.env` is useful for local API development, but intentionally absent from
+  // the public portfolio build. A missing file must not prevent web startup.
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {}
   runApp(const ProviderScope(child: App()));
 }
